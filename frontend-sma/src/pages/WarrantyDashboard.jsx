@@ -7,6 +7,7 @@ import ImageUpload from '../components/ImageUpload'
 import ImagePreview from '../components/ImagePreview'
 import AppLogo from '../components/AppLogo'
 import Footer from '../components/Footer' // ✅
+import StoreTabs from '../components/StoreTabs'
 
 const defaultFilters = [
   { value: 'all', label: 'ทั้งหมด' },
@@ -68,12 +69,59 @@ function pad3(n) {
   return s.length >= 3 ? s : '0'.repeat(3 - s.length) + s
 }
 function nextSerialFromList(list) {
+  // legacy simple incrementer (kept for fallback)
   let max = 0
   for (const w of list || []) {
     const m = String(w?.serial || '').match(/^SN(\d+)$/i)
     if (m) max = Math.max(max, Number(m[1] || 0))
   }
   return `SN${pad3(max + 1 || 1)}`
+}
+
+// random alphanumeric suffix
+function randAlnum(len = 4) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+  let out = ''
+  for (let i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)]
+  return out
+}
+
+// Derive a small 1-2 char batch/branch code from store id (stable)
+function batchCodeFromStore(storeId) {
+  if (!storeId) return '00'
+  const v = Number(storeId) || 0
+  const a = String(v % 100).padStart(2, '0')
+  return a
+}
+
+function collectAllSerials(headers = [], creating = []) {
+  const set = new Set()
+  for (const h of headers || []) {
+    for (const it of h.items || []) {
+      if (it && it.serial) set.add(String(it.serial).trim())
+    }
+  }
+  for (const it of creating || []) {
+    if (it && it.serial) set.add(String(it.serial).trim())
+  }
+  return set
+}
+
+// Generate an 8-16 char serial like: YYMMDD + batch(2) + RAND(4) => 12 char
+function generateUniqueSerial(headers = [], creating = [], storeId = null, attempts = 8) {
+  const existing = collectAllSerials(headers, creating)
+  for (let i = 0; i < attempts; i++) {
+    const now = new Date()
+    const yy = String(now.getFullYear()).slice(-2)
+    const mm = String(now.getMonth() + 1).padStart(2, '0')
+    const dd = String(now.getDate()).padStart(2, '0')
+    const batch = batchCodeFromStore(storeId)
+    const rand = randAlnum(4)
+    const cand = `${yy}${mm}${dd}${batch}${rand}` // e.g. 2410290301AB
+    if (!existing.has(cand)) return cand
+  }
+  // fallback: timestamp + random
+  return `TS${Date.now().toString().slice(-8)}${randAlnum(3)}`
 }
 function toISODate(d) {
   if (!d || isNaN(d.getTime())) return ''
@@ -154,6 +202,11 @@ export default function WarrantyDashboard() {
   // แสดง/ซ่อนรายละเอียดต่อ “ใบ”
   const [expandedByHeader, setExpandedByHeader] = useState({})
 
+  // Notifications state (for bell)
+  const [notifOpen, setNotifOpen] = useState(false)
+  const [notifications, setNotifications] = useState([])
+  const [notifLoading, setNotifLoading] = useState(false)
+
   const [warrantySubmitting, setWarrantySubmitting] = useState(false)
   const [warrantyModalError, setWarrantyModalError] = useState('')
   const [downloadingPdfId, setDownloadingPdfId] = useState(null)
@@ -169,7 +222,7 @@ export default function WarrantyDashboard() {
   const profileAvatarSrc = profileImage.preview || storeProfile.avatarUrl || ''
 
   /* ---------- สร้างหลายสินค้าในใบเดียว + auto expiry ---------- */
-  const makeItem = (seedSN = null) => ({
+  const makeItem = (seedSN = null, lockEmail = false) => ({
     customer_email: '',
     product_name: '',
     model: '', // ✅ เพิ่มฟิลด์รุ่นในโหมดสร้าง
@@ -179,19 +232,24 @@ export default function WarrantyDashboard() {
     custom_unit: 'months',        // 'months' | 'days'
     custom_value: '',             // จำนวนที่ผู้ใช้กรอกเอง
     serial: seedSN || nextSerialFromList(warranties),
+    lockedEmail: !!lockEmail,
     purchase_date: '',
     expiry_date: '',
     warranty_terms: '',
     note: '',
     images: [],
   })
-  const [createItems, setCreateItems] = useState([makeItem()])
+  // start empty; modal open will seed the first item with a generated serial
+  const [createItems, setCreateItems] = useState([])
 
   // ✅ เพิ่มรายการใหม่พร้อมดึงอีเมลจาก "รายการที่ 1" ให้เลย
   const addItem = () =>
     setCreateItems(prev => {
-      const emailSeed = prev?.[0]?.customer_email || ''
-      return [...prev, { ...makeItem(), customer_email: emailSeed }]
+      // pick first non-empty email to seed, if any
+      const emailSeed = (prev || []).find(p => p.customer_email)?.customer_email || ''
+      const seedSN = generateUniqueSerial(warranties, prev, storeIdResolved)
+      // newly added items are locked for email editing
+      return [...prev, { ...makeItem(seedSN, true), customer_email: emailSeed }]
     })
 
   const removeItem = (idx) => setCreateItems(prev => prev.filter((_, i) => i !== idx))
@@ -217,10 +275,13 @@ export default function WarrantyDashboard() {
         }
       }
 
-      if ('customer_email' in patch && idx === 0) {
+      // If any item's customer_email changed to a non-empty value, sync to all items
+      if ('customer_email' in patch) {
         const email = String(patch.customer_email || '').trim()
-        for (let i = 1; i < next.length; i++) {
-          if (!next[i].customer_email) next[i] = { ...next[i], customer_email: email }
+        if (email) {
+          for (let i = 0; i < next.length; i++) {
+            next[i] = { ...next[i], customer_email: email }
+          }
         }
       }
       return next
@@ -242,6 +303,49 @@ export default function WarrantyDashboard() {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isProfileMenuOpen])
+
+  // click outside handler for notifications dropdown
+  const notifRef = useRef(null)
+  useEffect(() => {
+    if (!notifOpen) return
+    function onDoc(e) {
+      if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [notifOpen])
+
+  // helper: determine if account is new (show welcome message)
+  const isNewAccount = useMemo(() => {
+    if (!user) return false
+    if (user.isNew) return true
+    const created = user.createdAt || user.created_at || user.registeredAt || user.created
+    if (!created) return false
+    const d = new Date(created)
+    if (isNaN(d.getTime())) return false
+    const days = (Date.now() - d.getTime()) / (1000 * 3600 * 24)
+    return days <= 7
+  }, [user])
+
+  async function fetchNotifications() {
+    if (!storeIdResolved) return
+    setNotifLoading(true)
+    try {
+      // try store-scoped notifications first, fallback to /notifications
+      let res
+      try {
+        res = await api.get(`/store/${storeIdResolved}/notifications`)
+      } catch (e) {
+        res = await api.get(`/notifications`)
+      }
+      const data = res?.data?.data || res?.data || []
+      setNotifications(Array.isArray(data) ? data : [])
+    } catch (e) {
+      setNotifications([])
+    } finally {
+      setNotifLoading(false)
+    }
+  }
 
   // ====== กรองระดับ "รายการ" แล้วจัดกลุ่มกลับเป็นใบ ======
   const filteredHeaders = useMemo(() => {
@@ -410,7 +514,9 @@ export default function WarrantyDashboard() {
     setWarrantyImages(item?.images || [])
 
     if (mode === 'create') {
-      setCreateItems([makeItem()])
+      // generate an initial unique serial for the first item
+      const seed = generateUniqueSerial(warranties, [], storeIdResolved)
+      setCreateItems([makeItem(seed, false)])
       setEditForm(null)
       setManualExpiry(false)
       setEditHeaderEmail('')
@@ -702,8 +808,64 @@ export default function WarrantyDashboard() {
               </div>
             </div>
 
-            <div className="flex items-center gap-3" ref={profileMenuRef}>
-              <IconButton icon="🔔" label="การแจ้งเตือน" />
+              <div className="flex items-center gap-3" ref={profileMenuRef}>
+              {/* Notifications bell */}
+              <div className="relative" ref={notifRef}>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setNotifOpen((p) => !p)
+                    if (!notifOpen) await fetchNotifications()
+                  }}
+                  aria-label="การแจ้งเตือน"
+                  className="relative grid h-10 w-10 place-items-center rounded-full bg-white shadow ring-1 ring-black/5 hover:bg-gray-50 transition"
+                >
+                  <span className="text-xl">🔔</span>
+                  {(() => {
+                    const unread = (notifications || []).filter(n => !n.read).length
+                    return unread > 0 ? (
+                      <span className="absolute -top-0 -right-0 inline-flex items-center justify-center rounded-full bg-rose-500 px-2 py-0.5 text-xs font-semibold text-white">{unread}</span>
+                    ) : null
+                  })()}
+                </button>
+
+                {notifOpen && (
+                  <div className="absolute right-0 top-12 w-80 rounded-2xl bg-white p-3 text-sm shadow-xl ring-1 ring-black/5">
+                    <div className="mb-2 flex items-center justify-between">
+                      <div className="text-sm font-medium text-slate-900">การแจ้งเตือน</div>
+                      <button type="button" onClick={() => setNotifOpen(false)} className="text-xs text-slate-500">ปิด</button>
+                    </div>
+                    {notifLoading ? (
+                      <div className="py-6 text-center text-slate-500">กำลังโหลด...</div>
+                    ) : (notifications || []).length === 0 ? (
+                      <div className="py-4 text-slate-600">
+                        {isNewAccount ? (
+                          <div className="space-y-1">
+                            <div className="font-medium text-slate-900">ยินดีต้อนรับ 🎉</div>
+                            <div>คุณสมัครเข้าใช้งานสำเร็จ — ขอบคุณที่สมัครใช้งานกับเรา</div>
+                          </div>
+                        ) : (
+                          <div className="text-center">ไม่มีการแจ้งเตือน</div>
+                        )}
+                      </div>
+                    ) : (
+                      <ul className="space-y-2 max-h-64 overflow-y-auto">
+                        {(notifications || []).map((n, i) => (
+                          <li key={n.id || i} className="flex items-start gap-3 rounded-lg p-2 hover:bg-sky-50">
+                            <div className="h-8 w-8 shrink-0 rounded-full bg-sky-100 grid place-items-center text-xs text-sky-700">🔔</div>
+                            <div className="flex-1">
+                              <div className="text-sm font-medium text-slate-900">{n.title || n.message || 'การแจ้งเตือน'}</div>
+                              <div className="text-xs text-slate-600">{n.body || n.message || ''}</div>
+                            </div>
+                            <div className="text-xs text-slate-400">{n.time || ''}</div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </div>
+              
               
               <button
                 type="button"
@@ -712,8 +874,8 @@ export default function WarrantyDashboard() {
               >
                 {profileAvatarSrc ? (
                   <img src={profileAvatarSrc} alt="Store profile" className="h-10 w-10 rounded-full object-cover" />
-                ) : (
-                  <div className="grid h-10 w-10 place-items-center rounded-full bg-amber-300 text-xl">🏪</div>
+                  ) : (
+                  <div className="grid h-10 w-10 place-items-center rounded-full bg-sky-200 text-xl">🏪</div>
                 )}
                 <div className="hidden text-left text-sm md:block">
                   <div className="font-medium text-slate-900">{storeDisplayName}</div>
@@ -792,6 +954,10 @@ export default function WarrantyDashboard() {
               </div>
             ) : (
               <>
+                <div className="mb-4">
+                  <StoreTabs />
+                </div>
+
                 <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
                   <SectionTitle>จัดการการรับประกัน</SectionTitle>
                   <div className="flex items-center gap-3">
@@ -1048,17 +1214,17 @@ export default function WarrantyDashboard() {
 
         {isProfileModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">
-            <div className="w-full max-w-lg rounded-3xl border border-amber-200 bg-white shadow-2xl">
-              <div className="flex items-center justify-between border-b border-amber-100 px-6 py-4">
+            <div className="w-full max-w-lg rounded-3xl border border-sky-200 bg-white shadow-2xl">
+              <div className="flex items-center justify-between border-b border-sky-100 px-6 py-4">
                 <div className="flex items-center gap-3">
                   {profileAvatarSrc ? (
                     <img src={profileAvatarSrc} alt="Store profile" className="h-12 w-12 rounded-full object-cover" />
                   ) : (
-                    <div className="grid h-12 w-12 place-items-center rounded-full bg-amber-200 text-2xl">🏪</div>
+                    <div className="grid h-12 w-12 place-items-center rounded-full bg-sky-200 text-2xl">🏪</div>
                   )}
                   <div>
                     <div className="text-base font-semibold text-gray-900">แก้ไขข้อมูลโปรไฟล์</div>
-                    <div className="text-xs text-amber-600">ข้อมูลจะใช้โชว์ในหัวหน้า dashboard</div>
+                    <div className="text-xs text-sky-600">ข้อมูลจะใช้โชว์ในหัวหน้า dashboard</div>
                   </div>
                 </div>
                 <button
@@ -1080,14 +1246,14 @@ export default function WarrantyDashboard() {
                   <button
                     type="button"
                     onClick={() => { setProfileTab('info'); setModalError('') }}
-                    className={`flex-1 rounded-2xl px-4 py-2 text-sm font-medium ${profileTab === 'info' ? 'bg-amber-100 text-amber-700' : 'bg-amber-50 text-gray-500'}`}
+                    className={`flex-1 rounded-2xl px-4 py-2 text-sm font-medium ${profileTab === 'info' ? 'bg-sky-100 text-sky-700' : 'bg-sky-50 text-gray-500'}`}
                   >
                     ข้อมูลร้านค้า
                   </button>
                   <button
                     type="button"
                     onClick={() => { setProfileTab('password'); setModalError('') }}
-                    className={`flex-1 rounded-2xl px-4 py-2 text-sm font-medium ${profileTab === 'password' ? 'bg-emerald-100 text-emerald-700' : 'bg-emerald-50 text-gray-500'}`}
+                    className={`flex-1 rounded-2xl px-4 py-2 text-sm font-medium ${profileTab === 'password' ? 'bg-sky-100 text-sky-700' : 'bg-sky-50 text-gray-500'}`}
                   >
                     เปลี่ยนรหัสผ่าน
                   </button>
@@ -1101,13 +1267,13 @@ export default function WarrantyDashboard() {
                     {profileAvatarSrc ? (
                       <img src={profileAvatarSrc} alt="Store profile" className="h-16 w-16 rounded-full object-cover" />
                     ) : (
-                      <div className="grid h-16 w-16 place-items-center rounded-full bg-amber-200 text-3xl">🏪</div>
+                      <div className="grid h-16 w-16 place-items-center rounded-full bg-sky-200 text-3xl">🏪</div>
                     )}
                     <div>
                       <button
                         type="button"
                         onClick={() => profileImageInputRef.current?.click()}
-                        className="rounded-full bg-amber-500 px-4 py-2 text-xs font-semibold text-white shadow hover:bg-amber-400"
+                        className="rounded-full bg-sky-500 px-4 py-2 text-xs font-semibold text-white shadow hover:bg-sky-400"
                       >
                         อัปโหลดรูปใหม่
                       </button>
@@ -1132,7 +1298,8 @@ export default function WarrantyDashboard() {
                           required
                           value={storeProfile[key] ?? ''}
                           onChange={(e) => setStoreProfile((prev) => ({ ...prev, [key]: e.target.value }))}
-                          className="mt-1 w-full rounded-2xl border border-amber-100 bg-amber-50/60 px-4 py-2 text-sm text-gray-900 focus:border-amber-300 focus:outline-none"
+                          readOnly={key === 'email'}
+                          className={`mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none ${key === 'email' ? 'bg-slate-100' : 'bg-sky-50/60'}`}
                           type="text"
                         />
                       </label>
@@ -1165,7 +1332,7 @@ export default function WarrantyDashboard() {
                           required
                           value={profilePasswords[key]}
                           onChange={(e) => setProfilePasswords((prev) => ({ ...prev, [key]: e.target.value }))}
-                          className="mt-1 w-full rounded-2xl border border-emerald-100 bg-emerald-50/60 px-4 py-2 text-sm text-gray-900 focus:border-emerald-300 focus:outline-none"
+                          className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                           type="password"
                         />
                       </label>
@@ -1175,7 +1342,7 @@ export default function WarrantyDashboard() {
                     <button
                       type="submit"
                       disabled={passwordSubmitting}
-                      className={`rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow transition ${passwordSubmitting ? 'cursor-not-allowed opacity-70' : 'hover:bg-emerald-400'}`}
+                      className={`rounded-full bg-sky-500 px-5 py-2 text-sm font-semibold text-white shadow transition ${passwordSubmitting ? 'cursor-not-allowed opacity-70' : 'hover:bg-sky-400'}`}
                     >
                       {passwordSubmitting ? 'กำลังบันทึก...' : 'ยืนยัน'}
                     </button>
@@ -1446,15 +1613,16 @@ export default function WarrantyDashboard() {
                           </div>
 
                           <label className="text-sm text-gray-600 block">
-                            อีเมลลูกค้า
-                            <input
-                              value={it.customer_email}
-                              onChange={e => patchItem(idx, { customer_email: e.target.value })}
-                              className="mt-1 w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
-                              placeholder="กรอกอีเมลลูกค้า"
-                              type="email"
-                              required
-                            />
+                                อีเมลลูกค้า
+                                <input
+                                  value={it.customer_email}
+                                  onChange={e => patchItem(idx, { customer_email: e.target.value })}
+                                  readOnly={!!it.lockedEmail}
+                                  className={`mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none ${it.lockedEmail ? 'bg-slate-100' : 'bg-white'}`}
+                                  placeholder="กรอกอีเมลลูกค้า"
+                                  type="email"
+                                  required
+                                />
                           </label>
 
                           <label className="mt-3 text-sm text-gray-600 block">
@@ -1507,9 +1675,10 @@ export default function WarrantyDashboard() {
                               Serial No. 
                               <input
                                 value={it.serial}
-                                onChange={e => patchItem(idx, { serial: e.target.value })}
-                                className="mt-1 w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
-                                placeholder="SN001"
+                                // serial is generated for create-mode items and should not be edited by default
+                                readOnly
+                                className="mt-1 w-full rounded-2xl border border-sky-100 bg-slate-50 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                                placeholder="เช่น 2410290301AB"
                                 type="text"
                                 required
                               />

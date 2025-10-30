@@ -10,7 +10,7 @@
     "prisma:gen": "prisma generate"
   },
   "dependencies": {
-    "@prisma/client": "^5.18.0",
+    "@prisma/client": "^6.18.0",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
@@ -29,7 +29,7 @@
   "devDependencies": {
     "@openapitools/openapi-generator-cli": "^2.23.4",
     "nodemon": "^3.1.4",
-    "prisma": "^5.18.0",
+    "prisma": "^6.18.0",
     "swagger-typescript-api": "^13.2.13"
   }
 }

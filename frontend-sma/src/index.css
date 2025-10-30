@@ -18,3 +18,16 @@ body {
   display: flex;
   flex-direction: column;
 }
+
+/* Make interactive elements show pointer by default (except disabled) */
+button:not([disabled]),
+[role="button"],
+a[href],
+.clickable {
+  cursor: pointer;
+}
+
+button[disabled],
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}

@@ -17,6 +17,7 @@ import SignIn from './pages/SignIn'
 import SignUp from './pages/SignUp'
 import VerifyEmail from './pages/VerifyEmail'
 import WarrantyDashboard from './pages/WarrantyDashboard'
+import StoreDashboard from './pages/StoreDashboard'
 import CustomerWarranty from './pages/CustomerWarranty.jsx'
 
 // ⬇️ เพิ่ม: แถบของฝั่งลูกค้า
@@ -102,6 +103,14 @@ const router = createBrowserRouter([
         element: (
           <ProtectedStoreRoute>
             <WarrantyDashboard />
+          </ProtectedStoreRoute>
+        ),
+      },
+      {
+        path: '/dashboard/store',
+        element: (
+          <ProtectedStoreRoute>
+            <StoreDashboard />
           </ProtectedStoreRoute>
         ),
       },
