@@ -14,6 +14,7 @@ import warrantyItemRoutes from './routes/warrantyItem.routes.js';
 
 // ✅ เพิ่ม: เส้นทางฝั่งลูกค้า
 import customerRoutes from './routes/customer.routes.js';
+import statsRoutes from './routes/stats.routes.js';
 
 // Swagger
 import swaggerUi from 'swagger-ui-express';
@@ -59,6 +60,8 @@ app.use('/warranty-items', warrantyItemRoutes);
 
 // ✅ เพิ่ม: ผูกเส้นทางฝั่งลูกค้า (ดู/ค้นหาใบรับประกันของตัวเอง, เพิ่มหมายเหตุ, ดาวน์โหลด PDF)
 app.use('/customer', customerRoutes);
+// public misc endpoints (stats, feedback)
+app.use('/public', statsRoutes);
 
 // Multer & Validation errors → ตอบ 400 แทน 500
 app.use((err, _req, res, next) => {

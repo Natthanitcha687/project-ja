@@ -10,7 +10,6 @@ import {
 } from 'react-router-dom'
 import './index.css'
 import { AuthProvider } from './store/auth.jsx'
-import Navbar from './components/Navbar'
 import Footer from './components/Footer'
 import Home from './pages/Home'
 import SignIn from './pages/SignIn'
@@ -20,8 +19,9 @@ import WarrantyDashboard from './pages/WarrantyDashboard'
 import StoreDashboard from './pages/StoreDashboard'
 import CustomerWarranty from './pages/CustomerWarranty.jsx'
 
-// ⬇️ เพิ่ม: แถบของฝั่งลูกค้า
+// แถบของฝั่งลูกค้า / แดชบอร์ด (rich header with profile / notifications)
 import CustomerNavbar from './components/CustomerNavbar.jsx'
+import Navbar from './components/Navbar.jsx'
 
 /** ===== Helpers / Guards ===== */
 function decodeJwt(token) {
@@ -69,7 +69,13 @@ function PublicLayout() {
   const isDashboard = location.pathname.startsWith('/dashboard')
   return (
     <div className="min-h-screen bg-white text-gray-900">
-      {!isDashboard && <Navbar />}
+      {/* หน้า dashboard (ร้านค้า) ให้ใช้ CustomerNavbar ที่มีเมนูโปรไฟล์/การแจ้งเตือน
+          หน้า public (รวมถึง / home) ให้ใช้ Navbar แบบเดิม */}
+      {location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/customer') ? (
+        <CustomerNavbar />
+      ) : (
+        <Navbar />
+      )}
       <main><Outlet /></main>
       {!isDashboard && <Footer />}
     </div>

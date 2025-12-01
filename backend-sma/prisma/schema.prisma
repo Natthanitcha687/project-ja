@@ -134,3 +134,16 @@ model WarrantyItem {
   /// ทำให้ SN ยูนีค “ภายในใบเดียวกัน” (ถ้าเป็นค่าไม่-null)
   @@unique([warrantyId, serial], name: "warrantyId_serial")
 }
+
+/// เก็บฟีดแบ็กความพึงพอใจจากผู้ใช้ (สำหรับหน้าเว็บ/ใบรับประกัน)
+model Satisfaction {
+  id        Int      @id @default(autoincrement())
+  rating    Int      // 1..5
+  comment   String?
+  userId    Int?     // user ที่ให้ฟีดแบ็ก (nullable)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  storeId   Int?     // ถ้าฟีดแบ็กเกี่ยวกับร้าน
+  store     User?    @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  warrantyId String? // หากให้คะแนนเกี่ยวกับใบรับประกัน
+  createdAt DateTime @default(now())
+}

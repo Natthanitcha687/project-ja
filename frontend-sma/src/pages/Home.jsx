@@ -1,5 +1,12 @@
 import { Link } from "react-router-dom";
 import "./Home.css";
+import ShieldLogo from "../components/AppLogo";
+
+<Link to="/" className="flex items-center gap-2">
+  <ShieldLogo className="w-8 h-8" />
+  <span className="font-bold text-lg">Warranty</span>
+</Link>
+
 
 export default function Home() {
   return (
@@ -24,6 +31,14 @@ export default function Home() {
 
         {/* ==== HERO CONTENT ==== */}
         <div className="relative z-10 max-w-6xl mx-auto px-6 pt-24 text-center">
+          <div className="flex justify-center mb-6">
+            <img
+              src="/home-assets/logo.png"
+              alt="Warranty Platform Logo"
+              className="w-28 sm:w-36 drop-shadow-md animate-float"
+            />
+          </div>
+
           <h1 className="text-4xl sm:text-5xl font-extrabold text-gray-900 leading-snug">
             แพลตฟอร์มบริหารจัดการ
             <br />
@@ -176,8 +191,31 @@ export default function Home() {
           </div>
         </div>
       </section>
-
       
+      {/* ===== CTA ===== */}
+      <section className="relative bg-[#eaf3ff] py-20 text-center px-6 overflow-hidden z-0">
+        <h3 className="text-2xl font-bold text-gray-900">
+          พร้อมเริ่มต้นแล้วหรือยัง?
+        </h3>
+        <p className="text-gray-600 mt-3 max-w-lg mx-auto text-sm">
+          เข้าร่วมร้านค้าและลูกค้าหลายพันรายที่เชื่อถือในระบบของเรา
+          เริ่มต้นใช้งานได้ฟรีวันนี้
+        </p>
+        <div className="mt-8 flex flex-wrap gap-4 justify-center">
+          <Link
+            to="/signin"
+            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium shadow-sm transition"
+          >
+            เข้าสู่ระบบ
+          </Link>
+          <Link
+            to="/signup"
+            className="px-6 py-2.5 bg-white border border-blue-600 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-50 transition"
+          >
+            สมัครสมาชิก
+          </Link>
+        </div>
+      </section>
     </div>
   );
 }

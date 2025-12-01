@@ -1,15 +1,15 @@
 // src/pages/StoreDashboard.jsx
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuth } from '../store/auth'
-import DashboardHeader from '../components/DashboardHeader'
 import StoreTabs from '../components/StoreTabs'
 import SimpleDonut from '../components/SimpleDonut'
 import LineChart from '../components/LineChart'
+import AppLogo from '../components/AppLogo' // ✅ ใช้หัวเดียวกับหน้า Warranty
 
 export default function StoreDashboard() {
-  const { user } = useAuth()
+  const { user, logout } = useAuth() // ✅ มี logout เหมือนอีกหน้า
   const navigate = useNavigate()
 
   const storeIdResolved = useMemo(() => {
@@ -21,8 +21,18 @@ export default function StoreDashboard() {
   const [error, setError] = useState('')
   const [profile, setProfile] = useState(null)
   const [warranties, setWarranties] = useState([])
-  const [notifications, setNotifications] = useState([])
 
+  // ---------- แจ้งเตือน (ให้พฤติกรรมเหมือนหน้า Warranty) ----------
+  const [notifications, setNotifications] = useState([])
+  const [notifOpen, setNotifOpen] = useState(false)
+  const [notifLoading, setNotifLoading] = useState(false)
+  const notifRef = useRef(null)
+
+  // ---------- โปรไฟล์เมนูเหมือนหน้า Warranty ----------
+  const [isProfileMenuOpen, setProfileMenuOpen] = useState(false)
+  const profileMenuRef = useRef(null)
+
+  // ---------- ดึงสรุป ----------
   const fetchSummary = useCallback(async () => {
     if (!storeIdResolved) return
     setError('')
@@ -39,8 +49,10 @@ export default function StoreDashboard() {
     }
   }, [storeIdResolved])
 
+  // ---------- ดึงการแจ้งเตือน (พฤติกรรม & เส้นทางเหมือนหน้า Warranty) ----------
   const fetchNotifications = useCallback(async () => {
     if (!storeIdResolved) return []
+    setNotifLoading(true)
     try {
       let res
       try {
@@ -54,11 +66,48 @@ export default function StoreDashboard() {
     } catch (e) {
       setNotifications([])
       return []
+    } finally {
+      setNotifLoading(false)
     }
   }, [storeIdResolved])
 
   useEffect(() => { fetchSummary() }, [fetchSummary])
 
+  // ---------- ปิดเมนูเมื่อคลิกนอกกรอบ (เหมือนหน้า Warranty) ----------
+  useEffect(() => {
+    function onDoc(e) {
+      if (notifOpen && notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false)
+      if (isProfileMenuOpen && profileMenuRef.current && !profileMenuRef.current.contains(e.target)) setProfileMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [notifOpen, isProfileMenuOpen])
+
+  // ---------- ชื่อ-อีเมล-อวตารโชว์บนหัว (เหมือนหน้า Warranty) ----------
+  const profileAvatarSrc = profile?.avatarUrl || ''
+  const storeDisplayName = profile?.storeName || user?.store?.name || user?.storeName || user?.name || 'ร้านของฉัน'
+  const storeEmail = profile?.email || user?.store?.email || user?.email || ''
+
+  // ---------- isNewAccount (ใช้ในกล่องแจ้งเตือน เหมือนอีกหน้า) ----------
+  const isNewAccount = useMemo(() => {
+    if (!user) return false
+    if (user.isNew) return true
+    const created = user.createdAt || user.created_at || user.registeredAt || user.created
+    if (!created) return false
+    const d = new Date(created)
+    if (isNaN(d.getTime())) return false
+    const days = (Date.now() - d.getTime()) / (1000 * 3600 * 24)
+    return days <= 7
+  }, [user])
+
+  // ---------- ออกจากระบบ (ให้เหมือนหน้า Warranty) ----------
+  const handleLogout = () => {
+    logout?.()
+    setProfileMenuOpen(false)
+    navigate('/signin', { replace: true })
+  }
+
+  // ---------- คำนวณสรุป (โดนัท ฯลฯ) ----------
   const totals = useMemo(() => {
     const totalHeaders = warranties.length
     let totalItems = 0
@@ -67,7 +116,11 @@ export default function StoreDashboard() {
       const items = h.items || []
       totalItems += items.length
       for (const it of items) {
-        const code = it.statusCode || (it.statusTag === 'ใกล้หมดอายุ' ? 'nearing_expiration' : it.statusTag === 'หมดอายุ' ? 'expired' : 'active')
+        const code =
+          it.statusCode ||
+          (it.statusTag === 'ใกล้หมดอายุ' ? 'nearing_expiration'
+            : it.statusTag === 'หมดอายุ' ? 'expired'
+            : 'active')
         if (code === 'active') active++
         else if (code === 'nearing_expiration') nearing++
         else if (code === 'expired') expired++
@@ -113,12 +166,136 @@ export default function StoreDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-sky-50 to-sky-100/60 pb-12">
-      <DashboardHeader
-        title="ร้านของฉัน"
-        subtitle="แดชบอร์ดร้าน"
-        notifications={notifications}
-        onFetchNotifications={fetchNotifications}
-      />
+      {/* ====================== HEADER (เหมือนหน้า Warranty) ====================== */}
+      <header className="sticky top-0 z-30 border-b border-sky-100 bg-white/80 py-3 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4">
+          {/* โลโก้ + ชื่อแอป */}
+          <div className="flex items-center gap-3">
+            <div className="relative grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-sky-50 to-white ring-1 ring-black/5 shadow-sm">
+              <AppLogo className="h-7 w-7" />
+              <div className="absolute -inset-px rounded-2xl pointer-events-none [mask-image:radial-gradient(18px_18px_at_16px_16px,white,transparent)]"></div>
+            </div>
+            <div>
+              <div className="text-lg font-semibold text-slate-900">Warranty</div>
+              <div className="text-xs text-slate-500">จัดการการรับประกันของคุณได้ในที่เดียว</div>
+            </div>
+          </div>
+
+          {/* กระดิ่ง + โปรไฟล์ */}
+          <div className="flex items-center gap-3" ref={profileMenuRef}>
+            {/* กระดิ่งแจ้งเตือน */}
+            <div className="relative" ref={notifRef}>
+              <button
+                type="button"
+                onClick={async () => {
+                  setNotifOpen((p) => !p)
+                  if (!notifOpen) await fetchNotifications()
+                }}
+                aria-label="การแจ้งเตือน"
+                className="relative grid h-10 w-10 place-items-center rounded-full bg-white shadow ring-1 ring-black/5 hover:bg-gray-50 transition"
+              >
+                <span className="text-xl">🔔</span>
+                {(() => {
+                  const unread = (notifications || []).filter(n => !n.read).length
+                  return unread > 0 ? (
+                    <span className="absolute -top-0 -right-0 inline-flex items-center justify-center rounded-full bg-rose-500 px-2 py-0.5 text-xs font-semibold text-white">{unread}</span>
+                  ) : null
+                })()}
+              </button>
+
+              {notifOpen && (
+                <div className="absolute right-0 top-12 w-80 rounded-2xl bg-white p-3 text-sm shadow-xl ring-1 ring-black/5">
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="text-sm font-medium text-slate-900">การแจ้งเตือน</div>
+                    <button type="button" onClick={() => setNotifOpen(false)} className="text-xs text-slate-500">ปิด</button>
+                  </div>
+                  {notifLoading ? (
+                    <div className="py-6 text-center text-slate-500">กำลังโหลด...</div>
+                  ) : (notifications || []).length === 0 ? (
+                    <div className="py-4 text-slate-600">
+                      {isNewAccount ? (
+                        <div className="space-y-1">
+                          <div className="font-medium text-slate-900">ยินดีต้อนรับ 🎉</div>
+                          <div>คุณสมัครเข้าใช้งานสำเร็จ — ขอบคุณที่สมัครใช้งานกับเรา</div>
+                        </div>
+                      ) : (
+                        <div className="text-center">ไม่มีการแจ้งเตือน</div>
+                      )}
+                    </div>
+                  ) : (
+                    <ul className="space-y-2 max-h-64 overflow-y-auto">
+                      {(notifications || []).map((n, i) => (
+                        <li key={n.id || i} className="flex items-start gap-3 rounded-lg p-2 hover:bg-sky-50">
+                          <div className="h-8 w-8 shrink-0 rounded-full bg-sky-100 grid place-items-center text-xs text-sky-700">🔔</div>
+                          <div className="flex-1">
+                            <div className="text-sm font-medium text-slate-900">{n.title || n.message || 'การแจ้งเตือน'}</div>
+                            <div className="text-xs text-slate-600">{n.body || n.message || ''}</div>
+                          </div>
+                          <div className="text-xs text-slate-400">{n.time || ''}</div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* ปุ่มโปรไฟล์ */}
+            <button
+              type="button"
+              onClick={() => setProfileMenuOpen((prev) => !prev)}
+              className="flex items-center gap-3 rounded-full bg-white px-3 py-2 shadow ring-1 ring-black/10 hover:-translate-y-0.5 hover:bg-slate-50 transition"
+            >
+              {profileAvatarSrc ? (
+                <img src={profileAvatarSrc} alt="Store profile" className="h-10 w-10 rounded-full object-cover" />
+              ) : (
+                <div className="grid h-10 w-10 place-items-center rounded-full bg-sky-200 text-xl">🏪</div>
+              )}
+              <div className="hidden text-left text-sm md:block">
+                <div className="font-medium text-slate-900">{storeDisplayName}</div>
+                <div className="text-xs text-slate-500">{storeEmail}</div>
+              </div>
+              <span className="hidden text-slate-400 md:inline">▾</span>
+            </button>
+
+            {/* เมนูดรอปดาวน์โปรไฟล์ */}
+            {isProfileMenuOpen && (
+              <div className="absolute right-4 top-14 w-64 rounded-2xl bg-white p-4 text-sm shadow-xl ring-1 ring-black/5">
+                <div className="mb-4 flex items-center gap-3">
+                  {profileAvatarSrc ? (
+                    <img src={profileAvatarSrc} alt="Store profile" className="h-12 w-12 rounded-full object-cover" />
+                  ) : (
+                    <div className="grid h-12 w-12 place-items-center rounded-full bg-sky-200 text-2xl">🏪</div>
+                  )}
+                  <div className="min-w-0">
+                    <div className="truncate font-semibold text-slate-900">{storeDisplayName}</div>
+                    <div className="truncate text-xs text-slate-500">{storeEmail}</div>
+                  </div>
+                </div>
+                {/* ถ้าอยากเปิด Modal โปรไฟล์แบบอีกหน้า ค่อยต่อยอดได้
+                    ตอนนี้ให้พาไปหน้าโปรไฟล์หรือไว้แก้ไขในอนาคต */}
+                <button
+                  type="button"
+                  onClick={() => { setProfileMenuOpen(false); navigate('/dashboard/warranty', { replace: false }) }}
+                  className="flex w-full items-center justify-between rounded-xl bg-sky-50 px-3 py-2 text-slate-700 hover:bg-sky-100"
+                >
+                  <span>แก้ไขโปรไฟล์</span>
+                  <span aria-hidden>✏️</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="mt-2 flex w-full items-center justify-between rounded-xl px-3 py-2 text-slate-500 hover:bg-slate-50"
+                >
+                  <span>ออกจากระบบ</span>
+                  <span aria-hidden>↪️</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+      {/* ====================== /HEADER ====================== */}
 
       <main className="mx-auto max-w-6xl px-4 py-8">
         <div className="mb-6">
@@ -226,8 +403,7 @@ export default function StoreDashboard() {
           </div>
 
           <div className="border-t border-slate-100" />
-
-        
+          {/* (พื้นที่กราฟหรือส่วนอื่น ๆ ของคุณยังคงเพิ่มต่อได้) */}
         </section>
       </main>
     </div>
