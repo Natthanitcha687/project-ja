@@ -20,14 +20,17 @@ export default function SimpleDonut({ counts = {}, size = 120, thickness = 18 })
   ]
 
   // compute dasharray for each segment based on cumulative offset
+  // filter out zero-value segments to avoid drawing tiny round caps for 0-length strokes
   let offset = 0
-  const segProps = segments.map((s) => {
+  const segProps = segments
+    .map((s) => {
     const fraction = s.value / total
     const dash = fraction * circumference
     const prop = { dash, offset, color: s.color }
     offset += dash
     return prop
   })
+    .filter((p) => p.dash > 0)
 
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>

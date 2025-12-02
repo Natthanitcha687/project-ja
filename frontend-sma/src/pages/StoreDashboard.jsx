@@ -23,6 +23,37 @@ export default function StoreDashboard() {
   const [profile, setProfile] = useState(null)
   const [warranties, setWarranties] = useState([])
 
+  // helpers: ensure date-only UTC handling and status derivation (matches CustomerWarranty)
+  function dateOnlyUTC(v) {
+    if (!v) return null
+    if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
+      const m = v.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+      if (m) {
+        const y = Number(m[1]), mo = Number(m[2]) - 1, d = Number(m[3])
+        return new Date(Date.UTC(y, mo, d))
+      }
+    }
+    const d = v instanceof Date ? v : new Date(v)
+    if (Number.isNaN(d.getTime())) return null
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
+  }
+
+  function calcDaysLeft(expiryDate) {
+    if (!expiryDate) return null
+    const todayUTC = dateOnlyUTC(new Date())
+    const expUTC = dateOnlyUTC(expiryDate)
+    if (!todayUTC || !expUTC) return null
+    return Math.ceil((Date.UTC(expUTC.getUTCFullYear(), expUTC.getUTCMonth(), expUTC.getUTCDate()) - Date.UTC(todayUTC.getUTCFullYear(), todayUTC.getUTCMonth(), todayUTC.getUTCDate())) / (24 * 3600 * 1000))
+  }
+
+  function deriveItemStatusCode(item, notifyDays = 14) {
+    const dl = Number.isFinite(item?._daysLeft) ? item._daysLeft : calcDaysLeft(item?.expiryDate)
+    if (!Number.isFinite(dl)) return 'active'
+    if (dl < 0) return 'expired'
+    if (dl <= notifyDays) return 'nearing_expiration'
+    return 'active'
+  }
+
   // ---------- แจ้งเตือน (ให้พฤติกรรมเหมือนหน้า Warranty) ----------
   const [notifications, setNotifications] = useState([])
   const [notifOpen, setNotifOpen] = useState(false)
@@ -117,11 +148,7 @@ export default function StoreDashboard() {
       const items = h.items || []
       totalItems += items.length
       for (const it of items) {
-        const code =
-          it.statusCode ||
-          (it.statusTag === 'ใกล้หมดอายุ' ? 'nearing_expiration'
-            : it.statusTag === 'หมดอายุ' ? 'expired'
-            : 'active')
+        const code = it.statusCode || it._status || deriveItemStatusCode(it, profile?.notifyDaysInAdvance ?? 14)
         if (code === 'active') active++
         else if (code === 'nearing_expiration') nearing++
         else if (code === 'expired') expired++
