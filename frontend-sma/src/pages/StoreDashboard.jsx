@@ -1,12 +1,13 @@
 // src/pages/StoreDashboard.jsx
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuth } from '../store/auth'
 import StoreTabs from '../components/StoreTabs'
 import SimpleDonut from '../components/SimpleDonut'
 import LineChart from '../components/LineChart'
 import AppLogo from '../components/AppLogo' // ✅ ใช้หัวเดียวกับหน้า Warranty
+import * as XLSX from 'xlsx'
 
 export default function StoreDashboard() {
   const { user, logout } = useAuth() // ✅ มี logout เหมือนอีกหน้า
@@ -129,6 +130,67 @@ export default function StoreDashboard() {
     return { totalHeaders, totalItems, active, nearing, expired }
   }, [warranties])
 
+  // Export overview and details to Excel workbook
+  function exportOverviewToExcel() {
+    try {
+      const summaryRows = [
+        { Metric: 'ใบรับประกัน (Headers)', Value: totals.totalHeaders },
+        { Metric: 'รายการรวม (Items)', Value: totals.totalItems },
+        { Metric: 'กำลังใช้งาน', Value: totals.active },
+        { Metric: 'ใกล้หมดอายุ', Value: totals.nearing },
+        { Metric: 'หมดอายุ', Value: totals.expired },
+        { Metric: 'เปอร์เซ็นต์กำลังใช้งาน', Value: totals.totalItems ? `${Math.round((totals.active / totals.totalItems) * 100)}%` : '0%' },
+        { Metric: 'เปอร์เซ็นต์ใกล้หมดอายุ', Value: totals.totalItems ? `${Math.round((totals.nearing / totals.totalItems) * 100)}%` : '0%' },
+        { Metric: 'เปอร์เซ็นต์หมดอายุ', Value: totals.totalItems ? `${Math.round((totals.expired / totals.totalItems) * 100)}%` : '0%' },
+      ]
+
+      // Warranties list (one row per header)
+      const warrantiesRows = (warranties || []).map(h => ({
+        id: h.id || '',
+        code: h.code || h.reference || '',
+        customerName: h.customerName || h.customer_name || '',
+        customerEmail: h.customerEmail || h.customer_email || '',
+        itemsCount: (h.items || []).length,
+        createdAt: h.createdAt || h.created_at || '',
+      }))
+
+      // Flatten items into a details sheet
+      const itemsRows = []
+      for (const h of warranties || []) {
+        for (const it of (h.items || [])) {
+          itemsRows.push({
+            headerId: h.id || '',
+            headerCode: h.code || h.reference || '',
+            itemId: it.id || '',
+            productName: it.productName || it.product_name || '',
+            model: it.model || '',
+            serial: it.serial || '',
+            purchaseDate: it.purchaseDate || it.purchase_date || '',
+            expiryDate: it.expiryDate || it.expiry_date || '',
+            status: it.statusCode || it.statusTag || '',
+          })
+        }
+      }
+
+      const wb = XLSX.utils.book_new()
+      const wsSummary = XLSX.utils.json_to_sheet(summaryRows)
+      XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary')
+
+      const wsWarnings = XLSX.utils.json_to_sheet(warrantiesRows)
+      XLSX.utils.book_append_sheet(wb, wsWarnings, 'Warranties')
+
+      const wsItems = XLSX.utils.json_to_sheet(itemsRows)
+      XLSX.utils.book_append_sheet(wb, wsItems, 'Items')
+
+      const now = new Date().toISOString().slice(0,19).replaceAll(':','-')
+      XLSX.writeFile(wb, `warranty-overview-${now}.xlsx`)
+    } catch (err) {
+      console.error('Export to Excel failed', err)
+      // fallback: try to notify user
+      alert('ไม่สามารถสร้างไฟล์ Excel ได้: ' + (err?.message || String(err)))
+    }
+  }
+
   const weeklyData = useMemo(() => {
     const now = new Date()
     const oneDay = 24 * 60 * 60 * 1000
@@ -171,10 +233,10 @@ export default function StoreDashboard() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4">
           {/* โลโก้ + ชื่อแอป */}
           <div className="flex items-center gap-3">
-            <div className="relative grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-sky-50 to-white ring-1 ring-black/5 shadow-sm">
+            <Link to="/" aria-label="หน้าแรก" className="relative grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-sky-50 to-white ring-1 ring-black/5 shadow-sm">
               <AppLogo className="h-7 w-7" />
               <div className="absolute -inset-px rounded-2xl pointer-events-none [mask-image:radial-gradient(18px_18px_at_16px_16px,white,transparent)]"></div>
-            </div>
+            </Link>
             <div>
               <div className="text-lg font-semibold text-slate-900">Warranty</div>
               <div className="text-xs text-slate-500">จัดการการรับประกันของคุณได้ในที่เดียว</div>
@@ -309,6 +371,16 @@ export default function StoreDashboard() {
             <div>
               <h2 className="text-lg font-semibold text-slate-900">ภาพรวม & การรับประกัน</h2>
               <p className="text-sm text-slate-500">สรุปภาพรวมการรับประกันและสินค้าของร้าน</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={exportOverviewToExcel}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-sm text-slate-700 hover:bg-slate-100 shadow-sm"
+                aria-label="ส่งออกเป็น Excel"
+              >
+                ส่งออก Excel
+              </button>
             </div>
           </div>
 

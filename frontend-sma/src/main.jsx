@@ -16,6 +16,8 @@ import SignIn from './pages/SignIn'
 import SignUp from './pages/SignUp'
 import VerifyEmail from './pages/VerifyEmail'
 import WarrantyDashboard from './pages/WarrantyDashboard'
+import WarrantyInfo from './pages/WarrantyInfo'
+import About from './pages/About'
 import StoreDashboard from './pages/StoreDashboard'
 import CustomerWarranty from './pages/CustomerWarranty.jsx'
 
@@ -71,9 +73,12 @@ function PublicLayout() {
     <div className="min-h-screen bg-white text-gray-900">
       {/* หน้า dashboard (ร้านค้า) ให้ใช้ CustomerNavbar ที่มีเมนูโปรไฟล์/การแจ้งเตือน
           หน้า public (รวมถึง / home) ให้ใช้ Navbar แบบเดิม */}
-      {location.pathname.startsWith('/dashboard') || location.pathname.startsWith('/customer') ? (
+      {/* For store dashboard pages we don't show the top CustomerNavbar because
+          the dashboard page renders its own header — avoid duplicated headers.
+          Customer area (/customer) still uses the rich CustomerNavbar. */}
+      {location.pathname.startsWith('/customer') ? (
         <CustomerNavbar />
-      ) : (
+      ) : location.pathname.startsWith('/dashboard') ? null : (
         <Navbar />
       )}
       <main><Outlet /></main>
@@ -100,6 +105,8 @@ const router = createBrowserRouter([
     element: <PublicLayout />,
     children: [
       { path: '/', element: <Home /> },
+      { path: '/warranty', element: <WarrantyInfo /> },
+      { path: '/about', element: <About /> },
       { path: '/signin', element: <SignIn /> },
       { path: '/signup', element: <SignUp /> },
       { path: '/verify-email', element: <VerifyEmail /> },

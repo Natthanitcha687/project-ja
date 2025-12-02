@@ -1,6 +1,6 @@
 // frontend-sma/src/pages/WarrantyDashboard.jsx
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuth } from '../store/auth'
 import ImageUpload from '../components/ImageUpload'
@@ -184,6 +184,31 @@ export default function WarrantyDashboard() {
 
   const [storeProfile, setStoreProfile] = useState(initialStoreProfile)
   const [profileImage, setProfileImage] = useState({ file: null, preview: '' })
+
+  // compact business hours state for profile modal (small responsive control)
+  const defaultBusinessSchedule = {
+    mon: { on: true, start: '09:00', end: '18:00' },
+    tue: { on: true, start: '09:00', end: '18:00' },
+    wed: { on: true, start: '09:00', end: '18:00' },
+    thu: { on: true, start: '09:00', end: '18:00' },
+    fri: { on: true, start: '09:00', end: '18:00' },
+    sat: { on: false, start: '09:00', end: '12:00' },
+    sun: { on: false, start: '09:00', end: '12:00' },
+  }
+
+  const [businessSchedule, setBusinessSchedule] = useState(defaultBusinessSchedule)
+
+  function parseBusinessSchedule(raw) {
+    if (!raw) return defaultBusinessSchedule
+    try {
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+      // ensure all keys exist
+      return { ...defaultBusinessSchedule, ...parsed }
+    } catch (e) {
+      // couldn't parse, fallback to using raw text as an 'open all days' simplified schedule
+      return defaultBusinessSchedule
+    }
+  }
   const [profilePasswords, setProfilePasswords] = useState({
     currentPassword: '',
     newPassword: '',
@@ -417,6 +442,8 @@ export default function WarrantyDashboard() {
   const pages = pageNumbers(totalPages, currentPage, 5)
 
   const openProfileModal = () => {
+    // initialize compact business hours from current store profile when opening
+    setBusinessSchedule(parseBusinessSchedule(storeProfile.businessHours))
     setProfileModalOpen(true)
     setProfileTab('info')
     setProfileMenuOpen(false)
@@ -550,6 +577,24 @@ export default function WarrantyDashboard() {
     fetchDashboard()
   }, [fetchDashboard])
 
+  // Prevent background page scrolling when any modal / overlay is open
+  // NOTE: previous implementation captured the "anyModalOpen" value in the cleanup
+  // which could end up restoring the wrong value (e.g. storing 'hidden' and
+  // later re-applying it). We only capture the previous overflow when we
+  // actually open a modal and always restore that saved value in cleanup.
+  useEffect(() => {
+    const anyModalOpen = !!(isProfileModalOpen || isWarrantyModalOpen || imagePreview.open)
+    if (!anyModalOpen) return // nothing to do when no modal
+
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      // always restore the value we captured when the modal was opened
+      document.body.style.overflow = prevOverflow
+    }
+  }, [isProfileModalOpen, isWarrantyModalOpen, imagePreview.open])
+
   const handleProfileSubmit = async (event) => {
     event.preventDefault()
     if (!storeIdResolved) return
@@ -562,7 +607,8 @@ export default function WarrantyDashboard() {
         email: storeProfile.email,
         phone: storeProfile.phone,
         address: storeProfile.address,
-        businessHours: storeProfile.businessHours,
+        // send compact business schedule as JSON so backend can store the structured hours
+        businessHours: JSON.stringify(businessSchedule),
         avatarUrl: storeProfile.avatarUrl,
       }
       const response = await api.patch(`/store/${storeIdResolved}/profile`, payload)
@@ -798,10 +844,10 @@ export default function WarrantyDashboard() {
           <div className="mx-auto flex max-w-6xl items-center justify-between px-4">
             {/* โลโก้มุมซ้ายบนจากโค้ด1 */}
             <div className="flex items-center gap-3">
-              <div className="relative grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-sky-50 to-white ring-1 ring-black/5 shadow-sm">
+              <Link to="/" aria-label="หน้าแรก" className="relative grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-sky-50 to-white ring-1 ring-black/5 shadow-sm">
                 <AppLogo className="h-7 w-7" />
                 <div className="absolute -inset-px rounded-2xl pointer-events-none [mask-image:radial-gradient(18px_18px_at_16px_16px,white,transparent)]"></div>
-              </div>
+              </Link>
               <div>
                 <div className="text-lg font-semibold text-slate-900">Warranty</div>
                 <div className="text-xs text-slate-500">จัดการการรับประกันของคุณได้ในที่เดียว</div>
@@ -942,6 +988,15 @@ export default function WarrantyDashboard() {
             </div>
           )}
 
+          {/* Tabs + page heading moved outside the white card (match StoreDashboard layout) */}
+          <div className="mb-6">
+            <StoreTabs />
+          </div>
+
+          <div className="mb-6 px-2 sm:px-0">
+            
+          </div>
+
           <div className="rounded-3xl border border-sky-100 bg-gradient-to-b from-white to-sky-50 p-6 shadow-xl">
             {dashboardLoading ? (
               <div className="grid min-h-[320px] place-items-center text-sm text-slate-500">กำลังโหลดข้อมูล...</div>
@@ -954,10 +1009,6 @@ export default function WarrantyDashboard() {
               </div>
             ) : (
               <>
-                <div className="mb-4">
-                  <StoreTabs />
-                </div>
-
                 <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
                   <SectionTitle>จัดการการรับประกัน</SectionTitle>
                   <div className="flex items-center gap-3">
@@ -1213,9 +1264,10 @@ export default function WarrantyDashboard() {
         </main>
 
         {isProfileModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">
-            <div className="w-full max-w-lg rounded-3xl border border-sky-200 bg-white shadow-2xl">
-              <div className="flex items-center justify-between border-b border-sky-100 px-6 py-4">
+          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-auto bg-black/30 px-4 py-8">
+            {/* Constrain modal height to viewport and allow internal scrolling */}
+              <div className="w-full max-w-lg rounded-3xl border border-sky-200 bg-white shadow-2xl max-h-[90vh] overflow-hidden">
+                <div className="sticky top-0 z-30 flex items-center justify-between border-b border-sky-100 px-6 py-4 bg-white">
                 <div className="flex items-center gap-3">
                   {profileAvatarSrc ? (
                     <img src={profileAvatarSrc} alt="Store profile" className="h-12 w-12 rounded-full object-cover" />
@@ -1241,7 +1293,7 @@ export default function WarrantyDashboard() {
                 </button>
               </div>
 
-              <div className="px-6 pt-4">
+              <div className="px-6 pt-4 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 160px)' }}>
                 <div className="mb-4 flex gap-2">
                   <button
                     type="button"
@@ -1261,7 +1313,7 @@ export default function WarrantyDashboard() {
               </div>
 
               {profileTab === 'info' ? (
-                <form onSubmit={handleProfileSubmit} className="px-6 pb-6">
+                <form id="profileForm" onSubmit={handleProfileSubmit} className="px-6 pb-6">
                   <input ref={profileImageInputRef} accept="image/*" className="hidden" onChange={handleProfileAvatarSelect} type="file" />
                   <div className="mb-4 flex items-center gap-4">
                     {profileAvatarSrc ? (
@@ -1292,31 +1344,65 @@ export default function WarrantyDashboard() {
                       ['address', 'ที่อยู่'],
                       ['businessHours', 'เวลาทำการ'],
                     ].map(([key, label]) => (
-                      <label key={key} className="text-sm text-gray-600">
-                        {label}
-                        <input
-                          required
-                          value={storeProfile[key] ?? ''}
-                          onChange={(e) => setStoreProfile((prev) => ({ ...prev, [key]: e.target.value }))}
-                          readOnly={key === 'email'}
-                          className={`mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none ${key === 'email' ? 'bg-slate-100' : 'bg-sky-50/60'}`}
-                          type="text"
-                        />
-                      </label>
+                        <label key={key} className="text-sm text-gray-600">
+                          {label}
+                          {key !== 'businessHours' ? (
+                            <input
+                              required
+                              value={storeProfile[key] ?? ''}
+                              onChange={(e) => setStoreProfile((prev) => ({ ...prev, [key]: e.target.value }))}
+                              readOnly={key === 'email'}
+                              className={`mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none ${key === 'email' ? 'bg-slate-100' : 'bg-sky-50/60'}`}
+                              type="text"
+                            />
+                          ) : (
+                            <div className="mt-2 rounded-lg border border-sky-100 bg-white p-2">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {[
+                                  ['mon', 'จ.'],
+                                  ['tue', 'อ.'],
+                                  ['wed', 'พ.'],
+                                  ['thu', 'พฤ.'],
+                                  ['fri', 'ศ.'],
+                                  ['sat', 'ส.'],
+                                  ['sun', 'อา.'],
+                                ].map(([d, lbl]) => (
+                                  <div key={d} className="flex items-center gap-2 text-xs md:text-sm">
+                                    <input
+                                      type="checkbox"
+                                      checked={!!businessSchedule[d]?.on}
+                                      onChange={() => setBusinessSchedule((s) => ({ ...s, [d]: { ...s[d], on: !s[d].on } }))}
+                                      className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                                    />
+                                    <div className="w-8 text-xs text-gray-700">{lbl}</div>
+                                    <input
+                                      type="time"
+                                      value={businessSchedule[d]?.start || '09:00'}
+                                      onChange={(e) => setBusinessSchedule((s) => ({ ...s, [d]: { ...s[d], start: e.target.value } }))}
+                                      className="h-8 w-20 rounded border border-gray-200 px-2 text-xs"
+                                      disabled={!businessSchedule[d]?.on}
+                                    />
+                                    <span className="text-xs text-gray-400">—</span>
+                                    <input
+                                      type="time"
+                                      value={businessSchedule[d]?.end || '18:00'}
+                                      onChange={(e) => setBusinessSchedule((s) => ({ ...s, [d]: { ...s[d], end: e.target.value } }))}
+                                      className="h-8 w-20 rounded border border-gray-200 px-2 text-xs"
+                                      disabled={!businessSchedule[d]?.on}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="mt-2 text-xs text-slate-400">ขนาดกะทัดรัดสำหรับการแก้ไข (responsive)</div>
+                            </div>
+                          )}
+                        </label>
                     ))}
                   </div>
-                  <div className="mt-6 flex justify-end">
-                    <button
-                      type="submit"
-                      disabled={profileSubmitting}
-                      className={`rounded-full bg-sky-600 px-5 py-2 text-sm font-semibold text-white shadow transition ${profileSubmitting ? 'cursor-not-allowed opacity-70' : 'hover:bg-sky-500'}`}
-                    >
-                      {profileSubmitting ? 'กำลังบันทึก...' : 'บันทึก'}
-                    </button>
-                  </div>
+                  {/* button moved to sticky footer */}
                 </form>
               ) : (
-                <form onSubmit={handlePasswordSubmit} className="px-6 pb-6">
+                <form id="passwordForm" onSubmit={handlePasswordSubmit} className="px-6 pb-6">
                   {modalError && profileTab === 'password' && (
                     <div className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600">{modalError}</div>
                   )}
@@ -1338,17 +1424,40 @@ export default function WarrantyDashboard() {
                       </label>
                     ))}
                   </div>
-                  <div className="mt-6 flex justify-end">
+                  {/* button moved to sticky footer */}
+                </form>
+              )}
+              {/* Sticky footer always visible with submit button for the active tab */}
+              <div className="border-t border-slate-100 px-6 py-3 bg-white sticky bottom-0 z-40">
+                <div className="flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => { setProfileModalOpen(false); setModalError(''); }}
+                    className="rounded-full px-4 py-2 text-sm font-medium bg-white border border-slate-200 hover:bg-slate-50"
+                  >
+                    ยกเลิก
+                  </button>
+                  {profileTab === 'info' ? (
                     <button
                       type="submit"
+                      form="profileForm"
+                      disabled={profileSubmitting}
+                      className={`rounded-full bg-sky-600 px-5 py-2 text-sm font-semibold text-white shadow transition ${profileSubmitting ? 'cursor-not-allowed opacity-70' : 'hover:bg-sky-500'}`}
+                    >
+                      {profileSubmitting ? 'กำลังบันทึก...' : 'บันทึก'}
+                    </button>
+                  ) : (
+                    <button
+                      type="submit"
+                      form="passwordForm"
                       disabled={passwordSubmitting}
                       className={`rounded-full bg-sky-500 px-5 py-2 text-sm font-semibold text-white shadow transition ${passwordSubmitting ? 'cursor-not-allowed opacity-70' : 'hover:bg-sky-400'}`}
                     >
                       {passwordSubmitting ? 'กำลังบันทึก...' : 'ยืนยัน'}
                     </button>
-                  </div>
-                </form>
-              )}
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         )}

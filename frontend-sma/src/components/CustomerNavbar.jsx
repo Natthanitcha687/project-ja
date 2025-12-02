@@ -184,8 +184,22 @@ export default function CustomerNavbar() {
             >
               หน้าหลัก
             </NavLink>
-            <a href="#features" className="text-sm text-slate-500 hover:text-slate-900">การรับประกัน</a>
-            <a href="#why" className="text-sm text-slate-500 hover:text-slate-900">เกี่ยวกับเรา</a>
+            <NavLink
+              to="/warranty"
+              className={({ isActive }) =>
+                `text-sm ${isActive ? 'text-slate-900' : 'text-slate-500 hover:text-slate-900'}`
+              }
+            >
+              การรับประกัน
+            </NavLink>
+            <NavLink
+              to="/about"
+              className={({ isActive }) =>
+                `text-sm ${isActive ? 'text-slate-900' : 'text-slate-500 hover:text-slate-900'}`
+              }
+            >
+              เกี่ยวกับเรา
+            </NavLink>
 
             {isAuthenticated && (
               <NavLink

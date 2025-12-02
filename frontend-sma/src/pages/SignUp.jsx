@@ -438,7 +438,17 @@ export default function Signup() {
                   className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600"
                   required
                 />
-                ฉันยอมรับเงื่อนไขในการเข้าใช้งาน
+                <div className="text-sm text-gray-700 leading-tight">
+                  ฉันยอมรับ
+                  <button
+                    type="button"
+                    onClick={() => setShowTerms(true)}
+                    className="ml-2 text-blue-600 underline decoration-1 decoration-blue-400 hover:text-blue-700"
+                  >
+                    เงื่อนไขการใช้งาน
+                  </button>
+                  <span className="ml-2">ในการเข้าใช้งาน</span>
+                </div>
               </label>
 
               <button
