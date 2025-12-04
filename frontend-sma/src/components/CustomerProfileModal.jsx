@@ -12,7 +12,7 @@ import { useAuth } from "../store/auth";
  * ใช้:
  * <CustomerProfileModal open={open} onClose={()=>setOpen(false)} />
  */
-export default function CustomerProfileModal({ open, onClose }) {
+export default function CustomerProfileModal({ open, onClose, initialTab = 'info' }) {
   // ไม่ได้พึ่ง id เพราะ backend ใช้ JWT
   useAuth(); // keep auth alive if needed
 
@@ -49,7 +49,7 @@ export default function CustomerProfileModal({ open, onClose }) {
   // โหลดโปรไฟล์ทุกครั้งที่เปิดโมดัล
   useEffect(() => {
     if (!open) return;
-    setTab("info");
+    setTab(initialTab || "info");
     setServerMsg("");
     (async () => {
       try {

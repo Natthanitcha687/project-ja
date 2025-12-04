@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import { useAuth } from "../store/auth";
+// CustomerProfileModal removed here because top-level CustomerNavbar provides profile UI
 
 /* =======================
  * Helpers
@@ -181,6 +182,8 @@ export default function CustomerWarranty() {
     fetchData();
   }, [filter]);
 
+  // no per-page profile dropdown here — CustomerNavbar handles profile menu/modal
+
   const hasData = useMemo(() => Array.isArray(data) && data.length > 0, [data]);
 
   const { totalPages, currentPage, paginated } = useMemo(() => {
@@ -237,12 +240,14 @@ export default function CustomerWarranty() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-sky-50 to-sky-100/60 pb-12">
       <main className="mx-auto max-w-6xl px-4 pt-6">
-        {/* Header */}
+
+        {/* Page header */}
         <div className="mb-6 flex items-center justify-between">
           <div>
             <div className="text-lg font-semibold text-slate-900">Warranty</div>
             <div className="text-sm text-slate-500">ใบรับประกันของคุณทั้งหมด</div>
           </div>
+
           <div className="hidden text-right text-sm md:block">
             <div className="font-medium text-slate-900">
               สวัสดี, {user?.customerProfile?.firstName || ""} {user?.customerProfile?.lastName || ""}

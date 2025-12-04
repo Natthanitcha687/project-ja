@@ -1,9 +1,10 @@
 // frontend-sma/src/components/CustomerNavbar.jsx
 import { useEffect, useRef, useState } from "react";
-import { Link, NavLink, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../store/auth";
 import AppLogo from "../components/AppLogo"; // ✅ ใช้โลโก้จริง
+import CustomerProfileModal from "./CustomerProfileModal";
 
 export default function CustomerNavbar() {
   const { user, logout, loadMe } = useAuth();
@@ -145,16 +146,9 @@ export default function CustomerNavbar() {
   }
 
   const displayEmail = user?.email || profile.email;
-  const role = (user?.role || '').toUpperCase();
   const isAuthenticated = !!user;
 
-  // ปลายทางแดชบอร์ดขึ้นกับ role
-  const dashHref =
-    role === 'STORE'
-      ? '/dashboard/warranty'
-      : role === 'CUSTOMER'
-      ? '/customer/warranties'
-      : '/signin?next=/customer/warranties';
+  // (removed dashboard link from top bar - profile dropdown will keep only profile/password/logout)
 
   return (
     <>
@@ -173,45 +167,7 @@ export default function CustomerNavbar() {
             </div>
           </Link>
 
-          {/* --- เมนูกลาง (Desktop) --- */}
-          <div className="hidden md:flex items-center gap-6">
-            <NavLink
-              end
-              to="/"
-              className={({ isActive }) =>
-                `text-sm ${isActive ? 'text-slate-900' : 'text-slate-500 hover:text-slate-900'}`
-              }
-            >
-              หน้าหลัก
-            </NavLink>
-            <NavLink
-              to="/warranty"
-              className={({ isActive }) =>
-                `text-sm ${isActive ? 'text-slate-900' : 'text-slate-500 hover:text-slate-900'}`
-              }
-            >
-              การรับประกัน
-            </NavLink>
-            <NavLink
-              to="/about"
-              className={({ isActive }) =>
-                `text-sm ${isActive ? 'text-slate-900' : 'text-slate-500 hover:text-slate-900'}`
-              }
-            >
-              เกี่ยวกับเรา
-            </NavLink>
-
-            {isAuthenticated && (
-              <NavLink
-                to={dashHref}
-                className={({ isActive }) =>
-                  `text-sm ${isActive ? 'text-[color:var(--brand)]' : 'text-slate-500 hover:text-slate-900'}`
-                }
-              >
-                แดชบอร์ด
-              </NavLink>
-            )}
-          </div>
+          {/* center navigation removed for customer topbar (keeps header minimal) */}
 
           {/* --- ขวา: แจ้งเตือน + โปรไฟล์ --- */}
           <div className="flex items-center gap-3">
@@ -332,33 +288,7 @@ export default function CustomerNavbar() {
                 โปรไฟล์ของฉัน
               </Link>
 
-              <Link
-                to={dashHref}
-                onClick={() => setOpenMenu(false)}
-                className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-              >
-                ไปที่แดชบอร์ด
-              </Link>
-
-              {role === 'STORE' && (
-                <Link
-                  to="/dashboard/store"
-                  onClick={() => setOpenMenu(false)}
-                  className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                >
-                  จัดการร้านค้า
-                </Link>
-              )}
-
-              {role === 'CUSTOMER' && (
-                <Link
-                  to="/customer/warranties"
-                  onClick={() => setOpenMenu(false)}
-                  className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                >
-                  ใบรับประกันของฉัน
-                </Link>
-              )}
+              {/* removed top navigation shortcuts from profile dropdown to keep it minimal */}
 
               <div className="border-t border-slate-100 mt-1" />
               <button
@@ -371,6 +301,14 @@ export default function CustomerNavbar() {
           )}
         </nav>
       </header>
+      {/* Render CustomerProfileModal when openModal is true */}
+      {openModal && (
+        <CustomerProfileModal
+          open={openModal}
+          onClose={() => setOpenModal(false)}
+          initialTab={tab}
+        />
+      )}
     </>
   );
 }
