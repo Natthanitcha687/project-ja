@@ -226,6 +226,22 @@ export default function CustomerNavbar() {
                 </div>
               )}
             </div>
+            
+            {/* 📝 ปุ่มร้องเรียน (ลูกค้า) */}
+            {isAuthenticated && (
+              <Link
+                to="/customer/complaints"
+                title="ร้องเรียน/ติดต่อแอดมิน"
+                className="inline-flex items-center gap-2 rounded-full bg-white shadow ring-1 ring-sky-100 px-3 py-2 text-sm font-semibold text-sky-700 hover:bg-sky-50 transition"
+                onClick={() => {
+                  setOpenMenu(false);
+                  setOpenNotif(false);
+                }}
+              >
+                <span className="text-base leading-none">📝</span>
+                <span className="hidden md:inline">ร้องเรียน</span>
+              </Link>
+            )}
 
             {/* 🧍 กล่องโปรไฟล์ / ปุ่มล็อกอิน */}
             {isAuthenticated ? (
