@@ -58,7 +58,7 @@ export default function CustomerNavbar() {
     }
   }
 
-  // ✅ mark อ่านเฉพาะรายการ (โค้ด2 เพิ่ม)
+  // ✅ mark อ่านเฉพาะรายการ
   async function markOneAsRead(id) {
     try {
       // optimistically mark local
@@ -70,7 +70,7 @@ export default function CustomerNavbar() {
     } catch (e) {}
   }
 
-  // ✅ Load notifications once + สมัคร SSE (โค้ด2 เพิ่ม)
+  // ✅ Load notifications once + สมัคร SSE
   useEffect(() => {
     let mounted = true;
     let es = null;
@@ -82,7 +82,7 @@ export default function CustomerNavbar() {
         const data = res?.data?.data || res?.data || [];
         if (mounted) setNotifications(Array.isArray(data) ? data : []);
       } catch (e) {
-        // ถ้า fail ก็ไม่บังคับล้าง (กัน UX แปลก ๆ) — แต่ถ้าจะล้างใช้บรรทัดล่าง
+        // ถ้า fail ก็ไม่บังคับล้าง (กัน UX แปลก ๆ)
         // if (mounted) setNotifications([]);
       } finally {
         if (mounted) setNotifLoading(false);
@@ -237,8 +237,6 @@ export default function CustomerNavbar() {
   const displayEmail = user?.email || profile.email;
   const isAuthenticated = !!user;
 
-  // (removed dashboard link from top bar - profile dropdown will keep only profile/password/logout)
-
   return (
     <>
       <header className="sticky top-0 z-30 border-b border-sky-200 bg-sky-50/80 backdrop-blur">
@@ -256,8 +254,6 @@ export default function CustomerNavbar() {
             </div>
           </Link>
 
-          {/* center navigation removed for customer topbar (keeps header minimal) */}
-
           {/* --- ขวา: แจ้งเตือน + โปรไฟล์ --- */}
           <div className="flex items-center gap-3">
             {/* 🔔 ปุ่มแจ้งเตือน */}
@@ -269,7 +265,6 @@ export default function CustomerNavbar() {
                   setOpenNotif((v) => !v);
 
                   // “เพิ่ม” ตามโค้ด2: ถ้าเปิด dropdown ให้ mark all read + ยิง API
-                  // โดยยังคง badge/พฤติกรรมเดิมไว้
                   const next = !openNotif;
                   if (next) {
                     await markAllAsRead();
@@ -323,7 +318,6 @@ export default function CustomerNavbar() {
                               if (!read && id != null) markOneAsRead(id);
                             }}
                             className={`px-4 py-3 text-sm border-b last:border-0 transition ${
-                              // คงเงื่อนไขสีเดิมไว้ แต่รองรับ type ใหม่ด้วย
                               type === "warning"
                                 ? "bg-amber-50 text-amber-800"
                                 : type === "expired"
@@ -351,7 +345,7 @@ export default function CustomerNavbar() {
               )}
             </div>
 
-            {/* 📝 ปุ่มร้องเรียน (ลูกค้า) */} 
+            {/* 📝 ปุ่มร้องเรียน (ลูกค้า) */}
             {isAuthenticated && (
               <Link
                 to="/customer/complaints"
@@ -427,8 +421,6 @@ export default function CustomerNavbar() {
               >
                 โปรไฟล์ของฉัน
               </Link>
-
-              {/* removed top navigation shortcuts from profile dropdown to keep it minimal */}
 
               <div className="border-t border-slate-100 mt-1" />
               <button

@@ -17,7 +17,8 @@ async function main() {
   const deleteWarranties = args.includes('--delete-warranties')
   const force = args.includes('--force')
 
-  const codes = ['WR001', 'WR002']
+  // No preset codes — avoid matching/deleting example warranty codes by default
+  const codes = []
 
   console.log('Preview mode:', !force)
   console.log('Searching warranties by code:', codes)
