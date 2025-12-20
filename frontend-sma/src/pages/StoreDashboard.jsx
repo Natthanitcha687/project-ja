@@ -120,7 +120,28 @@ export default function StoreDashboard() {
     }
   }, [storeIdResolved])
 
+  async function markAllAsRead() {
+    try {
+      setNotifLoading(true)
+      await api.post('/notifications/mark-all-read')
+      await fetchNotifications()
+    } catch (e) {
+      // ignore
+    } finally {
+      setNotifLoading(false)
+    }
+  }
+
+  async function markOneAsRead(id) {
+    try {
+      await api.patch(`/notifications/${id}/read`)
+      await fetchNotifications()
+    } catch (e) {}
+  }
+
   useEffect(() => { fetchSummary() }, [fetchSummary])
+  // fetch notifications on mount so unread count shows before user clicks bell
+  useEffect(() => { fetchNotifications().catch(() => {}) }, [fetchNotifications])
 
   // ---------- ปิดเมนูเมื่อคลิกนอกกรอบ (เหมือนหน้า Warranty) ----------
   useEffect(() => {
@@ -386,50 +407,53 @@ export default function StoreDashboard() {
               <button
                 type="button"
                 onClick={async () => {
-                  setNotifOpen((p) => !p)
-                  if (!notifOpen) await fetchNotifications()
+                  const next = !notifOpen
+                  setNotifOpen(next)
+                  if (next) {
+                    // optimistic clear
+                    setNotifications((prev) => (prev || []).map((n) => ({ ...n, read: true })))
+                    try { await api.post('/notifications/mark-all-read') } catch (e) {}
+                    try { await fetchNotifications() } catch (e) {}
+                  }
                 }}
                 aria-label="การแจ้งเตือน"
                 className="relative grid h-10 w-10 place-items-center rounded-full bg-white shadow ring-1 ring-black/5 hover:bg-gray-50 transition"
               >
                 <span className="text-xl">🔔</span>
-                {(() => {
-                  const unread = (notifications || []).filter(n => !n.read).length
-                  return unread > 0 ? (
-                    <span className="absolute -top-0 -right-0 inline-flex items-center justify-center rounded-full bg-rose-500 px-2 py-0.5 text-xs font-semibold text-white">{unread}</span>
-                  ) : null
-                })()}
+                {/* unread badge removed per request */}
               </button>
 
               {notifOpen && (
                 <div className="absolute right-0 top-12 w-80 rounded-2xl bg-white p-3 text-sm shadow-xl ring-1 ring-black/5">
                   <div className="mb-2 flex items-center justify-between">
                     <div className="text-sm font-medium text-slate-900">การแจ้งเตือน</div>
-                    <button type="button" onClick={() => setNotifOpen(false)} className="text-xs text-slate-500">ปิด</button>
+                    <div className="flex items-center gap-2">
+                      <button type="button" onClick={markAllAsRead} className="text-xs text-sky-600 hover:underline">ทำเครื่องหมายว่าอ่านแล้ว</button>
+                      <button type="button" onClick={() => setNotifOpen(false)} className="text-xs text-slate-500">ปิด</button>
+                    </div>
                   </div>
                   {notifLoading ? (
                     <div className="py-6 text-center text-slate-500">กำลังโหลด...</div>
                   ) : (notifications || []).length === 0 ? (
                     <div className="py-4 text-slate-600">
-                      {isNewAccount ? (
-                        <div className="space-y-1">
-                          <div className="font-medium text-slate-900">ยินดีต้อนรับ 🎉</div>
-                          <div>คุณสมัครเข้าใช้งานสำเร็จ — ขอบคุณที่สมัครใช้งานกับเรา</div>
-                        </div>
-                      ) : (
-                        <div className="text-center">ไม่มีการแจ้งเตือน</div>
-                      )}
+                      <div className="text-center">ไม่มีการแจ้งเตือน</div>
                     </div>
                   ) : (
                     <ul className="space-y-2 max-h-64 overflow-y-auto">
                       {(notifications || []).map((n, i) => (
-                        <li key={n.id || i} className="flex items-start gap-3 rounded-lg p-2 hover:bg-sky-50">
+                        <li key={n.id || i} className={`flex cursor-pointer items-start gap-3 rounded-lg p-2 hover:bg-sky-50 ${n.read ? 'opacity-70' : 'font-semibold'}`} onClick={async () => {
+                          if (!n.read) await markOneAsRead(n.id)
+                          // navigate to warranty if payload contains warrantyId
+                          if (n?.data?.warrantyId) {
+                            try { navigate(`/warranty/${n.data.warrantyId}`) } catch {}
+                          }
+                        }}>
                           <div className="h-8 w-8 shrink-0 rounded-full bg-sky-100 grid place-items-center text-xs text-sky-700">🔔</div>
                           <div className="flex-1">
                             <div className="text-sm font-medium text-slate-900">{n.title || n.message || 'การแจ้งเตือน'}</div>
-                            <div className="text-xs text-slate-600">{n.body || n.message || ''}</div>
+                            <div className="text-xs text-slate-600 mt-1">{n.body || n.message || ''}</div>
                           </div>
-                          <div className="text-xs text-slate-400">{n.time || ''}</div>
+                          <div className="text-xs text-slate-400">{n.createdAt ? new Date(n.createdAt).toLocaleString() : ''}</div>
                         </li>
                       ))}
                     </ul>

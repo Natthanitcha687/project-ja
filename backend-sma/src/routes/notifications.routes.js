@@ -17,9 +17,11 @@ router.get('/stream', requireAuth, (req, res) => {
 // GET /notifications - notifications for current user
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const userId = Number(req.user?.id || req.user?.sub || null)
+    const uid = Number(req.user?.id || req.user?.sub || null)
+    const isStore = req.user?.role === 'STORE'
+    const where = isStore ? { OR: [{ storeId: uid }, { userId: uid }] } : { userId: uid }
     const list = await prisma.notification.findMany({
-      where: { userId },
+      where,
       orderBy: { createdAt: 'desc' },
       take: 50,
     })
@@ -60,10 +62,10 @@ router.patch('/:id/read', requireAuth, async (req, res) => {
     const storeId = req.user?.role === 'STORE' ? uid : null
 
     // authorize: either notification.userId matches uid OR notification.storeId matches storeId
-    if (n.userId && n.userId !== uid && n.storeId && n.storeId !== storeId) {
-      // allow if either matches; otherwise forbid
-      return res.status(403).json({ message: 'Forbidden' })
-    }
+      // allow if notification belongs to the user OR belongs to the store
+      if (!(n.userId === uid || (n.storeId && storeId && n.storeId === storeId))) {
+        return res.status(403).json({ message: 'Forbidden' })
+      }
 
     const updated = await prisma.notification.update({ where: { id }, data: { read: true } })
     res.json({ ok: true, notification: updated })
@@ -140,6 +142,7 @@ router.post('/cleanup-warranty', requireAuth, async (req, res) => {
 export async function createAndPublish({ prisma, attrs }) {
   // create DB notification and publish via SSE
   const n = await prisma.notification.create({ data: attrs })
+  console.log(`createAndPublish: created notification id=${n.id} userId=${n.userId || ''} storeId=${n.storeId || ''} title=${n.title || ''}`)
   await publishNotification({ prisma, notification: n })
 
   // Only send email if explicitly requested (attrs.sendEmail === true)
@@ -162,6 +165,7 @@ export async function createAndPublish({ prisma, attrs }) {
       if (toEmail) {
         const subject = n.title || 'การแจ้งเตือน'
         const bodyText = n.body || ''
+        console.log(`createAndPublish: sending email to ${toEmail} subject=${subject}`)
         await sendNotificationEmail({ to: toEmail, subject, text: bodyText })
       }
     }

@@ -1,4 +1,3 @@
-// backend-sma/src/controllers/customer.controller.js
 import bcrypt from 'bcryptjs'
 import { prisma } from '../db/prisma.js'
 import * as warrantyCtrl from './warranty.controller.js'
@@ -127,6 +126,34 @@ export async function updateMyProfile(req, res, next) {
         body: 'ข้อมูลโปรไฟล์ของคุณได้รับการอัปเดตแล้ว',
         data: { type: 'profile_updated' }
       } })
+
+      // Notify stores that have warranties linked to this customer (by userId or email)
+      try {
+        const linked = await prisma.warranty.findMany({
+          where: {
+            OR: [
+              { customerUserId: me.id },
+              { customerEmail: me.email }
+            ]
+          },
+          select: { storeId: true }
+        })
+        const storeIds = [...new Set(linked.map(l => l.storeId).filter(Boolean))]
+        for (const sid of storeIds) {
+          try {
+            await createNotification({ prisma, attrs: {
+              storeId: sid,
+              title: 'ลูกค้ามีการอัปเดตโปรไฟล์',
+              body: `ลูกค้า ${saved.firstName || ''} ${saved.lastName || ''} ได้อัปเดตโปรไฟล์`,
+              data: { type: 'customer_profile_updated', userId: me.id }
+            } })
+          } catch (e) {
+            console.warn('notify store of customer profile update failed', e?.message || e)
+          }
+        }
+      } catch (e) {
+        console.warn('find linked stores for profile update failed', e?.message || e)
+      }
     } catch (e) {
       // ignore notification errors
       console.warn('notify user profile update failed', e?.message || e)
@@ -273,6 +300,22 @@ export async function updateMyNote(req, res, next) {
     })
 
     res.json({ message: 'Saved', item: updated })
+
+    // notify store about customer note
+    try {
+      if (updated && updated.warrantyId) {
+        const w = await prisma.warranty.findUnique({ where: { id: updated.warrantyId }, select: { storeId: true } })
+        if (w?.storeId) {
+          const { createAndPublish } = await import('../routes/notifications.routes.js')
+          await createAndPublish({ prisma, attrs: {
+            storeId: w.storeId,
+            title: 'ลูกค้ามีข้อความใหม่ในรายการรับประกัน',
+            body: `ลูกค้าได้เพิ่มบันทึกในรายการ (id: ${updated.id})`,
+            data: { type: 'customer_note_added', warrantyId: updated.warrantyId, warrantyItemId: updated.id }
+          } })
+        }
+      }
+    } catch (e) { console.warn('notify store customer note failed', e?.message || e) }
   } catch (err) {
     next(err)
   }

@@ -1,7 +1,6 @@
-// frontend-sma/src/components/CustomerNavbar.jsx
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { api } from "../lib/api";
+import { api, API_URL, getToken } from "../lib/api";
 import { useAuth } from "../store/auth";
 import AppLogo from "../components/AppLogo"; // ✅ ใช้โลโก้จริง
 import CustomerProfileModal from "./CustomerProfileModal";
@@ -17,18 +16,108 @@ export default function CustomerNavbar() {
   const notifRef = useRef(null);
 
   // 🔔 การแจ้งเตือน
+  // ✅ คงของเดิม (dummy) ไว้ แล้ว “เพิ่ม” ระบบดึงจริง + SSE มาทับภายหลัง
   const [notifications, setNotifications] = useState([
     { id: 1, message: "ใบรับประกัน WR002 ใกล้หมดอายุ", type: "warning", read: false },
     { id: 2, message: "ใบรับประกัน WR001 หมดอายุแล้ว", type: "expired", read: false },
   ]);
+  const [notifLoading, setNotifLoading] = useState(false);
 
   // 🟦 นับเฉพาะที่ยังไม่อ่าน
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  // ✅ ทำเครื่องหมายว่าอ่านแล้ว
-  function markAllAsRead() {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  // ✅ ดึงแจ้งเตือนจาก API
+  async function fetchNotifications() {
+    try {
+      setNotifLoading(true);
+      const res = await api.get("/notifications");
+      const data = res?.data?.data || res?.data || [];
+      setNotifications(Array.isArray(data) ? data : []);
+      return data;
+    } catch (e) {
+      // ถ้า API ล้ม ไม่ทำให้ navbar พัง (คง state เดิมไว้/หรือจะล้างก็ได้)
+      return [];
+    } finally {
+      setNotifLoading(false);
+    }
   }
+
+  // ✅ ทำเครื่องหมายว่าอ่านแล้ว (ยิง backend + refresh)
+  async function markAllAsRead() {
+    // คงพฤติกรรมเดิม: mark local ก่อน
+    setNotifications((prev) => (prev || []).map((n) => ({ ...n, read: true })));
+
+    try {
+      setNotifLoading(true);
+      await api.post("/notifications/mark-all-read");
+      await fetchNotifications();
+    } catch (e) {
+      // ignore
+    } finally {
+      setNotifLoading(false);
+    }
+  }
+
+  // ✅ mark อ่านเฉพาะรายการ (โค้ด2 เพิ่ม)
+  async function markOneAsRead(id) {
+    try {
+      // optimistically mark local
+      setNotifications((prev) =>
+        (prev || []).map((n) => (String(n.id) === String(id) ? { ...n, read: true } : n))
+      );
+      await api.patch(`/notifications/${id}/read`);
+      await fetchNotifications();
+    } catch (e) {}
+  }
+
+  // ✅ Load notifications once + สมัคร SSE (โค้ด2 เพิ่ม)
+  useEffect(() => {
+    let mounted = true;
+    let es = null;
+
+    async function load() {
+      try {
+        setNotifLoading(true);
+        const res = await api.get("/notifications");
+        const data = res?.data?.data || res?.data || [];
+        if (mounted) setNotifications(Array.isArray(data) ? data : []);
+      } catch (e) {
+        // ถ้า fail ก็ไม่บังคับล้าง (กัน UX แปลก ๆ) — แต่ถ้าจะล้างใช้บรรทัดล่าง
+        // if (mounted) setNotifications([]);
+      } finally {
+        if (mounted) setNotifLoading(false);
+      }
+    }
+
+    // โหลดเฉพาะเมื่อมี token
+    const token = getToken?.();
+    if (token) {
+      load();
+
+      // SSE for real-time
+      try {
+        const base = (API_URL || "").replace(/\/+$/, "");
+        es = new EventSource(`${base}/notifications/stream?token=${token}`);
+        es.addEventListener("notification", (ev) => {
+          try {
+            const payload = JSON.parse(ev.data);
+            // prepend notification ใหม่
+            setNotifications((p) => [payload, ...(p || [])]);
+          } catch (e) {}
+        });
+        es.onerror = () => {};
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    return () => {
+      mounted = false;
+      try {
+        if (es) es.close();
+      } catch {}
+    };
+  }, []);
 
   // ปิด dropdown เมื่อคลิกข้างนอก
   useEffect(() => {
@@ -175,13 +264,21 @@ export default function CustomerNavbar() {
             <div className="relative" ref={notifRef}>
               <button
                 title="การแจ้งเตือน"
-                onClick={() => {
+                onClick={async () => {
+                  // คงของเดิม: toggle dropdown
                   setOpenNotif((v) => !v);
-                  if (!openNotif) markAllAsRead();
+
+                  // “เพิ่ม” ตามโค้ด2: ถ้าเปิด dropdown ให้ mark all read + ยิง API
+                  // โดยยังคง badge/พฤติกรรมเดิมไว้
+                  const next = !openNotif;
+                  if (next) {
+                    await markAllAsRead();
+                  }
                 }}
                 className="grid h-9 w-9 place-items-center rounded-full bg-white shadow ring-1 ring-sky-100 text-sky-600 hover:bg-sky-50 transition"
               >
                 <span className="text-lg">🔔</span>
+                {/* ✅ คงของเดิม: badge unread */}
                 {unreadCount > 0 && (
                   <span className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-rose-500 text-[10px] text-white">
                     {unreadCount}
@@ -202,32 +299,59 @@ export default function CustomerNavbar() {
                     </button>
                   </div>
                   <div className="max-h-64 overflow-y-auto">
-                    {notifications.length === 0 ? (
+                    {notifLoading ? (
+                      <div className="p-4 text-sm text-slate-500 text-center">
+                        กำลังโหลด...
+                      </div>
+                    ) : notifications.length === 0 ? (
                       <div className="p-4 text-sm text-slate-500 text-center">
                         ไม่มีการแจ้งเตือน
                       </div>
                     ) : (
-                      notifications.map((n) => (
-                        <div
-                          key={n.id}
-                          className={`px-4 py-3 text-sm border-b last:border-0 transition ${
-                            n.type === "warning"
-                              ? "bg-amber-50 text-amber-800"
-                              : n.type === "expired"
-                              ? "bg-rose-50 text-rose-700"
-                              : "bg-white text-slate-700"
-                          } ${n.read ? "opacity-70" : "font-semibold"}`}
-                        >
-                          {n.message}
-                        </div>
-                      ))
+                      notifications.map((n) => {
+                        const id = n.id;
+                        // รองรับทั้ง format เก่า (message/type) และ format ใหม่ (title/body/createdAt)
+                        const title = n.title || n.message || (n.data && n.data.type) || "การแจ้งเตือน";
+                        const body = n.body || "";
+                        const type = n.type || (n.data && n.data.type) || "";
+                        const read = !!n.read;
+
+                        return (
+                          <div
+                            key={id}
+                            onClick={() => {
+                              if (!read && id != null) markOneAsRead(id);
+                            }}
+                            className={`px-4 py-3 text-sm border-b last:border-0 transition ${
+                              // คงเงื่อนไขสีเดิมไว้ แต่รองรับ type ใหม่ด้วย
+                              type === "warning"
+                                ? "bg-amber-50 text-amber-800"
+                                : type === "expired"
+                                ? "bg-rose-50 text-rose-700"
+                                : "bg-white text-slate-700"
+                            } ${read ? "opacity-70" : "font-semibold"} ${id != null ? "cursor-pointer" : ""}`}
+                          >
+                            <div className="truncate">
+                              <div className="text-sm font-semibold">{title}</div>
+                              {body ? (
+                                <div className="text-xs text-slate-500 mt-1">{body}</div>
+                              ) : null}
+                            </div>
+                            {n.createdAt ? (
+                              <div className="text-[10px] text-slate-400 mt-1">
+                                {new Date(n.createdAt).toLocaleString()}
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })
                     )}
                   </div>
                 </div>
               )}
             </div>
-            
-            {/* 📝 ปุ่มร้องเรียน (ลูกค้า) */}
+
+            {/* 📝 ปุ่มร้องเรียน (ลูกค้า) */} 
             {isAuthenticated && (
               <Link
                 to="/customer/complaints"
@@ -317,6 +441,7 @@ export default function CustomerNavbar() {
           )}
         </nav>
       </header>
+
       {/* Render CustomerProfileModal when openModal is true */}
       {openModal && (
         <CustomerProfileModal

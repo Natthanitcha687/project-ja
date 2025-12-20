@@ -78,6 +78,35 @@ export async function addItemImages(req, res) {
       data: { images: [...existed, ...files] },
     });
 
+    // Notify store and customer about new images
+    try {
+      const { createAndPublish } = await import('../routes/notifications.routes.js')
+      const title = `อัปโหลดรูปภาพใหม่ในรายการรับประกัน`
+      const body = `มีการอัปโหลดรูปภาพใหม่ในรายการ "${updated.productName || '-'}" (Serial: ${updated.serial || '-'})`
+      // notify store
+      try {
+        await createAndPublish({ prisma, attrs: {
+          storeId: item.warranty.storeId,
+          title,
+          body,
+          data: { type: 'warranty_item_images_added', warrantyId: updated.warrantyId, warrantyItemId: updated.id }
+        } })
+      } catch (e) { console.warn('notify store images added failed', e?.message || e) }
+
+      // notify customer user if present
+      if (item.warranty.customerUserId) {
+        try {
+          await createAndPublish({ prisma, attrs: {
+            userId: item.warranty.customerUserId,
+            title,
+            body,
+            data: { type: 'warranty_item_images_added', warrantyId: updated.warrantyId, warrantyItemId: updated.id }
+          } })
+        } catch (e) { console.warn('notify customer images added failed', e?.message || e) }
+      }
+    } catch (e) {
+      console.warn('images-added notify error', e?.message || e)
+    }
     return res.json({
       data: {
         item: {
@@ -126,6 +155,33 @@ export async function deleteItemImage(req, res) {
       data: { images: current.filter(im => im.id !== imageId) },
     });
 
+    // Notify store and customer about deleted image
+    try {
+      const { createAndPublish } = await import('../routes/notifications.routes.js')
+      const title = `ลบรูปภาพจากรายการรับประกัน`
+      const body = `มีการลบรูปภาพจากรายการ "${updated.productName || '-'}" (Serial: ${updated.serial || '-'})`;
+      try {
+        await createAndPublish({ prisma, attrs: {
+          storeId: item.warranty.storeId,
+          title,
+          body,
+          data: { type: 'warranty_item_image_deleted', warrantyId: updated.warrantyId, warrantyItemId: updated.id, imageId }
+        } })
+      } catch (e) { console.warn('notify store image deleted failed', e?.message || e) }
+
+      if (item.warranty.customerUserId) {
+        try {
+          await createAndPublish({ prisma, attrs: {
+            userId: item.warranty.customerUserId,
+            title,
+            body,
+            data: { type: 'warranty_item_image_deleted', warrantyId: updated.warrantyId, warrantyItemId: updated.id, imageId }
+          } })
+        } catch (e) { console.warn('notify customer image deleted failed', e?.message || e) }
+      }
+    } catch (e) {
+      console.warn('image-deleted notify error', e?.message || e)
+    }
     return res.json({ data: { item: updated } });
   } catch (err) {
     console.error('deleteItemImage error', err);
@@ -236,6 +292,7 @@ export async function updateItem(req, res) {
     });
 
     // Detect status change (active / nearing_expiration / expired) and notify
+    let beforeStatus, afterStatus
     try {
       const prevExp = item.expiryDate ? toDateOnly(item.expiryDate) : null
       const newExp = updated.expiryDate ? toDateOnly(updated.expiryDate) : null
@@ -252,19 +309,19 @@ export async function updateItem(req, res) {
       }
 
       // compute before/after once and reuse for other-change detection below
-      const before = deriveStatus(prevExp)
-      const after = deriveStatus(newExp)
-      if (before !== after) {
+      beforeStatus = deriveStatus(prevExp)
+      afterStatus = deriveStatus(newExp)
+      if (beforeStatus !== afterStatus) {
         const { createAndPublish } = await import('../routes/notifications.routes.js')
-        const title = `สถานะรับประกันเปลี่ยน: ${after}`
-        const body = `สินค้า \"${updated.productName}\" (Serial: ${updated.serial || '-'}) เปลี่ยนสถานะจาก ${before} → ${after}`
+        const title = `สถานะรับประกันเปลี่ยน: ${afterStatus}`
+        const body = `สินค้า "${updated.productName}" (Serial: ${updated.serial || '-'}) เปลี่ยนสถานะจาก ${beforeStatus} → ${afterStatus}`
         // notify store
         try {
           await createAndPublish({ prisma, attrs: {
             storeId: item.warranty.storeId,
             title,
             body,
-            data: { type: 'warranty_status_changed', warrantyId: updated.warrantyId, warrantyItemId: updated.id, oldStatus: before, newStatus: after }
+            data: { type: 'warranty_status_changed', warrantyId: updated.warrantyId, warrantyItemId: updated.id, oldStatus: beforeStatus, newStatus: afterStatus }
           } })
         } catch (e) { console.warn('notify store status change failed', e?.message || e) }
 
@@ -275,7 +332,7 @@ export async function updateItem(req, res) {
               userId: item.warranty.customerUserId,
               title,
               body,
-              data: { type: 'warranty_status_changed', warrantyId: updated.warrantyId, warrantyItemId: updated.id, oldStatus: before, newStatus: after }
+              data: { type: 'warranty_status_changed', warrantyId: updated.warrantyId, warrantyItemId: updated.id, oldStatus: beforeStatus, newStatus: afterStatus }
             } })
           } catch (e) { console.warn('notify customer status change failed', e?.message || e) }
         }
@@ -294,7 +351,7 @@ export async function updateItem(req, res) {
         (item.note || null) !== (updated.note || null)
       )
       // only notify as 'item updated' when the status did not change (we handled status separately)
-      if (otherChanged && typeof before !== 'undefined' && before === after) {
+      if (otherChanged && typeof beforeStatus !== 'undefined' && beforeStatus === afterStatus) {
         const { createAndPublish } = await import('../routes/notifications.routes.js')
         const title = `รายการสินค้าถูกแก้ไข`
         const body = `รายการ "${updated.productName}" ถูกแก้ไข โดยร้านค้า`;

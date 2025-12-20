@@ -124,14 +124,7 @@ const router = createBrowserRouter([
           </ProtectedStoreRoute>
         ),
       },
-      {
-        path: 'complaints',
-        element: (
-          <ProtectedCustomerRoute>
-            <CustomerComplaints />
-          </ProtectedCustomerRoute>
-        ),
-      },
+
       {
         path: '/dashboard/store',
         element: (
@@ -154,6 +147,16 @@ const router = createBrowserRouter([
         element: (
           <ProtectedCustomerRoute>
             <CustomerWarranty />
+          </ProtectedCustomerRoute>
+        ),
+      },
+
+      // ✅ เพิ่มให้ตรงกับลิงก์ /customer/complaints ที่อยู่ใน CustomerNavbar.jsx
+      {
+        path: 'complaints',
+        element: (
+          <ProtectedCustomerRoute>
+            <CustomerComplaints />
           </ProtectedCustomerRoute>
         ),
       },
