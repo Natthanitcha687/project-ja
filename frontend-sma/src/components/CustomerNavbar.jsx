@@ -16,11 +16,8 @@ export default function CustomerNavbar() {
   const menuRef = useRef(null);
   const notifRef = useRef(null);
 
-  // 🔔 การแจ้งเตือน
-  const [notifications, setNotifications] = useState([
-    { id: 1, message: "ใบรับประกัน WR002 ใกล้หมดอายุ", type: "warning", read: false },
-    { id: 2, message: "ใบรับประกัน WR001 หมดอายุแล้ว", type: "expired", read: false },
-  ]);
+  // 🔔 การแจ้งเตือน (เริ่มต้นว่าง — ข้อมูลตัวอย่างถูกลบออก)
+  const [notifications, setNotifications] = useState([]);
 
   // 🟦 นับเฉพาะที่ยังไม่อ่าน
   const unreadCount = notifications.filter((n) => !n.read).length;
