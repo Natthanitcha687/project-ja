@@ -232,9 +232,10 @@ export default function Signup() {
 
   // structured address state for store signup
   const [addressStreet, setAddressStreet] = useState("");
-  const [addressSubdistrict, setAddressSubdistrict] = useState("");
-  const [addressDistrict, setAddressDistrict] = useState("");
-  const [addressProvince, setAddressProvince] = useState("");
+  // store selected IDs for selects
+  const [addressSubdistrict, setAddressSubdistrict] = useState(""); // subdistrict id
+  const [addressDistrict, setAddressDistrict] = useState(""); // district id
+  const [addressProvince, setAddressProvince] = useState(""); // province id
   const [addressPostcode, setAddressPostcode] = useState("");
 
   function updateAddress(patch = {}) {
@@ -243,6 +244,143 @@ export default function Signup() {
     if (patch.district !== undefined) setAddressDistrict(patch.district);
     if (patch.province !== undefined) setAddressProvince(patch.province);
     if (patch.postcode !== undefined) setAddressPostcode(patch.postcode);
+  }
+
+  // Dynamic Thai administrative areas (provinces/districts/subdistricts)
+  // Prefer local static JSON shipped in public/data; fallback to GitHub raw URLs
+  const PROVINCES_JSON_LOCAL = '/data/api_province.json';
+  const DISTRICTS_JSON_LOCAL = '/data/api_district.json';
+  const SUBDISTRICTS_JSON_LOCAL = '/data/api_subdistrict.json';
+  const PROVINCES_JSON_FALLBACK = 'https://raw.githubusercontent.com/kongvut/thai-province-data/refs/heads/master/api/latest/province.json';
+  const DISTRICTS_JSON_FALLBACK = 'https://raw.githubusercontent.com/kongvut/thai-province-data/refs/heads/master/api/latest/district.json';
+  const SUBDISTRICTS_JSON_FALLBACK = 'https://raw.githubusercontent.com/kongvut/thai-province-data/refs/heads/master/api/latest/sub_district.json';
+
+  const [provincesList, setProvincesList] = useState([]); // { name, code }
+  const [districtOptions, setDistrictOptions] = useState([]); // { name, code }
+  const [subdistrictOptions, setSubdistrictOptions] = useState([]); // { name, code, zipcode }
+  const [districtsCache, setDistrictsCache] = useState(null);
+  const [subdistrictsCache, setSubdistrictsCache] = useState(null);
+  const [districtsMap, setDistrictsMap] = useState(null);
+  const [subdistrictsMap, setSubdistrictsMap] = useState(null);
+
+  // load provinces, districts, subdistricts on mount and build lookup maps
+  useEffect(() => {
+    let mounted = true;
+    async function loadAll() {
+      try {
+        const fetchOrFallback = async (localUrl, fallbackUrl) => {
+          let r = await fetch(localUrl);
+          if (!r.ok) r = await fetch(fallbackUrl);
+          return await r.json();
+        };
+
+        const [provData, districtData, subData] = await Promise.all([
+          fetchOrFallback(PROVINCES_JSON_LOCAL, PROVINCES_JSON_FALLBACK),
+          fetchOrFallback(DISTRICTS_JSON_LOCAL, DISTRICTS_JSON_FALLBACK),
+          fetchOrFallback(SUBDISTRICTS_JSON_LOCAL, SUBDISTRICTS_JSON_FALLBACK),
+        ]);
+
+        if (!mounted) return;
+        setProvincesList(provData.map((p) => ({ name: p.name_th || p.name, code: p.id ?? p.code })));
+        setDistrictsCache(districtData);
+        setSubdistrictsCache(subData);
+
+        const dmap = {};
+        for (const d of districtData || []) {
+          const pid = String(d.province_id ?? d.province_code ?? d.provinceId ?? d.province);
+          if (!dmap[pid]) dmap[pid] = [];
+          dmap[pid].push(d);
+        }
+        setDistrictsMap(dmap);
+
+        const smap = {};
+        for (const s of subData || []) {
+          const did = String(s.district_id ?? s.district_code ?? s.amphure_id ?? s.district);
+          if (!smap[did]) smap[did] = [];
+          smap[did].push(s);
+        }
+        setSubdistrictsMap(smap);
+      } catch (err) {
+        // fallback to static provinces if anything fails
+        console.error('loadAll location data failed', err);
+        setProvincesList(TH_PROVINCES.map((p, i) => ({ name: p, code: String(i) })));
+        setDistrictsCache(null);
+        setSubdistrictsCache(null);
+        setDistrictsMap(null);
+        setSubdistrictsMap(null);
+      }
+    }
+    loadAll();
+    return () => { mounted = false; };
+  }, []);
+
+  async function loadDistrictsForProvince(provinceNameOrCode) {
+    try {
+      if (!provinceNameOrCode) {
+        setDistrictOptions([]);
+        return;
+      }
+      // find province code if provinceNameOrCode is a name
+      let provinceCode = provinceNameOrCode;
+      if (isNaN(Number(provinceNameOrCode))) {
+        const p = provincesList.find((x) => x.name === provinceNameOrCode);
+        provinceCode = p?.code;
+      }
+
+      const pid = String(provinceCode);
+      // prefer pre-built map
+      if (districtsMap) {
+        const list = districtsMap[pid] || [];
+        try { console.debug('loadDistrictsForProvince (from map)', { provinceCode: pid, matched: list.length }); } catch(e) {}
+        setDistrictOptions(list.map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code })));
+        return;
+      }
+
+      // fallback: load districts JSON once
+      let districtsData = districtsCache;
+      if (!districtsData) {
+        let res = await fetch(DISTRICTS_JSON_LOCAL);
+        if (!res.ok) res = await fetch(DISTRICTS_JSON_FALLBACK);
+        districtsData = await res.json();
+        setDistrictsCache(districtsData);
+      }
+      const filtered = districtsData.filter((d) => String(d.province_id ?? d.province_code) === pid);
+      try { console.debug('loadDistrictsForProvince (fallback)', { provinceCode: pid, districtsTotal: districtsData.length, matched: filtered.length }); } catch(e) {}
+      setDistrictOptions(filtered.map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code })));
+    } catch (err) {
+      console.error('loadDistrictsForProvince error', err);
+      setDistrictOptions([]);
+    }
+  }
+
+  async function loadSubdistrictsForDistrict(districtCode) {
+    try {
+      if (!districtCode) {
+        setSubdistrictOptions([]);
+        return;
+      }
+      const did = String(districtCode);
+      if (subdistrictsMap) {
+        const list = subdistrictsMap[did] || [];
+        try { console.debug('loadSubdistrictsForDistrict (from map)', { districtCode: did, matched: list.length }); } catch(e) {}
+        setSubdistrictOptions(list.map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip })));
+        return;
+      }
+
+      let subs = subdistrictsCache;
+      if (!subs) {
+        let res = await fetch(SUBDISTRICTS_JSON_LOCAL);
+        if (!res.ok) res = await fetch(SUBDISTRICTS_JSON_FALLBACK);
+        subs = await res.json();
+        setSubdistrictsCache(subs);
+      }
+      const filtered = subs.filter((s) => String(s.district_id ?? s.district_code) === did);
+      try { console.debug('loadSubdistrictsForDistrict (fallback)', { districtCode: did, total: subs.length, matched: filtered.length }); } catch(e) {}
+      setSubdistrictOptions(filtered.map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip })));
+    } catch (err) {
+      console.error('loadSubdistrictsForDistrict error', err);
+      setSubdistrictOptions([]);
+    }
   }
 
   // validate password/confirm
@@ -540,52 +678,95 @@ export default function Signup() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 mb-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">แขวง/ตำบล</label>
-                      <input
-                        name="addr_subdistrict"
-                        value={addressSubdistrict}
-                        onChange={(e) => updateAddress({ subdistrict: e.target.value })}
-                        placeholder="ตำบล/แขวง"
-                        className="w-full h-9 rounded-xl border border-gray-300 bg-white px-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">อำเภอ/เขต</label>
-                      <input
-                        name="addr_district"
-                        value={addressDistrict}
-                        onChange={(e) => updateAddress({ district: e.target.value })}
-                        placeholder="อำเภอ/เขต"
-                        className="w-full h-9 rounded-xl border border-gray-300 bg-white px-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        required
-                      />
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-3 gap-3 items-end">
+                  <div className="grid grid-cols-3 gap-3 mb-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">จังหวัด</label>
                       <div className="relative">
                         <select
                           name="addr_province"
                           value={addressProvince}
-                          onChange={(e) => updateAddress({ province: e.target.value })}
+                          onChange={async (e) => {
+                            const code = e.target.value;
+                            // store province id
+                            updateAddress({ province: code, district: '', subdistrict: '', postcode: '' });
+                            await loadDistrictsForProvince(code);
+                            setSubdistrictOptions([]);
+                            setAddressDistrict('');
+                            setAddressSubdistrict('');
+                          }}
                           className="appearance-none mt-1 w-full h-9 rounded-xl border border-gray-300 bg-white pl-3 pr-8 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           style={{ WebkitAppearance: 'none', MozAppearance: 'none', appearance: 'none' }}
                           required
                         >
                           <option value="" disabled>เลือกจังหวัด</option>
-                          {TH_PROVINCES.map((p) => (
-                            <option key={p} value={p}>{p}</option>
+                          {provincesList.length > 0
+                            ? provincesList.map((p) => (
+                                <option key={p.code} value={p.code}>{p.name}</option>
+                              ))
+                            : TH_PROVINCES.map((p) => (
+                                <option key={p} value={p}>{p}</option>
+                              ))}
+                        </select>
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">▾</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">อำเภอ/เขต</label>
+                      <div className="relative">
+                        <select
+                          name="addr_district"
+                          value={addressDistrict}
+                          onChange={async (e) => {
+                            const code = e.target.value;
+                            // store district id
+                            const found = districtOptions.find((d) => String(d.code) === String(code));
+                            updateAddress({ district: code, subdistrict: '', postcode: '' });
+                            if (found) {
+                              await loadSubdistrictsForDistrict(found.code);
+                            } else {
+                              setSubdistrictOptions([]);
+                            }
+                          }}
+                          className="appearance-none mt-1 w-full h-9 rounded-xl border border-gray-300 bg-white pl-3 pr-8 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          required
+                        >
+                          <option value="" disabled>{districtOptions.length ? 'เลือกอำเภอ/เขต' : 'เลือกจังหวัดก่อน'}</option>
+                          {districtOptions.map((d) => (
+                            <option key={d.code || d.name} value={d.code}>{d.name}</option>
                           ))}
                         </select>
                         <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">▾</span>
                       </div>
                     </div>
 
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">แขวง/ตำบล</label>
+                      <div className="relative">
+                        <select
+                          name="addr_subdistrict"
+                          value={addressSubdistrict}
+                          onChange={(e) => {
+                            const code = e.target.value;
+                            const found = subdistrictOptions.find((s) => String(s.code) === String(code));
+                            updateAddress({ subdistrict: code });
+                            if (found && found.zipcode) updateAddress({ postcode: found.zipcode });
+                          }}
+                          className="appearance-none mt-1 w-full h-9 rounded-xl border border-gray-300 bg-white pl-3 pr-8 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          required
+                        >
+                          <option value="" disabled>{subdistrictOptions.length ? 'เลือกแขวง/ตำบล' : 'เลือกอำเภอก่อน'}</option>
+                          {subdistrictOptions.map((s) => (
+                            <option key={s.code || s.name} value={s.code}>{s.name}</option>
+                          ))}
+                        </select>
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">▾</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3 items-end">
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">รหัสไปรษณีย์</label>
                       <input
@@ -600,11 +781,31 @@ export default function Signup() {
                       />
                     </div>
 
-                    <div className="text-xs text-gray-400">ตัวอย่าง: เลขที่/ซอย/ถนน, ตำบล, อำเภอ, จังหวัด, รหัสไปรษณีย์</div>
+                    <div className="col-span-2 text-xs text-gray-400 flex items-center">ตัวอย่าง: เลขที่/ซอย/ถนน, ตำบล, อำเภอ, จังหวัด, รหัสไปรษณีย์</div>
                   </div>
 
                   {/* combined hidden address JSON so existing submission code still works */}
-                  <input type="hidden" name="address" value={JSON.stringify({ street: addressStreet, subdistrict: addressSubdistrict, district: addressDistrict, province: addressProvince, postcode: addressPostcode })} />
+                  <input
+                    type="hidden"
+                    name="address"
+                    value={JSON.stringify({
+                      street: addressStreet,
+                      province: {
+                        id: addressProvince,
+                        name: provincesList.find((p) => String(p.code) === String(addressProvince))?.name || "",
+                      },
+                      district: {
+                        id: addressDistrict,
+                        name: districtOptions.find((d) => String(d.code) === String(addressDistrict))?.name || "",
+                      },
+                      subdistrict: {
+                        id: addressSubdistrict,
+                        name: subdistrictOptions.find((s) => String(s.code) === String(addressSubdistrict))?.name || "",
+                        zipcode: addressPostcode || (subdistrictOptions.find((s) => String(s.code) === String(addressSubdistrict))?.zipcode || ""),
+                      },
+                      postcode: addressPostcode,
+                    })}
+                  />
                 </div>
               </label>
 

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prepare:thai-data": "node ./tools/fetch-thai-data.js",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
