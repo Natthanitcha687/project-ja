@@ -1020,12 +1020,7 @@ export default function WarrantyDashboard() {
                   className="relative grid h-10 w-10 place-items-center rounded-full bg-white shadow ring-1 ring-black/5 hover:bg-gray-50 transition"
                 >
                   <span className="text-xl">🔔</span>
-                  {(() => {
-                    const unread = (notifications || []).filter(n => !n.read).length
-                    return unread > 0 ? (
-                      <span className="absolute -top-0 -right-0 inline-flex items-center justify-center rounded-full bg-rose-500 px-2 py-0.5 text-xs font-semibold text-white">{unread}</span>
-                    ) : null
-                  })()}
+                  {/* unread badge removed per request */}
                 </button>
 
                 {notifOpen && (
@@ -1038,14 +1033,7 @@ export default function WarrantyDashboard() {
                       <div className="py-6 text-center text-slate-500">กำลังโหลด...</div>
                     ) : (notifications || []).length === 0 ? (
                       <div className="py-4 text-slate-600">
-                        {isNewAccount ? (
-                          <div className="space-y-1">
-                            <div className="font-medium text-slate-900">ยินดีต้อนรับ 🎉</div>
-                            <div>คุณสมัครเข้าใช้งานสำเร็จ — ขอบคุณที่สมัครใช้งานกับเรา</div>
-                          </div>
-                        ) : (
-                          <div className="text-center">ไม่มีการแจ้งเตือน</div>
-                        )}
+                        <div className="text-center">ไม่มีการแจ้งเตือน</div>
                       </div>
                     ) : (
                       <ul className="space-y-2 max-h-64 overflow-y-auto">

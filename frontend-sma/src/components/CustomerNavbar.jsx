@@ -1,7 +1,7 @@
 // frontend-sma/src/components/CustomerNavbar.jsx
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { api } from "../lib/api";
+import { api, API_URL, getToken } from "../lib/api";
 import { useAuth } from "../store/auth";
 import AppLogo from "../components/AppLogo"; // ✅ ใช้โลโก้จริง
 import CustomerProfileModal from "./CustomerProfileModal";
@@ -16,19 +16,80 @@ export default function CustomerNavbar() {
   const menuRef = useRef(null);
   const notifRef = useRef(null);
 
-  // 🔔 การแจ้งเตือน
-  const [notifications, setNotifications] = useState([
-    { id: 1, message: "ใบรับประกัน WR002 ใกล้หมดอายุ", type: "warning", read: false },
-    { id: 2, message: "ใบรับประกัน WR001 หมดอายุแล้ว", type: "expired", read: false },
-  ]);
+  // 🔔 การแจ้งเตือน (ดึงจาก API + สมัคร SSE)
+  const [notifications, setNotifications] = useState([]);
+  const [notifLoading, setNotifLoading] = useState(false);
 
   // 🟦 นับเฉพาะที่ยังไม่อ่าน
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   // ✅ ทำเครื่องหมายว่าอ่านแล้ว
-  function markAllAsRead() {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  async function fetchNotifications() {
+    try {
+      setNotifLoading(true)
+      const res = await api.get('/notifications')
+      const data = res?.data?.data || res?.data || []
+      setNotifications(Array.isArray(data) ? data : [])
+      return data
+    } catch (e) {
+      setNotifications([])
+      return []
+    } finally {
+      setNotifLoading(false)
+    }
   }
+
+  async function markAllAsRead() {
+    try {
+      setNotifLoading(true);
+      await api.post('/notifications/mark-all-read');
+      await fetchNotifications();
+    } catch (e) {
+      // ignore
+    } finally {
+      setNotifLoading(false);
+    }
+  }
+
+  async function markOneAsRead(id) {
+    try {
+      await api.patch(`/notifications/${id}/read`);
+      await fetchNotifications();
+    } catch (e) {}
+  }
+
+  // Fetch notifications once
+  useEffect(() => {
+    let mounted = true
+    async function load() {
+      try {
+        setNotifLoading(true)
+        const res = await api.get('/notifications')
+        const data = res?.data?.data || res?.data || []
+        if (mounted) setNotifications(Array.isArray(data) ? data : [])
+      } catch (e) {
+        if (mounted) setNotifications([])
+      } finally {
+        if (mounted) setNotifLoading(false)
+      }
+    }
+    load()
+
+    // SSE for real-time
+    const token = getToken()
+    if (token) {
+      const es = new EventSource(`${API_URL.replace(/\/+$/, '')}/notifications/stream?token=${token}`)
+      es.addEventListener('notification', (ev) => {
+        try { const payload = JSON.parse(ev.data); setNotifications((p)=>[payload, ...(p||[])]); } catch (e) {}
+      })
+      es.onerror = () => {}
+      return () => {
+        mounted = false
+        try { es.close() } catch {}
+      }
+    }
+    return () => { mounted = false }
+  }, [])
 
   // ปิด dropdown เมื่อคลิกข้างนอก
   useEffect(() => {
@@ -175,18 +236,22 @@ export default function CustomerNavbar() {
             <div className="relative" ref={notifRef}>
               <button
                 title="การแจ้งเตือน"
-                onClick={() => {
-                  setOpenNotif((v) => !v);
-                  if (!openNotif) markAllAsRead();
+                onClick={async () => {
+                  // toggle dropdown; if opening, optimistically mark all read locally
+                  const next = !openNotif
+                  setOpenNotif(next)
+                  if (next) {
+                    setNotifications((prev) => (prev || []).map((n) => ({ ...n, read: true })))
+                    try {
+                      await api.post('/notifications/mark-all-read')
+                    } catch (e) {}
+                    try { await fetchNotifications() } catch (e) {}
+                  }
                 }}
                 className="grid h-9 w-9 place-items-center rounded-full bg-white shadow ring-1 ring-sky-100 text-sky-600 hover:bg-sky-50 transition"
               >
                 <span className="text-lg">🔔</span>
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-rose-500 text-[10px] text-white">
-                    {unreadCount}
-                  </span>
-                )}
+                {/* unread badge removed per request */}
               </button>
 
               {/* Dropdown แจ้งเตือน */}
@@ -210,7 +275,8 @@ export default function CustomerNavbar() {
                       notifications.map((n) => (
                         <div
                           key={n.id}
-                          className={`px-4 py-3 text-sm border-b last:border-0 transition ${
+                          onClick={() => { if (!n.read) markOneAsRead(n.id); }}
+                          className={`px-4 py-3 text-sm border-b last:border-0 transition cursor-pointer ${
                             n.type === "warning"
                               ? "bg-amber-50 text-amber-800"
                               : n.type === "expired"
@@ -218,7 +284,15 @@ export default function CustomerNavbar() {
                               : "bg-white text-slate-700"
                           } ${n.read ? "opacity-70" : "font-semibold"}`}
                         >
-                          {n.message}
+                          <div className="truncate">
+                            <div className="text-sm font-semibold">{n.title || (n.data && n.data.type) || 'การแจ้งเตือน'}</div>
+                            {n.body && <div className="text-xs text-slate-500 mt-1">{n.body}</div>}
+                          </div>
+                          {n.createdAt && (
+                            <div className="text-[10px] text-slate-400 mt-1">
+                              {new Date(n.createdAt).toLocaleString()}
+                            </div>
+                          )}
                         </div>
                       ))
                     )}

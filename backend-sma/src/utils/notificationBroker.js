@@ -54,12 +54,19 @@ export async function publishNotification({ prisma, notification }) {
   // notification: { id, userId, storeId, title, body, data, createdAt }
   // send to user clients
   const payload = notification
-  if (notification.userId) {
-    const list = clientsByUser.get(notification.userId) || []
-    for (const { res } of list) sendEvent(res, 'notification', payload)
-  }
-  if (notification.storeId) {
-    const list = clientsByStore.get(notification.storeId) || []
-    for (const { res } of list) sendEvent(res, 'notification', payload)
+  try {
+    if (notification.userId) {
+      const list = clientsByUser.get(notification.userId) || []
+      // debug log
+      console.log(`publishNotification -> userId=${notification.userId} clients=${list.length} id=${notification.id}`)
+      for (const { res } of list) sendEvent(res, 'notification', payload)
+    }
+    if (notification.storeId) {
+      const list = clientsByStore.get(notification.storeId) || []
+      console.log(`publishNotification -> storeId=${notification.storeId} clients=${list.length} id=${notification.id}`)
+      for (const { res } of list) sendEvent(res, 'notification', payload)
+    }
+  } catch (e) {
+    console.warn('publishNotification error', e?.message || e)
   }
 }

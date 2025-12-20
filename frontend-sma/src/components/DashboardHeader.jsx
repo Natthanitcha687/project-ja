@@ -2,6 +2,7 @@ import { useRef, useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../store/auth'
 import AppLogo from './AppLogo'
+import { api } from '../lib/api'
 
 export default function DashboardHeader({ title, subtitle, notifications = [], onFetchNotifications }) {
   const { user, logout } = useAuth()
@@ -22,6 +23,13 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
   }, [notifOpen])
+
+  // fetch notifications once on mount so badge is populated before user interaction
+  useEffect(() => {
+    if (onFetchNotifications) {
+      onFetchNotifications().catch(() => {})
+    }
+  }, [onFetchNotifications])
 
   useEffect(() => {
     if (!isProfileMenuOpen) return
@@ -61,14 +69,23 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
           <div className="relative" ref={notifRef}>
             <button
               type="button"
-              onClick={async () => { setNotifOpen(p => !p); if (!notifOpen && onFetchNotifications) { setNotifLoading(true); await onFetchNotifications(); setNotifLoading(false); } }}
+              onClick={async () => {
+                const next = !notifOpen
+                setNotifOpen(next)
+                if (next) {
+                  try { await api.post('/notifications/mark-all-read') } catch (e) {}
+                  if (onFetchNotifications) {
+                    setNotifLoading(true)
+                    try { await onFetchNotifications() } catch {}
+                    setNotifLoading(false)
+                  }
+                }
+              }}
               className="relative grid h-10 w-10 place-items-center rounded-full bg-white shadow ring-1 ring-black/5 hover:bg-gray-50 transition"
               aria-label="การแจ้งเตือน"
             >
               <span className="text-xl">🔔</span>
-              {notifications.filter(n => !n.read).length > 0 && (
-                <span className="absolute -top-0 -right-0 inline-flex items-center justify-center rounded-full bg-rose-500 px-2 py-0.5 text-xs font-semibold text-white">{notifications.filter(n => !n.read).length}</span>
-              )}
+              {/* unread badge removed per request */}
             </button>
 
             {notifOpen && (
@@ -81,14 +98,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
                   <div className="py-6 text-center text-slate-500">กำลังโหลด...</div>
                 ) : notifications.length === 0 ? (
                   <div className="py-4 text-slate-600">
-                    {isNewAccount ? (
-                      <div className="space-y-1">
-                        <div className="font-medium text-slate-900">ยินดีต้อนรับ 🎉</div>
-                        <div>คุณสมัครเข้าใช้งานสำเร็จ — ขอบคุณที่สมัครใช้งานกับเรา</div>
-                      </div>
-                    ) : (
-                      <div className="text-center">ไม่มีการแจ้งเตือน</div>
-                    )}
+                    <div className="text-center">ไม่มีการแจ้งเตือน</div>
                   </div>
                 ) : (
                   <ul className="space-y-2 max-h-64 overflow-y-auto">

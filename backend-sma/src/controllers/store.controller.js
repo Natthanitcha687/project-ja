@@ -2,6 +2,7 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "../db/prisma.js";
 import { createAndPublish as createNotification } from '../routes/notifications.routes.js'
+import { sendNotificationEmail } from '../services/email.js'
 import { sendError, sendSuccess } from "../utils/http.js";
 
 const DEFAULT_NOTIFY_DAYS = 14;
@@ -258,6 +259,78 @@ export async function updateStoreProfile(req, res) {
       } })
     } catch (e) {
       console.warn('notify store profile update failed', e?.message || e)
+    }
+
+    // Notify customers who have warranties with this store
+    try {
+      const warrs = await prisma.warranty.findMany({ where: { storeId }, select: { customerUserId: true, customerEmail: true } })
+      const userIds = [...new Set((warrs || []).map(w => w.customerUserId).filter(Boolean))]
+      const emails = [...new Set((warrs || []).filter(w => !w.customerUserId && w.customerEmail).map(w => w.customerEmail))]
+
+      const title = `ข้อมูลร้านค้า ${nextProfile.storeName || 'ร้านค้า'} ถูกอัปเดต`
+      const body = `ร้านค้าได้อัปเดตข้อมูลโปรไฟล์ โปรดตรวจสอบข้อมูลการรับประกันและข้อมูลผู้ติดต่อของคุณ`
+
+      for (const uid of userIds) {
+        try {
+          await createNotification({ prisma, attrs: {
+            userId: uid,
+            title,
+            body,
+            data: { type: 'store_profile_updated', storeId }
+          } })
+        } catch (e) {
+          console.warn('notify customer user failed', uid, e?.message || e)
+        }
+      }
+
+      for (const em of emails) {
+        try {
+          // if there is a user account for this email, notify via in-app
+          const u = await prisma.user.findFirst({ where: { email: em } })
+          if (u) {
+            try {
+              await createNotification({ prisma, attrs: {
+                userId: u.id,
+                title,
+                body,
+                data: { type: 'store_profile_updated', storeId }
+              } })
+            } catch (e) { console.warn('notify customer by userId failed', e?.message || e) }
+          } else {
+            // send as email if no user account
+            try {
+              await sendNotificationEmail({ to: em, subject: title, text: body })
+            } catch (e) { console.warn('send email to customer failed', em, e?.message || e) }
+          }
+        } catch (e) {
+          console.warn('notify customer email handling failed', em, e?.message || e)
+        }
+      }
+    } catch (e) {
+      console.warn('notify customers for store profile update failed', e?.message || e)
+    }
+
+    // Notify customers who have warranties at this store (if any)
+    try {
+      const customers = await prisma.warranty.findMany({
+        where: { storeId, customerUserId: { not: null } },
+        distinct: ['customerUserId'],
+        select: { customerUserId: true },
+        take: 200,
+      })
+      for (const c of customers) {
+        if (!c.customerUserId) continue
+        try {
+          await createNotification({ prisma, attrs: {
+            userId: c.customerUserId,
+            title: 'ข้อมูลร้านค้ามีการอัปเดต',
+            body: `ร้าน "${nextProfile.storeName || 'ร้านค้า'}" ได้ปรับปรุงข้อมูล โปรดตรวจสอบ`,
+            data: { type: 'store_profile_updated', storeId }
+          } })
+        } catch (e) { /* ignore per-user failures */ }
+      }
+    } catch (e) {
+      console.warn('notify customers store profile update failed', e?.message || e)
     }
 
     return sendSuccess(res, {
