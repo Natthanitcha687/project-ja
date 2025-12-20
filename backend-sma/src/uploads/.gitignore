@@ -1,0 +1,6 @@
+# Ignore all uploaded files except the directory structure
+*
+!.gitignore
+!warranty-images/
+warranty-images/*
+!warranty-images/.gitkeep

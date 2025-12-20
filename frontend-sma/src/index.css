@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+
+:root {
+  --brand:#f59e0b; 
+  --brand-600:#d97706;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Make interactive elements show pointer by default (except disabled) */
+button:not([disabled]),
+[role="button"],
+a[href],
+.clickable {
+  cursor: pointer;
+}
+
+button[disabled],
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
