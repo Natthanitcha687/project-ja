@@ -22,6 +22,7 @@ import WarrantyInfo from './pages/WarrantyInfo'
 import About from './pages/About'
 import StoreDashboard from './pages/StoreDashboard'
 import CustomerWarranty from './pages/CustomerWarranty.jsx'
+import CustomerComplaints from './pages/CustomerComplaints'
 
 // แถบของฝั่งลูกค้า / แดชบอร์ด (rich header with profile / notifications)
 import CustomerNavbar from './components/CustomerNavbar.jsx'
@@ -123,6 +124,7 @@ const router = createBrowserRouter([
           </ProtectedStoreRoute>
         ),
       },
+
       {
         path: '/dashboard/store',
         element: (
@@ -145,6 +147,16 @@ const router = createBrowserRouter([
         element: (
           <ProtectedCustomerRoute>
             <CustomerWarranty />
+          </ProtectedCustomerRoute>
+        ),
+      },
+
+      // ✅ เพิ่มให้ตรงกับลิงก์ /customer/complaints ที่อยู่ใน CustomerNavbar.jsx
+      {
+        path: 'complaints',
+        element: (
+          <ProtectedCustomerRoute>
+            <CustomerComplaints />
           </ProtectedCustomerRoute>
         ),
       },

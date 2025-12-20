@@ -10,24 +10,11 @@ import {
   requestPasswordReset,
   resetPassword
 } from '../controllers/auth.controller.js'
-import jwt from 'jsonwebtoken'
+
+// ✅ ใช้ middleware ตัวจริงที่เช็ค DB (กัน token เก่า + กันบัญชี SUSPENDED)
+import { requireAuth } from '../middleware/requireAuth.js'
 
 const router = Router()
-
-/**
- * Require Bearer JWT auth
- */
-function requireAuth(req, res, next) {
-  const header = req.headers.authorization || ''
-  const token = header.startsWith('Bearer ') ? header.slice(7) : null
-  if (!token) return res.status(401).json({ message: 'Missing token' })
-  try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET)
-    next()
-  } catch (e) {
-    return res.status(401).json({ message: 'Invalid token' })
-  }
-}
 
 /**
  * @openapi
@@ -210,6 +197,8 @@ router.post('/login', login)
  *         description: คืนข้อมูลผู้ใช้
  *       401:
  *         description: ไม่ได้ล็อกอินหรือโทเคนไม่ถูกต้อง
+ *       403:
+ *         description: บัญชีถูกระงับการใช้งาน
  */
 router.get('/me', requireAuth, me)
 

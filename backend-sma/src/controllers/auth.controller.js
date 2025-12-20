@@ -4,7 +4,6 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { sendVerificationEmail, sendPasswordResetEmail } from '../services/email.js'
 import crypto from 'crypto'
-import { createAndPublish as createNotification } from '../routes/notifications.routes.js'
 
 // ========= helpers =========
 function buildFrontendUrl(pathname, params = {}) {
@@ -13,19 +12,48 @@ function buildFrontendUrl(pathname, params = {}) {
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v ?? ''))
   return url.toString()
 }
+
 function addHours(date, hours) {
   const d = new Date(date)
   d.setHours(d.getHours() + hours)
   return d
 }
+
 function newRandomToken() {
   return crypto.randomBytes(24).toString('hex')
 }
+
 function sign(user) {
   const payload = { sub: user.id, role: user.role, email: user.email }
   const secret = process.env.JWT_SECRET || 'dev-secret'
   const expiresIn = process.env.JWT_EXPIRES_IN || '7d'
   return jwt.sign(payload, secret, { expiresIn })
+}
+
+async function ensureVerifyTokenAndSendEmail(user) {
+  // หา token ที่ยังไม่หมดอายุ ถ้าไม่มีให้สร้างใหม่
+  const existing = await prisma.verificationToken.findFirst({
+    where: { userId: user.id, expiresAt: { gt: new Date() } }
+  })
+
+  let token = existing?.token
+  if (!token) {
+    token = newRandomToken()
+    await prisma.verificationToken.create({
+      data: { token, userId: user.id, expiresAt: addHours(new Date(), 24) }
+    })
+  }
+
+  const verifyUrl = buildFrontendUrl('/verify-email', { token })
+  try {
+    await sendVerificationEmail({ to: user.email, verifyUrl })
+  } catch (e) {
+    console.error(e)
+  }
+
+  const resp = { message: 'กรุณายืนยันอีเมลก่อนใช้งาน', needsVerify: true }
+  if (process.env.NODE_ENV !== 'production') resp.verifyUrl = verifyUrl
+  return resp
 }
 
 // ========= controllers =========
@@ -54,8 +82,18 @@ export async function registerCustomer(req, res) {
 
     const verifyUrl = buildFrontendUrl('/verify-email', { token })
     let emailSent = false
-    try { await sendVerificationEmail({ to: user.email, verifyUrl }); emailSent = true } catch (e) { console.error(e) }
-    const resp = { ok: true, message: emailSent ? 'ลงทะเบียนสำเร็จ โปรดยืนยันอีเมล' : 'ลงทะเบียนสำเร็จ (ส่งอีเมลไม่สำเร็จ)', emailSent }
+    try {
+      await sendVerificationEmail({ to: user.email, verifyUrl })
+      emailSent = true
+    } catch (e) {
+      console.error(e)
+    }
+
+    const resp = {
+      ok: true,
+      message: emailSent ? 'ลงทะเบียนสำเร็จ โปรดยืนยันอีเมล' : 'ลงทะเบียนสำเร็จ (ส่งอีเมลไม่สำเร็จ)',
+      emailSent
+    }
     if (process.env.NODE_ENV !== 'production') resp.verifyUrl = verifyUrl
     return res.status(201).json(resp)
   } catch (err) {
@@ -68,7 +106,7 @@ export async function registerStore(req, res) {
   try {
     const {
       storeName,
-      typeStore,               // from frontend เก่า
+      typeStore, // from frontend เก่า
       storeType: storeTypeRaw, // in case ส่งตรงตาม schema
       ownerStore,
       ownerName: ownerNameRaw,
@@ -125,7 +163,12 @@ export async function registerStore(req, res) {
 
     const verifyUrl = buildFrontendUrl('/verify-email', { token })
     let emailSent = false
-    try { await sendVerificationEmail({ to: user.email, verifyUrl }); emailSent = true } catch (e) { console.error(e) }
+    try {
+      await sendVerificationEmail({ to: user.email, verifyUrl })
+      emailSent = true
+    } catch (e) {
+      console.error(e)
+    }
 
     const resp = {
       ok: true,
@@ -155,7 +198,13 @@ export async function resendVerification(req, res) {
 
     const verifyUrl = buildFrontendUrl('/verify-email', { token })
     let emailSent = false
-    try { await sendVerificationEmail({ to: user.email, verifyUrl }); emailSent = true } catch (e) { console.error(e) }
+    try {
+      await sendVerificationEmail({ to: user.email, verifyUrl })
+      emailSent = true
+    } catch (e) {
+      console.error(e)
+    }
+
     const resp = { ok: true, message: emailSent ? 'ส่งอีเมลยืนยันแล้ว' : 'ส่งอีเมลไม่สำเร็จ', emailSent }
     if (process.env.NODE_ENV !== 'production') resp.verifyUrl = verifyUrl
     res.json(resp)
@@ -188,64 +237,44 @@ export async function login(req, res) {
   try {
     const { email, password } = req.body
     const user = await prisma.user.findUnique({ where: { email } })
-    if (!user) {
-      // record failed attempt (no userId)
-      try {
-        await prisma.securityEvent.create({ data: { type: 'failed_login', email: email ?? null, ip: req.ip, userAgent: req.headers['user-agent'] ?? null, meta: { reason: 'no_user' } } })
-      } catch (e) {}
-      return res.status(401).json({ message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' })
+    if (!user) return res.status(401).json({ message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' })
+
+    // ✅ กันผู้ใช้ถูกระงับ (token เก่าไม่มีผล เพราะ login ไม่ออก token ให้)
+    if (user.status === 'SUSPENDED') {
+      // ถ้ามีวันหมดอายุ และหมดแล้ว → ปลดอัตโนมัติ
+      if (user.suspendedUntil && user.suspendedUntil <= new Date()) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            status: 'ACTIVE',
+            suspendedAt: null,
+            suspendedReason: null,
+            suspendedUntil: null
+          }
+        })
+      } else {
+        return res.status(403).json({
+          message: 'บัญชีถูกระงับการใช้งาน',
+          reason: user.suspendedReason || null,
+          suspendedUntil: user.suspendedUntil || null
+        })
+      }
     }
 
     const ok = await bcrypt.compare(password, user.passwordHash)
-    if (!ok) {
-      // record failed login
-      try {
-        await prisma.securityEvent.create({ data: { type: 'failed_login', userId: user.id, email: user.email, ip: req.ip, userAgent: req.headers['user-agent'] ?? null, meta: { reason: 'bad_password' } } })
-        // count recent failed attempts for this user (last 1 hour)
-        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000)
-        const cnt = await prisma.securityEvent.count({ where: { userId: user.id, type: 'failed_login', createdAt: { gte: oneHourAgo } } })
-        if (cnt >= 3) {
-          // create notification + email to user
-          try {
-            await createNotification({ prisma, attrs: {
-              userId: user.id,
-              title: 'ความพยายามล็อกอินล้มเหลวหลายครั้ง',
-              body: `มีการพยายามล็อกอินไปยังบัญชีของคุณไม่สำเร็จ ${cnt} ครั้งในชั่วโมงที่ผ่านมา หากไม่ใช่คุณ กรุณาตรวจสอบความปลอดภัยของบัญชี`,
-              data: { type: 'suspicious_login_attempts', count: cnt }
-            } })
-          } catch (e) { console.warn('notify suspicious login failed', e?.message || e) }
-        }
-      } catch (e) {}
-      return res.status(401).json({ message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' })
-    }
+    if (!ok) return res.status(401).json({ message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' })
 
     // ✅ บล็อคผู้ใช้ที่ยังไม่ยืนยันอีเมล
     if (!user.emailVerifiedAt) {
-      // หา token ที่ยังไม่หมดอายุ ถ้าไม่มีให้สร้างใหม่
-      const existing = await prisma.verificationToken.findFirst({
-        where: { userId: user.id, expiresAt: { gt: new Date() } }
-      })
-      let token = existing?.token
-      if (!token) {
-        token = newRandomToken()
-        await prisma.verificationToken.create({
-          data: { token, userId: user.id, expiresAt: addHours(new Date(), 24) }
-        })
-      }
-
-      const verifyUrl = buildFrontendUrl('/verify-email', { token })
-      try { await sendVerificationEmail({ to: user.email, verifyUrl }) } catch (e) { console.error(e) }
-
-      const resp = { message: 'กรุณายืนยันอีเมลก่อนใช้งาน', needsVerify: true }
-      if (process.env.NODE_ENV !== 'production') resp.verifyUrl = verifyUrl
+      const resp = await ensureVerifyTokenAndSendEmail(user)
       return res.status(403).json(resp)
     }
 
-    // record successful login event and update lastLoginAt
-    try {
-      await prisma.securityEvent.create({ data: { type: 'login', userId: user.id, email: user.email, ip: req.ip, userAgent: req.headers['user-agent'] ?? null } })
-      await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } })
-    } catch (e) { console.warn('login event record failed', e?.message || e) }
+    // ✅ อัปเดต lastLoginAt
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() }
+    })
 
     const token = sign(user)
     res.json({ token })
@@ -257,14 +286,16 @@ export async function login(req, res) {
 
 export async function me(req, res) {
   try {
-    const auth = req.headers.authorization || ''
-    const token = auth.startsWith('Bearer ') ? auth.slice(7) : null
-    if (!token) return res.status(401).json({ message: 'Unauthorized' })
-    const payload = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret')
+    // ✅ ให้ route /auth/me ใช้ middleware requireAuth (ตัวใหม่) แล้วส่ง req.user มาให้
+    const userId = Number(req.user?.id || req.user?.sub)
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' })
+
     const user = await prisma.user.findUnique({
-      where: { id: Number(payload.sub) },
+      where: { id: userId },
       include: { customerProfile: true, storeProfile: true }
     })
+
+    if (!user) return res.status(401).json({ message: 'Unauthorized' })
     res.json({ user })
   } catch (err) {
     console.error('me error:', err)
@@ -285,7 +316,13 @@ export async function requestPasswordReset(req, res) {
 
     const resetUrl = buildFrontendUrl('/reset-password', { token })
     let emailSent = false
-    try { await sendPasswordResetEmail({ to: user.email, resetUrl }); emailSent = true } catch (e) { console.error(e) }
+    try {
+      await sendPasswordResetEmail({ to: user.email, resetUrl })
+      emailSent = true
+    } catch (e) {
+      console.error(e)
+    }
+
     const resp = { ok: true, message: emailSent ? 'ส่งอีเมลรีเซ็ตรหัสผ่านแล้ว' : 'ส่งอีเมลไม่สำเร็จ', emailSent }
     if (process.env.NODE_ENV !== 'production') resp.resetUrl = resetUrl
     res.json(resp)

@@ -190,5 +190,54 @@ router.get(
   requireAuth, requireVerified, requireCustomer,
   customerCtrl.getMyWarrantyPdf
 )
+/* =========================
+ *  คำขอ/ร้องเรียน (NEW)
+ * ========================= */
+
+/**
+ * @openapi
+ * /customer/complaints:
+ *   post:
+ *     tags: [Customer]
+ *     summary: ลูกค้าสร้างคำขอ/ร้องเรียน
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [subject, message]
+ *             properties:
+ *               category: { type: string, nullable: true }
+ *               subject: { type: string }
+ *               message: { type: string }
+ *     responses:
+ *       '201': { description: Created }
+ *       '400': { description: Bad Request }
+ *       '401': { description: Unauthorized }
+ */
+router.post(
+  '/complaints',
+  requireAuth, requireVerified, requireCustomer,
+  customerCtrl.createMyComplaint
+)
+
+/**
+ * @openapi
+ * /customer/complaints:
+ *   get:
+ *     tags: [Customer]
+ *     summary: ลูกค้าดูรายการคำร้องเรียนของตัวเอง
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       '200': { description: OK }
+ *       '401': { description: Unauthorized }
+ */
+router.get(
+  '/complaints',
+  requireAuth, requireVerified, requireCustomer,
+  customerCtrl.listMyComplaints
+)
 
 export default router

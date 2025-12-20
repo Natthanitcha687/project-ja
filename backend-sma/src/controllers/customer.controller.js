@@ -1,4 +1,3 @@
-// backend-sma/src/controllers/customer.controller.js
 import bcrypt from 'bcryptjs'
 import { prisma } from '../db/prisma.js'
 import * as warrantyCtrl from './warranty.controller.js'
@@ -127,7 +126,7 @@ export async function updateMyProfile(req, res, next) {
         body: 'ข้อมูลโปรไฟล์ของคุณได้รับการอัปเดตแล้ว',
         data: { type: 'profile_updated' }
       } })
-    
+
       // Notify stores that have warranties linked to this customer (by userId or email)
       try {
         const linked = await prisma.warranty.findMany({
@@ -301,6 +300,7 @@ export async function updateMyNote(req, res, next) {
     })
 
     res.json({ message: 'Saved', item: updated })
+
     // notify store about customer note
     try {
       if (updated && updated.warrantyId) {
@@ -338,6 +338,79 @@ export async function getMyWarrantyPdf(req, res, next) {
     // ส่งต่อให้ตัว renderer ที่มีอยู่จริง
     req.params.warrantyId = warrantyId
     return warrantyCtrl.downloadWarrantyPdf(req, res, next)
+  } catch (err) {
+    next(err)
+  }
+}
+/* =========================
+ * Complaints (NEW)
+ * ========================= */
+
+// POST /customer/complaints
+export async function createMyComplaint(req, res, next) {
+  try {
+    const me = await prisma.user.findUnique({ where: { id: Number(req.user.id) } })
+    if (!me || me.role !== 'CUSTOMER') {
+      return res.status(404).json({ message: 'ไม่พบบัญชีลูกค้า' })
+    }
+
+    const body = req.body ?? {}
+    const category = trimOrNull(body.category)
+    const subject = trimOrNull(body.subject)
+    const message = trimOrNull(body.message)
+
+    if (!subject) return res.status(400).json({ message: 'กรุณากรอกหัวข้อ (subject)' })
+    if (!message) return res.status(400).json({ message: 'กรุณากรอกรายละเอียด (message)' })
+
+    if (subject.length > 200) {
+      return res.status(400).json({ message: 'subject ยาวเกินไป (สูงสุด 200 ตัวอักษร)' })
+    }
+    if (message.length > 5000) {
+      return res.status(400).json({ message: 'message ยาวเกินไป (สูงสุด 5000 ตัวอักษร)' })
+    }
+
+    const complaint = await prisma.complaint.create({
+      data: {
+        userId: me.id,
+        category,
+        subject,
+        message,
+      },
+    })
+
+    // แจ้งเตือนกลับไปหาลูกค้า (optional - ถ้าพลาดก็ไม่ทำให้ API ล้ม)
+    try {
+      await createNotification({
+        prisma,
+        attrs: {
+          userId: me.id,
+          title: 'ส่งคำร้องเรียนแล้ว',
+          body: `เราได้รับเรื่อง: ${complaint.subject}`,
+          data: { type: 'complaint_created', complaintId: complaint.id },
+        },
+      })
+    } catch (e) {
+      console.warn('notify complaint_created failed', e?.message || e)
+    }
+
+    return res.status(201).json({ message: 'รับเรื่องเรียบร้อย', complaint })
+  } catch (err) {
+    next(err)
+  }
+}
+
+// GET /customer/complaints
+export async function listMyComplaints(req, res, next) {
+  try {
+    const meId = Number(req.user.id)
+
+    const complaints = await prisma.complaint.findMany({
+      where: { userId: meId },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    })
+
+    return res.json({ complaints })
   } catch (err) {
     next(err)
   }

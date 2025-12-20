@@ -1,23 +1,27 @@
 import React from "react";
-import ReactDOM from "react-dom/client";
+import { createRoot } from "react-dom/client";
+import {
+  createBrowserRouter,
+  RouterProvider,
+  Navigate,
+} from "react-router-dom";
 import "./index.css";
 
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
-import { AuthProvider } from "./store/auth";
+import { AuthProvider } from "./store/auth.jsx";
+import AdminProtectedRoute from "./routes/AdminProtectedRoute.jsx";
 
-import AdminProtectedRoute from "./routes/AdminProtectedRoute";
-import AdminLayout from "./layouts/AdminLayout";
+import AdminLayout from "./layouts/AdminLayout.jsx";
+import AdminLogin from "./pages/AdminLogin.jsx";
 
-import AdminLogin from "./pages/AdminLogin";
-import Dashboard from "./pages/Dashboard";
-import Stores from "./pages/Stores";
-import Users from "./pages/Users";
-import Security from "./pages/Security";
-import Logs from "./pages/Logs";
-import Complaints from "./pages/Complaints";
+import Stores from "./pages/Stores.jsx";
+import Users from "./pages/Users.jsx";
+import Security from "./pages/Security.jsx";
+import Logs from "./pages/Logs.jsx";
+import Complaints from "./pages/Complaints.jsx";
 
 const router = createBrowserRouter([
   { path: "/login", element: <AdminLogin /> },
+
   {
     path: "/",
     element: (
@@ -26,17 +30,19 @@ const router = createBrowserRouter([
       </AdminProtectedRoute>
     ),
     children: [
-      { index: true, element: <Dashboard /> },
+      // ✅ เข้า stores เป็น default ตามรูป
+      { index: true, element: <Navigate to="stores" replace /> },
+
       { path: "stores", element: <Stores /> },
       { path: "users", element: <Users /> },
       { path: "security", element: <Security /> },
       { path: "logs", element: <Logs /> },
-      { path: "complaints", element: <Complaints /> }
+      { path: "complaints", element: <Complaints /> },
     ],
   },
 ]);
 
-ReactDOM.createRoot(document.getElementById("root")).render(
+createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <AuthProvider>
       <RouterProvider router={router} />

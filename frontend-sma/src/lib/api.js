@@ -15,16 +15,54 @@ export const api = axios.create({
 export function getToken() {
   return localStorage.getItem('token') || sessionStorage.getItem('token') || ''
 }
+
 export function setToken(token, { persist = true } = {}) {
   if (!token) return clearToken()
   const store = persist ? localStorage : sessionStorage
   store.setItem('token', token)
   api.defaults.headers.common.Authorization = `Bearer ${token}`
 }
+
 export function clearToken() {
   localStorage.removeItem('token')
   sessionStorage.removeItem('token')
   delete api.defaults.headers.common.Authorization
+}
+
+/* ===== small helpers for global redirect/events ===== */
+function safeRedirectToSignIn(query = '') {
+  try {
+    const path = window.location?.pathname || ''
+    // กัน redirect loop ถ้าอยู่หน้า signin อยู่แล้ว
+    if (path.startsWith('/signin')) return
+    window.location.assign(`/signin${query}`)
+  } catch {
+    // ignore
+  }
+}
+
+function readApiMessage(err) {
+  return (
+    err?.response?.data?.message ||
+    err?.response?.data?.error ||
+    err?.message ||
+    ''
+  )
+}
+
+function isSuspendedError(err) {
+  const status = err?.response?.status
+  if (status !== 403) return false
+
+  const code = err?.response?.data?.code
+  if (code && String(code).toUpperCase().includes('SUSPEND')) return true
+
+  const msg = readApiMessage(err)
+  // รองรับข้อความที่เราใช้ใน backend
+  return (
+    msg.includes('บัญชีถูกระงับ') ||
+    msg.toLowerCase().includes('suspend')
+  )
 }
 
 /* ===== Axios: ใส่ token ให้ทุก request ===== */
@@ -36,10 +74,52 @@ api.interceptors.request.use((config) => {
   }
   return config
 })
+
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    // ถ้าต้องการ handle 401 global ให้ทำตรงนี้
+    const status = err?.response?.status
+    const msg = readApiMessage(err)
+
+    // ✅ เคส 401: token ใช้ไม่ได้ / หมดอายุ / ไม่ผ่าน requireAuth
+    if (status === 401) {
+      // ล้าง token ทิ้ง เพื่อไม่ให้ “token เก่า” เรียก API ต่อได้
+      clearToken()
+
+      // ยิง event เผื่อบางหน้าจะฟังเพื่อโชว์ toast
+      try {
+        window.dispatchEvent(
+          new CustomEvent('auth:unauthorized', { detail: { message: msg || 'Unauthorized' } })
+        )
+      } catch {}
+
+      // redirect ไปหน้า signin
+      safeRedirectToSignIn('?reason=unauthorized')
+    }
+
+    // ✅ เคส 403 แบบ “ถูกระงับ”
+    if (isSuspendedError(err)) {
+      clearToken()
+
+      // เก็บ detail เผื่ออยากโชว์เหตุผล/วันหมดระงับในหน้า signin
+      const reason = err?.response?.data?.reason || null
+      const suspendedUntil = err?.response?.data?.suspendedUntil || null
+
+      try {
+        window.dispatchEvent(
+          new CustomEvent('auth:suspended', {
+            detail: {
+              message: msg || 'Account suspended',
+              reason,
+              suspendedUntil,
+            },
+          })
+        )
+      } catch {}
+
+      safeRedirectToSignIn('?reason=suspended')
+    }
+
     return Promise.reject(err)
   }
 )
@@ -55,7 +135,11 @@ if (bootToken) {
    - ครอบคลุมกรณีที่บางหน้าใช้ window.fetch โดยไม่ได้ใช้ api ของ axios
    ========================================================================= */
 const API_ORIGIN = (() => {
-  try { return new URL(API_URL).origin } catch { return '' }
+  try {
+    return new URL(API_URL).origin
+  } catch {
+    return ''
+  }
 })()
 
 if (typeof window !== 'undefined' && typeof window.fetch === 'function') {
@@ -73,11 +157,9 @@ if (typeof window !== 'undefined' && typeof window.fetch === 'function') {
       if (!urlStr) {
         shouldAttach = true // fallback แนบไว้
       } else if (/^https?:\/\//i.test(urlStr)) {
-        // absolute
         const u = new URL(urlStr)
-        shouldAttach = (u.origin === API_ORIGIN)
+        shouldAttach = u.origin === API_ORIGIN
       } else {
-        // relative path → ถือว่าไปที่ API เดียวกัน (ผ่าน CORS proxy/เดียวกัน)
         shouldAttach = true
       }
     } catch {
@@ -87,11 +169,10 @@ if (typeof window !== 'undefined' && typeof window.fetch === 'function') {
     if (shouldAttach) {
       const token = getToken()
       if (token) {
-        // รวม headers เดิม + เติม Authorization ถ้ายังไม่มี
         const headers = new Headers(
           init.headers ||
-          (typeof input !== 'string' && input && input.headers) ||
-          {}
+            (typeof input !== 'string' && input && input.headers) ||
+            {}
         )
         if (!headers.has('Authorization')) {
           headers.set('Authorization', `Bearer ${token}`)
@@ -100,6 +181,43 @@ if (typeof window !== 'undefined' && typeof window.fetch === 'function') {
       }
     }
 
-    return _fetch(input, init)
+    const res = await _fetch(input, init)
+
+    // ✅ สำคัญ: ถ้า fetch เจอ 401/403(ระงับ) ก็ล้าง token + เด้งหน้า signin เหมือน axios
+    try {
+      if (res.status === 401) {
+        clearToken()
+        try {
+          window.dispatchEvent(
+            new CustomEvent('auth:unauthorized', { detail: { message: 'Unauthorized' } })
+          )
+        } catch {}
+        safeRedirectToSignIn('?reason=unauthorized')
+      } else if (res.status === 403) {
+        // พยายามอ่าน body เพื่อดู message ว่าเป็น suspended หรือไม่
+        let bodyText = ''
+        try {
+          const clone = res.clone()
+          bodyText = await clone.text()
+        } catch {}
+
+        const looksSuspended =
+          bodyText.includes('บัญชีถูกระงับ') || bodyText.toLowerCase().includes('suspend')
+
+        if (looksSuspended) {
+          clearToken()
+          try {
+            window.dispatchEvent(
+              new CustomEvent('auth:suspended', { detail: { message: 'Account suspended' } })
+            )
+          } catch {}
+          safeRedirectToSignIn('?reason=suspended')
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    return res
   }
 }
