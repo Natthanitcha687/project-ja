@@ -24,11 +24,26 @@ export default function CustomerNavbar() {
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   // ✅ ทำเครื่องหมายว่าอ่านแล้ว
+  async function fetchNotifications() {
+    try {
+      setNotifLoading(true)
+      const res = await api.get('/notifications')
+      const data = res?.data?.data || res?.data || []
+      setNotifications(Array.isArray(data) ? data : [])
+      return data
+    } catch (e) {
+      setNotifications([])
+      return []
+    } finally {
+      setNotifLoading(false)
+    }
+  }
+
   async function markAllAsRead() {
     try {
       setNotifLoading(true);
       await api.post('/notifications/mark-all-read');
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      await fetchNotifications();
     } catch (e) {
       // ignore
     } finally {
@@ -39,7 +54,7 @@ export default function CustomerNavbar() {
   async function markOneAsRead(id) {
     try {
       await api.patch(`/notifications/${id}/read`);
-      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+      await fetchNotifications();
     } catch (e) {}
   }
 
@@ -221,18 +236,22 @@ export default function CustomerNavbar() {
             <div className="relative" ref={notifRef}>
               <button
                 title="การแจ้งเตือน"
-                onClick={() => {
-                  setOpenNotif((v) => !v);
-                  if (!openNotif) markAllAsRead();
+                onClick={async () => {
+                  // toggle dropdown; if opening, optimistically mark all read locally
+                  const next = !openNotif
+                  setOpenNotif(next)
+                  if (next) {
+                    setNotifications((prev) => (prev || []).map((n) => ({ ...n, read: true })))
+                    try {
+                      await api.post('/notifications/mark-all-read')
+                    } catch (e) {}
+                    try { await fetchNotifications() } catch (e) {}
+                  }
                 }}
                 className="grid h-9 w-9 place-items-center rounded-full bg-white shadow ring-1 ring-sky-100 text-sky-600 hover:bg-sky-50 transition"
               >
                 <span className="text-lg">🔔</span>
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-rose-500 text-[10px] text-white">
-                    {unreadCount}
-                  </span>
-                )}
+                {/* unread badge removed per request */}
               </button>
 
               {/* Dropdown แจ้งเตือน */}

@@ -127,6 +127,34 @@ export async function updateMyProfile(req, res, next) {
         body: 'ข้อมูลโปรไฟล์ของคุณได้รับการอัปเดตแล้ว',
         data: { type: 'profile_updated' }
       } })
+    
+      // Notify stores that have warranties linked to this customer (by userId or email)
+      try {
+        const linked = await prisma.warranty.findMany({
+          where: {
+            OR: [
+              { customerUserId: me.id },
+              { customerEmail: me.email }
+            ]
+          },
+          select: { storeId: true }
+        })
+        const storeIds = [...new Set(linked.map(l => l.storeId).filter(Boolean))]
+        for (const sid of storeIds) {
+          try {
+            await createNotification({ prisma, attrs: {
+              storeId: sid,
+              title: 'ลูกค้ามีการอัปเดตโปรไฟล์',
+              body: `ลูกค้า ${saved.firstName || ''} ${saved.lastName || ''} ได้อัปเดตโปรไฟล์`,
+              data: { type: 'customer_profile_updated', userId: me.id }
+            } })
+          } catch (e) {
+            console.warn('notify store of customer profile update failed', e?.message || e)
+          }
+        }
+      } catch (e) {
+        console.warn('find linked stores for profile update failed', e?.message || e)
+      }
     } catch (e) {
       // ignore notification errors
       console.warn('notify user profile update failed', e?.message || e)
