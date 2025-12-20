@@ -1,5 +1,5 @@
 import { useRef, useState, useMemo, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../store/auth'
 import AppLogo from './AppLogo'
 import { api } from '../lib/api'
@@ -52,6 +52,9 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
     return days <= 7
   }, [user])
 
+  const isAuthenticated = !!user
+  const unreadCount = (notifications || []).filter(n => !n.read).length
+
   return (
     <header className="sticky top-0 z-40 border-b border-sky-100 bg-white/80 py-3 backdrop-blur">
       <div className="mx-auto max-w-6xl px-4 flex items-center justify-between">
@@ -85,7 +88,9 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
               aria-label="การแจ้งเตือน"
             >
               <span className="text-xl">🔔</span>
-              {/* unread badge removed per request */}
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 min-w-[14px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] text-white">{unreadCount}</span>
+              )}
             </button>
 
             {notifOpen && (
@@ -103,13 +108,35 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
                 ) : (
                   <ul className="space-y-2 max-h-64 overflow-y-auto">
                     {notifications.map((n, i) => (
-                      <li key={n.id || i} className="flex items-start gap-3 rounded-lg p-2 hover:bg-sky-50">
-                        <div className="h-8 w-8 shrink-0 rounded-full bg-sky-100 grid place-items-center text-xs text-sky-700">🔔</div>
-                        <div className="flex-1">
-                          <div className="text-sm font-medium text-slate-900">{n.title || n.message || 'การแจ้งเตือน'}</div>
-                          <div className="text-xs text-slate-600">{n.body || n.message || ''}</div>
+                      <li
+                        key={n.id || i}
+                        className="rounded-lg p-3 hover:bg-sky-50"
+                        onClick={async () => {
+                          const id = n.id
+                          if (id != null && !n.read) {
+                            try {
+                              await api.patch(`/notifications/${id}/read`)
+                            } catch (e) {}
+                            if (onFetchNotifications) {
+                              try { await onFetchNotifications() } catch {}
+                            }
+                          }
+                          if (n?.data?.warrantyId) {
+                            try { navigate(`/warranty/${n.data.warrantyId}`) } catch {}
+                          }
+                          setNotifOpen(false)
+                        }}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="h-8 w-8 shrink-0 rounded-full bg-sky-100 grid place-items-center text-xs text-sky-700">🔔</div>
+                          <div className="flex-1">
+                            <div className="text-sm font-medium text-slate-900">{n.title || n.message || 'การแจ้งเตือน'}</div>
+                            { (n.body || n.message) ? (
+                              <div className="text-xs text-slate-600 mt-1 break-words">{n.body || n.message}</div>
+                            ) : null }
+                            <div className="text-[10px] text-slate-400 mt-1">{(n.createdAt || n.time || n.created_at) ? new Date(n.createdAt || n.time || n.created_at).toLocaleString() : ''}</div>
+                          </div>
                         </div>
-                        <div className="text-xs text-slate-400">{n.time || ''}</div>
                       </li>
                     ))}
                   </ul>
@@ -117,6 +144,19 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
               </div>
             )}
           </div>
+
+          {/* 📝 ปุ่มร้องเรียน/ติดต่อแอดมิน (เหมือนฝั่งลูกค้า) */}
+          {isAuthenticated && (
+            <Link
+              to="/customer/complaints"
+              title="ร้องเรียน/ติดต่อแอดมิน"
+              className="inline-flex items-center gap-2 rounded-full bg-white shadow ring-1 ring-sky-100 px-3 py-2 text-sm font-semibold text-sky-700 hover:bg-sky-50 transition"
+              onClick={() => { setNotifOpen(false); setProfileMenuOpen(false); }}
+            >
+              <span className="text-base leading-none">📝</span>
+              <span className="hidden md:inline">ร้องเรียน</span>
+            </Link>
+          )}
 
           <div>
             <button

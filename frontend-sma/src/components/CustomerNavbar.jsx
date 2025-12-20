@@ -14,17 +14,11 @@ export default function CustomerNavbar() {
   const [openNotif, setOpenNotif] = useState(false);
   const menuRef = useRef(null);
   const notifRef = useRef(null);
-
-  // 🔔 การแจ้งเตือน
-  // ✅ คงของเดิม (dummy) ไว้ แล้ว “เพิ่ม” ระบบดึงจริง + SSE มาทับภายหลัง
-  const [notifications, setNotifications] = useState([
-    { id: 1, message: "ใบรับประกัน WR002 ใกล้หมดอายุ", type: "warning", read: false },
-    { id: 2, message: "ใบรับประกัน WR001 หมดอายุแล้ว", type: "expired", read: false },
-  ]);
+  const [notifications, setNotifications] = useState([]);
   const [notifLoading, setNotifLoading] = useState(false);
 
   // 🟦 นับเฉพาะที่ยังไม่อ่าน
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const unreadCount = (notifications || []).filter((n) => !n.read).length;
 
   // ✅ ดึงแจ้งเตือนจาก API
   async function fetchNotifications() {
@@ -32,7 +26,9 @@ export default function CustomerNavbar() {
       setNotifLoading(true);
       const res = await api.get("/notifications");
       const data = res?.data?.data || res?.data || [];
-      setNotifications(Array.isArray(data) ? data : []);
+      const arr = Array.isArray(data) ? data : [];
+      arr.sort((a,b)=> new Date(b.createdAt || b.time || b.created_at || 0) - new Date(a.createdAt || a.time || a.created_at || 0))
+      setNotifications(arr);
       return data;
     } catch (e) {
       // ถ้า API ล้ม ไม่ทำให้ navbar พัง (คง state เดิมไว้/หรือจะล้างก็ได้)
@@ -80,7 +76,9 @@ export default function CustomerNavbar() {
         setNotifLoading(true);
         const res = await api.get("/notifications");
         const data = res?.data?.data || res?.data || [];
-        if (mounted) setNotifications(Array.isArray(data) ? data : []);
+        const arr = Array.isArray(data) ? data : [];
+        arr.sort((a,b)=> new Date(b.createdAt || b.time || b.created_at || 0) - new Date(a.createdAt || a.time || a.created_at || 0))
+        if (mounted) setNotifications(arr);
       } catch (e) {
         // ถ้า fail ก็ไม่บังคับล้าง (กัน UX แปลก ๆ)
         // if (mounted) setNotifications([]);
@@ -325,10 +323,10 @@ export default function CustomerNavbar() {
                                 : "bg-white text-slate-700"
                             } ${read ? "opacity-70" : "font-semibold"} ${id != null ? "cursor-pointer" : ""}`}
                           >
-                            <div className="truncate">
+                            <div className="whitespace-normal break-words">
                               <div className="text-sm font-semibold">{title}</div>
                               {body ? (
-                                <div className="text-xs text-slate-500 mt-1">{body}</div>
+                                <div className="text-xs text-slate-500 mt-1 break-words">{body}</div>
                               ) : null}
                             </div>
                             {n.createdAt ? (

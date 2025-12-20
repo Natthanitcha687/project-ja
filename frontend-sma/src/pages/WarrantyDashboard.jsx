@@ -273,6 +273,7 @@ export default function WarrantyDashboard() {
   const [notifOpen, setNotifOpen] = useState(false)
   const [notifications, setNotifications] = useState([])
   const [notifLoading, setNotifLoading] = useState(false)
+  const unreadCount = (notifications || []).filter(n => !n.read).length
 
   const [warrantySubmitting, setWarrantySubmitting] = useState(false)
   const [warrantyModalError, setWarrantyModalError] = useState('')
@@ -430,12 +431,32 @@ export default function WarrantyDashboard() {
         res = await api.get(`/notifications`)
       }
       const data = res?.data?.data || res?.data || []
-      setNotifications(Array.isArray(data) ? data : [])
+      const arr = Array.isArray(data) ? data : []
+      arr.sort((a,b)=> new Date(b.createdAt || b.time || b.created_at || 0) - new Date(a.createdAt || a.time || a.created_at || 0))
+      setNotifications(arr)
     } catch (e) {
       setNotifications([])
     } finally {
       setNotifLoading(false)
     }
+  }
+
+  async function markAllAsRead() {
+    setNotifications(prev => (prev || []).map(n => ({ ...n, read: true })))
+    try {
+      setNotifLoading(true)
+      await api.post('/notifications/mark-all-read')
+      await fetchNotifications()
+    } catch (e) {}
+    finally { setNotifLoading(false) }
+  }
+
+  async function markOneAsRead(id) {
+    try {
+      setNotifications(prev => (prev || []).map(n => (String(n.id) === String(id) ? { ...n, read: true } : n)))
+      await api.patch(`/notifications/${id}/read`)
+      await fetchNotifications()
+    } catch (e) {}
   }
 
   // ====== กรองระดับ "รายการ" แล้วจัดกลุ่มกลับเป็นใบ ======
@@ -1013,14 +1034,19 @@ export default function WarrantyDashboard() {
                 <button
                   type="button"
                   onClick={async () => {
+                    const next = !notifOpen
                     setNotifOpen((p) => !p)
-                    if (!notifOpen) await fetchNotifications()
+                    if (next) {
+                      await markAllAsRead()
+                    }
                   }}
                   aria-label="การแจ้งเตือน"
                   className="relative grid h-10 w-10 place-items-center rounded-full bg-white shadow ring-1 ring-black/5 hover:bg-gray-50 transition"
                 >
                   <span className="text-xl">🔔</span>
-                  {/* unread badge removed per request */}
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-4 min-w-[14px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] text-white">{unreadCount}</span>
+                  )}
                 </button>
 
                 {notifOpen && (
@@ -1038,13 +1064,17 @@ export default function WarrantyDashboard() {
                     ) : (
                       <ul className="space-y-2 max-h-64 overflow-y-auto">
                         {(notifications || []).map((n, i) => (
-                          <li key={n.id || i} className="flex items-start gap-3 rounded-lg p-2 hover:bg-sky-50">
-                            <div className="h-8 w-8 shrink-0 rounded-full bg-sky-100 grid place-items-center text-xs text-sky-700">🔔</div>
-                            <div className="flex-1">
-                              <div className="text-sm font-medium text-slate-900">{n.title || n.message || 'การแจ้งเตือน'}</div>
-                              <div className="text-xs text-slate-600">{n.body || n.message || ''}</div>
+                          <li key={n.id || i} className="rounded-lg p-3 hover:bg-sky-50">
+                            <div className="flex items-start gap-3">
+                              <div className="h-8 w-8 shrink-0 rounded-full bg-sky-100 grid place-items-center text-xs text-sky-700">🔔</div>
+                              <div className="flex-1">
+                                <div className="text-sm font-medium text-slate-900">{n.title || n.message || 'การแจ้งเตือน'}</div>
+                                { (n.body || n.message) ? (
+                                  <div className="text-xs text-slate-600 mt-1 break-words">{n.body || n.message}</div>
+                                ) : null }
+                                <div className="text-[10px] text-slate-400 mt-1">{(n.createdAt || n.time || n.created_at) ? new Date(n.createdAt || n.time || n.created_at).toLocaleString() : ''}</div>
+                              </div>
                             </div>
-                            <div className="text-xs text-slate-400">{n.time || ''}</div>
                           </li>
                         ))}
                       </ul>

@@ -8,6 +8,7 @@ import StoreTabs from '../components/StoreTabs'
 import SimpleDonut from '../components/SimpleDonut'
 import LineChart from '../components/LineChart'
 import AppLogo from '../components/AppLogo' // ✅ ใช้หัวเดียวกับหน้า Warranty
+import DashboardHeader from '../components/DashboardHeader'
 import * as XLSX from 'xlsx'
 
 export default function StoreDashboard() {
@@ -64,6 +65,7 @@ export default function StoreDashboard() {
   const [notifOpen, setNotifOpen] = useState(false)
   const [notifLoading, setNotifLoading] = useState(false)
   const notifRef = useRef(null)
+  const unreadCount = (notifications || []).filter((n) => !n.read).length
 
   // open SSE for real-time notifications
   useEffect(() => {
@@ -110,7 +112,9 @@ export default function StoreDashboard() {
         res = await api.get('/notifications')
       }
       const data = res?.data?.data || res?.data || []
-      setNotifications(Array.isArray(data) ? data : [])
+      const arr = Array.isArray(data) ? data : []
+      arr.sort((a,b)=> new Date(b.createdAt || b.time || b.created_at || 0) - new Date(a.createdAt || a.time || a.created_at || 0))
+      setNotifications(arr)
       return data
     } catch (e) {
       setNotifications([])
@@ -121,6 +125,8 @@ export default function StoreDashboard() {
   }, [storeIdResolved])
 
   async function markAllAsRead() {
+    // optimistic local update
+    setNotifications((prev) => (prev || []).map((n) => ({ ...n, read: true })))
     try {
       setNotifLoading(true)
       await api.post('/notifications/mark-all-read')
@@ -134,6 +140,10 @@ export default function StoreDashboard() {
 
   async function markOneAsRead(id) {
     try {
+      // optimistic local mark
+      setNotifications((prev) =>
+        (prev || []).map((n) => (String(n.id) === String(id) ? { ...n, read: true } : n))
+      )
       await api.patch(`/notifications/${id}/read`)
       await fetchNotifications()
     } catch (e) {}
@@ -157,6 +167,7 @@ export default function StoreDashboard() {
   const profileAvatarSrc = profile?.avatarUrl || ''
   const storeDisplayName = profile?.storeName || user?.store?.name || user?.storeName || user?.name || 'ร้านของฉัน'
   const storeEmail = profile?.email || user?.store?.email || user?.email || ''
+  const isAuthenticated = !!user
   // format address/businessHours from stored profile (may be JSON string)
   const formatAddress = (raw) => {
     if (!raw) return ''
@@ -214,7 +225,7 @@ export default function StoreDashboard() {
     const totalHeaders = (filteredWarranties || []).length
     let totalItems = 0
     let active = 0, nearing = 0, expired = 0
-    for (const h of filteredWarranties || []) {
+    for (const h of (filteredWarranties || [])) {
       const items = h.items || []
       totalItems += items.length
       for (const it of items) {
@@ -226,128 +237,6 @@ export default function StoreDashboard() {
     }
     return { totalHeaders, totalItems, active, nearing, expired }
   }, [filteredWarranties, profile?.notifyDaysInAdvance])
-
-  // Export overview and details to Excel workbook
-  function exportOverviewToExcel() {
-    try {
-      // optionally filter items by status
-      const statusFilter = exportStatusFilter
-
-      const filteredWarranties = (warranties || []).map(h => {
-        if (statusFilter === 'all') return h
-        // filter items inside header based on status
-        const items = (h.items || []).filter(it => {
-          const code = it.statusCode || it._status || deriveItemStatusCode(it, profile?.notifyDaysInAdvance ?? 14)
-          if (statusFilter === 'all') return true
-          if (statusFilter === 'nearing') return code === 'nearing' || code === 'nearing_expiration'
-          return code === statusFilter
-        })
-        return { ...h, items }
-      }).filter(h => {
-        // if header has zero items after filtering, drop it unless aggregateBy==='overview' (we still may want header counts)
-        return exportAggregateBy === 'overview' ? true : (h.items || []).length > 0
-      })
-
-      const summaryRows = [
-        { Metric: 'ใบรับประกัน (Headers)', Value: totals.totalHeaders },
-        { Metric: 'รายการรวม (Items)', Value: totals.totalItems },
-        { Metric: 'กำลังใช้งาน', Value: totals.active },
-        { Metric: 'ใกล้หมดอายุ', Value: totals.nearing },
-        { Metric: 'หมดอายุ', Value: totals.expired },
-        { Metric: 'เปอร์เซ็นต์กำลังใช้งาน', Value: totals.totalItems ? `${Math.round((totals.active / totals.totalItems) * 100)}%` : '0%' },
-        { Metric: 'เปอร์เซ็นต์ใกล้หมดอายุ', Value: totals.totalItems ? `${Math.round((totals.nearing / totals.totalItems) * 100)}%` : '0%' },
-        { Metric: 'เปอร์เซ็นต์หมดอายุ', Value: totals.totalItems ? `${Math.round((totals.expired / totals.totalItems) * 100)}%` : '0%' },
-      ]
-
-      // Warranties list (one row per header)
-      const warrantiesRows = (filteredWarranties || []).map(h => ({
-        id: h.id || '',
-        code: h.code || h.reference || '',
-        customerName: h.customerName || h.customer_name || '',
-        customerEmail: h.customerEmail || h.customer_email || '',
-        itemsCount: (h.items || []).length,
-        createdAt: h.createdAt || h.created_at || '',
-      }))
-
-      // Flatten items into a details sheet
-      const itemsRows = []
-      for (const h of (filteredWarranties || [])) {
-        for (const it of (h.items || [])) {
-          itemsRows.push({
-            headerId: h.id || '',
-            headerCode: h.code || h.reference || '',
-            itemId: it.id || '',
-            productName: it.productName || it.product_name || '',
-            model: it.model || '',
-            serial: it.serial || '',
-            purchaseDate: it.purchaseDate || it.purchase_date || '',
-            expiryDate: it.expiryDate || it.expiry_date || '',
-            status: it.statusCode || it.statusTag || deriveItemStatusCode(it, profile?.notifyDaysInAdvance ?? 14),
-          })
-        }
-      }
-
-      // Additional aggregate sheets
-      const byCustomerRows = []
-      const byProductRows = []
-
-      // build aggregates from filteredWarranties
-      const custMap = new Map()
-      const prodMap = new Map()
-      for (const h of (filteredWarranties || [])) {
-        const cKey = (h.customerEmail || h.customer_email || h.customerName || h.customer_name || 'Unknown').toLowerCase()
-        const cust = custMap.get(cKey) || { customerName: h.customerName || h.customer_name || '', customerEmail: h.customerEmail || h.customer_email || '', headers: 0, items: 0, active: 0, nearing: 0, expired: 0 }
-        cust.headers += 1
-        cust.items += (h.items || []).length
-        for (const it of (h.items || [])) {
-          const code = it.statusCode || it._status || deriveItemStatusCode(it, profile?.notifyDaysInAdvance ?? 14)
-          if (code === 'active') cust.active++
-          else if (code === 'nearing_expiration' || code === 'nearing') cust.nearing++
-          else if (code === 'expired') cust.expired++
-          const pKey = (it.productName || it.product_name || 'Unknown').toLowerCase()
-          const prod = prodMap.get(pKey) || { productName: it.productName || it.product_name || '', count: 0, active: 0, nearing: 0, expired: 0 }
-          prod.count++
-          if (code === 'active') prod.active++
-          else if (code === 'nearing_expiration' || code === 'nearing') prod.nearing++
-          else if (code === 'expired') prod.expired++
-          prodMap.set(pKey, prod)
-        }
-        custMap.set(cKey, cust)
-      }
-
-      for (const v of custMap.values()) byCustomerRows.push(v)
-      for (const v of prodMap.values()) byProductRows.push(v)
-
-      const wb = XLSX.utils.book_new()
-      const wsSummary = XLSX.utils.json_to_sheet(summaryRows)
-      XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary')
-
-      const wsWarnings = XLSX.utils.json_to_sheet(warrantiesRows)
-      XLSX.utils.book_append_sheet(wb, wsWarnings, 'Warranties')
-
-      if (exportIncludeDetails) {
-        const wsItems = XLSX.utils.json_to_sheet(itemsRows)
-        XLSX.utils.book_append_sheet(wb, wsItems, 'Items')
-      }
-
-      if (exportAggregateBy === 'byCustomer') {
-        const wsCust = XLSX.utils.json_to_sheet(byCustomerRows)
-        XLSX.utils.book_append_sheet(wb, wsCust, 'ByCustomer')
-      } else if (exportAggregateBy === 'byProduct') {
-        const wsProd = XLSX.utils.json_to_sheet(byProductRows)
-        XLSX.utils.book_append_sheet(wb, wsProd, 'ByProduct')
-      }
-
-      const now = new Date().toISOString().slice(0,19).replaceAll(':','-')
-      const fileName = `warranty-overview-${exportAggregateBy}-${exportStatusFilter}-${exportIncludeDetails ? 'details' : 'nodetails'}-${now}.xlsx`
-      XLSX.writeFile(wb, fileName)
-    } catch (err) {
-      console.error('Export to Excel failed', err)
-      // fallback: try to notify user
-      alert('ไม่สามารถสร้างไฟล์ Excel ได้: ' + (err?.message || String(err)))
-    }
-  }
-
   const weeklyData = useMemo(() => {
     const now = new Date()
     const oneDay = 24 * 60 * 60 * 1000
@@ -378,6 +267,77 @@ export default function StoreDashboard() {
     }).reverse()
   }, [filteredWarranties])
 
+  // Export current overview or aggregates to Excel
+  async function exportOverviewToExcel() {
+    try {
+      const wb = XLSX.utils.book_new()
+
+      if (exportAggregateBy === 'byCustomer') {
+        const byCustomerRows = []
+        const custMap = new Map()
+        for (const h of (filteredWarranties || [])) {
+          const key = (h.customerEmail || h.customer_email || h.customerName || h.customer_name || 'Unknown').toLowerCase()
+          const entry = custMap.get(key) || { customerName: h.customerName || h.customer_name || '', customerEmail: h.customerEmail || h.customer_email || '', headers: 0, items: 0, active: 0, nearing: 0, expired: 0 }
+          entry.headers += 1
+          entry.items += (h.items || []).length
+          for (const it of (h.items || [])) {
+            const code = it.statusCode || it._status || deriveItemStatusCode(it, profile?.notifyDaysInAdvance ?? 14)
+            if (code === 'active') entry.active++
+            else if (code === 'nearing_expiration' || code === 'nearing') entry.nearing++
+            else if (code === 'expired') entry.expired++
+          }
+          custMap.set(key, entry)
+        }
+        for (const v of custMap.values()) byCustomerRows.push(v)
+        const ws = XLSX.utils.json_to_sheet(byCustomerRows)
+        XLSX.utils.book_append_sheet(wb, ws, 'ByCustomer')
+      } else if (exportAggregateBy === 'byProduct') {
+        const map = new Map()
+        for (const h of (filteredWarranties || [])) {
+          for (const it of (h.items || [])) {
+            const pKey = (it.productName || it.product_name || 'Unknown').toLowerCase()
+            const entry = map.get(pKey) || { productName: it.productName || it.product_name || '', count: 0, active: 0, nearing: 0, expired: 0 }
+            entry.count++
+            const code = it.statusCode || it._status || deriveItemStatusCode(it, profile?.notifyDaysInAdvance ?? 14)
+            if (code === 'active') entry.active++
+            else if (code === 'nearing_expiration' || code === 'nearing') entry.nearing++
+            else if (code === 'expired') entry.expired++
+            map.set(pKey, entry)
+          }
+        }
+        const rows = Array.from(map.values())
+        const ws = XLSX.utils.json_to_sheet(rows)
+        XLSX.utils.book_append_sheet(wb, ws, 'ByProduct')
+      } else {
+        const rows = []
+        for (const h of (filteredWarranties || [])) {
+          rows.push({
+            headerId: h.id || h.headerId || '',
+            customer: h.customerName || h.customer_name || '',
+            customerEmail: h.customerEmail || h.customer_email || '',
+            createdAt: h.createdAt || h.created_at || '',
+            items: (h.items || []).length,
+            status: (h.items || []).map(it => it.status || it._status || deriveItemStatusCode(it, profile?.notifyDaysInAdvance ?? 14)).join('; ')
+          })
+          if (exportIncludeDetails) {
+            for (const it of (h.items || [])) {
+              rows.push({ headerId: h.id || h.headerId || '', itemProduct: it.productName || it.product_name || '', itemSerial: it.serial || it.serialNumber || '', expiryDate: it.expiryDate || it.expiry_date || '' })
+            }
+          }
+        }
+        const ws = XLSX.utils.json_to_sheet(rows)
+        XLSX.utils.book_append_sheet(wb, ws, 'Overview')
+      }
+
+      const now = new Date().toISOString().slice(0,19).replaceAll(':','-')
+      const fileName = `warranty-overview-${exportAggregateBy}-${exportStatusFilter}-${exportIncludeDetails ? 'details' : 'nodetails'}-${now}.xlsx`
+      XLSX.writeFile(wb, fileName)
+    } catch (err) {
+      console.error('Export to Excel failed', err)
+      alert('ไม่สามารถสร้างไฟล์ Excel ได้: ' + (err?.message || String(err)))
+    }
+  }
+
   if (loading) return <div className="p-6 text-sm text-slate-500">กำลังโหลดข้อมูลสรุป...</div>
   if (error) return <div className="p-6 text-sm text-rose-600">{error}</div>
 
@@ -385,140 +345,13 @@ export default function StoreDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-sky-50 to-sky-100/60 pb-12">
-      {/* ====================== HEADER (เหมือนหน้า Warranty) ====================== */}
-      <header className="sticky top-0 z-30 border-b border-sky-100 bg-white/80 py-3 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4">
-          {/* โลโก้ + ชื่อแอป */}
-          <div className="flex items-center gap-3">
-            <Link to="/" aria-label="หน้าแรก" className="relative grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-sky-50 to-white ring-1 ring-black/5 shadow-sm">
-              <AppLogo className="h-7 w-7" />
-              <div className="absolute -inset-px rounded-2xl pointer-events-none [mask-image:radial-gradient(18px_18px_at_16px_16px,white,transparent)]"></div>
-            </Link>
-            <div>
-              <div className="text-lg font-semibold text-slate-900">Warranty</div>
-              <div className="text-xs text-slate-500">จัดการการรับประกันของคุณได้ในที่เดียว</div>
-            </div>
-          </div>
-
-          {/* กระดิ่ง + โปรไฟล์ */}
-          <div className="flex items-center gap-3" ref={profileMenuRef}>
-            {/* กระดิ่งแจ้งเตือน */}
-            <div className="relative" ref={notifRef}>
-              <button
-                type="button"
-                onClick={async () => {
-                  const next = !notifOpen
-                  setNotifOpen(next)
-                  if (next) {
-                    // optimistic clear
-                    setNotifications((prev) => (prev || []).map((n) => ({ ...n, read: true })))
-                    try { await api.post('/notifications/mark-all-read') } catch (e) {}
-                    try { await fetchNotifications() } catch (e) {}
-                  }
-                }}
-                aria-label="การแจ้งเตือน"
-                className="relative grid h-10 w-10 place-items-center rounded-full bg-white shadow ring-1 ring-black/5 hover:bg-gray-50 transition"
-              >
-                <span className="text-xl">🔔</span>
-                {/* unread badge removed per request */}
-              </button>
-
-              {notifOpen && (
-                <div className="absolute right-0 top-12 w-80 rounded-2xl bg-white p-3 text-sm shadow-xl ring-1 ring-black/5">
-                  <div className="mb-2 flex items-center justify-between">
-                    <div className="text-sm font-medium text-slate-900">การแจ้งเตือน</div>
-                    <div className="flex items-center gap-2">
-                      <button type="button" onClick={markAllAsRead} className="text-xs text-sky-600 hover:underline">ทำเครื่องหมายว่าอ่านแล้ว</button>
-                      <button type="button" onClick={() => setNotifOpen(false)} className="text-xs text-slate-500">ปิด</button>
-                    </div>
-                  </div>
-                  {notifLoading ? (
-                    <div className="py-6 text-center text-slate-500">กำลังโหลด...</div>
-                  ) : (notifications || []).length === 0 ? (
-                    <div className="py-4 text-slate-600">
-                      <div className="text-center">ไม่มีการแจ้งเตือน</div>
-                    </div>
-                  ) : (
-                    <ul className="space-y-2 max-h-64 overflow-y-auto">
-                      {(notifications || []).map((n, i) => (
-                        <li key={n.id || i} className={`flex cursor-pointer items-start gap-3 rounded-lg p-2 hover:bg-sky-50 ${n.read ? 'opacity-70' : 'font-semibold'}`} onClick={async () => {
-                          if (!n.read) await markOneAsRead(n.id)
-                          // navigate to warranty if payload contains warrantyId
-                          if (n?.data?.warrantyId) {
-                            try { navigate(`/warranty/${n.data.warrantyId}`) } catch {}
-                          }
-                        }}>
-                          <div className="h-8 w-8 shrink-0 rounded-full bg-sky-100 grid place-items-center text-xs text-sky-700">🔔</div>
-                          <div className="flex-1">
-                            <div className="text-sm font-medium text-slate-900">{n.title || n.message || 'การแจ้งเตือน'}</div>
-                            <div className="text-xs text-slate-600 mt-1">{n.body || n.message || ''}</div>
-                          </div>
-                          <div className="text-xs text-slate-400">{n.createdAt ? new Date(n.createdAt).toLocaleString() : ''}</div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* ปุ่มโปรไฟล์ */}
-            <button
-              type="button"
-              onClick={() => setProfileMenuOpen((prev) => !prev)}
-              className="flex items-center gap-3 rounded-full bg-white px-3 py-2 shadow ring-1 ring-black/10 hover:-translate-y-0.5 hover:bg-slate-50 transition"
-            >
-              {profileAvatarSrc ? (
-                <img src={profileAvatarSrc} alt="Store profile" className="h-10 w-10 rounded-full object-cover" />
-              ) : (
-                <div className="grid h-10 w-10 place-items-center rounded-full bg-sky-200 text-xl">🏪</div>
-              )}
-              <div className="hidden text-left text-sm md:block">
-                <div className="font-medium text-slate-900">{storeDisplayName}</div>
-                <div className="text-xs text-slate-500">{storeEmail}</div>
-              </div>
-              <span className="hidden text-slate-400 md:inline">▾</span>
-            </button>
-
-            {/* เมนูดรอปดาวน์โปรไฟล์ */}
-            {isProfileMenuOpen && (
-              <div className="absolute right-4 top-14 w-64 rounded-2xl bg-white p-4 text-sm shadow-xl ring-1 ring-black/5">
-                <div className="mb-4 flex items-center gap-3">
-                  {profileAvatarSrc ? (
-                    <img src={profileAvatarSrc} alt="Store profile" className="h-12 w-12 rounded-full object-cover" />
-                  ) : (
-                    <div className="grid h-12 w-12 place-items-center rounded-full bg-sky-200 text-2xl">🏪</div>
-                  )}
-                  <div className="min-w-0">
-                    <div className="truncate font-semibold text-slate-900">{storeDisplayName}</div>
-                    <div className="truncate text-xs text-slate-500">{storeEmail}</div>
-                    {profileAddrShort ? <div className="truncate text-xs text-slate-400">{profileAddrShort}</div> : null}
-                  </div>
-                </div>
-                {/* ถ้าอยากเปิด Modal โปรไฟล์แบบอีกหน้า ค่อยต่อยอดได้
-                    ตอนนี้ให้พาไปหน้าโปรไฟล์หรือไว้แก้ไขในอนาคต */}
-                <button
-                  type="button"
-                  onClick={() => { setProfileMenuOpen(false); navigate('/dashboard/warranty?openProfile=1', { replace: false }) }}
-                  className="flex w-full items-center justify-between rounded-xl bg-sky-50 px-3 py-2 text-slate-700 hover:bg-sky-100"
-                >
-                  <span>แก้ไขโปรไฟล์</span>
-                  <span aria-hidden>✏️</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="mt-2 flex w-full items-center justify-between rounded-xl px-3 py-2 text-slate-500 hover:bg-slate-50"
-                >
-                  <span>ออกจากระบบ</span>
-                  <span aria-hidden>↪️</span>
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
-      {/* ====================== /HEADER ====================== */}
+      {/* ====================== HEADER (DashboardHeader component) ====================== */}
+      <DashboardHeader
+        title="Warranty"
+        subtitle="จัดการการรับประกันของคุณได้ในที่เดียว"
+        notifications={notifications}
+        onFetchNotifications={fetchNotifications}
+      />
 
       <main className="mx-auto max-w-6xl px-4 py-8">
         <div className="mb-6">
