@@ -63,6 +63,20 @@ function senderSub(user) {
   return parts.join(" • ");
 }
 
+// ✅ ทำให้ path ใน DB (เช่น /uploads/complaints/xx.png) กลายเป็น URL ใช้งานได้
+function absolutize(p) {
+  if (!p) return "";
+  const s = String(p);
+  if (/^https?:\/\//i.test(s)) return s;
+
+  const base = api?.defaults?.baseURL || "";
+  if (!base) return s;
+
+  const b = String(base).replace(/\/+$/, "");
+  const tail = s.startsWith("/") ? s : `/${s}`;
+  return `${b}${tail}`;
+}
+
 export default function Complaints() {
   const [status, setStatus] = useState("");
   const [q, setQ] = useState("");
@@ -80,7 +94,7 @@ export default function Complaints() {
       const { data } = await api.get("/admin/complaints", { params: { status } });
       setRows(data.complaints || []);
     } catch (e) {
-      setErr(e?.response?.data?.message || "โหลดรายการร้องเรียนไม่สำเร็จ");
+      setErr(e?.response?.data?.message || "โหลดรายการแจ้งปัญหาไม่สำเร็จ");
     } finally {
       setLoading(false);
     }
@@ -131,8 +145,8 @@ export default function Complaints() {
     <div className="text-slate-900">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <div className="text-xl font-semibold text-slate-900">คำขอ/ร้องเรียน</div>
-          <div className="text-sm text-slate-500">ดูรายละเอียด, ผู้ส่ง, และจัดการสถานะคำร้องเรียน</div>
+          <div className="text-xl font-semibold text-slate-900">แจ้งปัญหา</div>
+          <div className="text-sm text-slate-500">ดูรายละเอียด, ผู้ส่ง, และจัดการสถานะการแจ้งปัญหา</div>
         </div>
         <div className="text-sm text-slate-500">
           ทั้งหมด: <span className="text-slate-900 font-semibold">{rows.length}</span> รายการ
@@ -212,7 +226,12 @@ export default function Complaints() {
 
                 <td className="p-3 text-slate-700">{c.category || "—"}</td>
                 <td className="p-3 font-medium text-slate-900">{c.subject}</td>
-                <td className="p-3 text-slate-600">{clip(c.message, 90)}</td>
+                <td className="p-3 text-slate-600">
+                  {clip(c.message, 90)}
+                  {!!(c.images && Array.isArray(c.images) && c.images.length) && (
+                    <span className="ml-2 text-xs text-slate-500">📎 {c.images.length}</span>
+                  )}
+                </td>
 
                 <td className="p-3">
                   <StatusPill status={c.status} />
@@ -252,7 +271,7 @@ export default function Complaints() {
             {!loading && !filtered.length && (
               <tr>
                 <td className="p-3 text-slate-500" colSpan={7}>
-                  ยังไม่มีคำขอ/ร้องเรียน (ต้องมีฝั่ง user สร้าง complaint ก่อน)
+                  ยังไม่มีการแจ้งปัญหา (ต้องมีฝั่ง user สร้าง complaint ก่อน)
                 </td>
               </tr>
             )}
@@ -304,6 +323,48 @@ export default function Complaints() {
                   {selected.message}
                 </div>
               </div>
+
+              {/* ✅ รูปแนบอ้างอิงปัญหา */}
+              {Array.isArray(selected.images) && selected.images.length > 0 && (
+                <div>
+                  <div className="text-sm font-semibold text-white/85">
+                    รูปแนบอ้างอิง ({selected.images.length})
+                  </div>
+
+                  <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {selected.images.map((p, idx) => {
+                      const src = absolutize(p);
+                      return (
+                        <a
+                          key={`${p}-${idx}`}
+                          href={src}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="group block overflow-hidden rounded-2xl border border-white/10 bg-white/5"
+                          title="คลิกเพื่อเปิดรูปเต็ม"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="aspect-square w-full overflow-hidden">
+                            <img
+                              src={src}
+                              alt={`complaint-${selected.id}-img-${idx + 1}`}
+                              className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+                              loading="lazy"
+                            />
+                          </div>
+                          <div className="px-3 py-2 text-[11px] text-white/60 truncate">
+                            {String(p)}
+                          </div>
+                        </a>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-2 text-xs text-white/40">
+                    * คลิกรูปเพื่อเปิดดูแบบเต็ม (เปิดแท็บใหม่)
+                  </div>
+                </div>
+              )}
 
               <div className="flex flex-wrap gap-2 justify-end pt-2">
                 <button

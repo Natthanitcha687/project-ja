@@ -369,14 +369,48 @@ export async function createMyComplaint(req, res, next) {
       return res.status(400).json({ message: 'message ยาวเกินไป (สูงสุด 5000 ตัวอักษร)' })
     }
 
-    const complaint = await prisma.complaint.create({
-      data: {
-        userId: me.id,
-        category,
-        subject,
-        message,
-      },
-    })
+    // ✅ เพิ่ม: รับไฟล์แนบจาก multer (field: images)
+    const uploaded = []
+    const files = req.files
+    if (Array.isArray(files)) {
+      uploaded.push(...files)
+    } else if (files && typeof files === 'object') {
+      for (const v of Object.values(files)) {
+        if (Array.isArray(v)) uploaded.push(...v)
+      }
+    }
+    // เก็บเป็น path เพื่อให้ frontend/admin เปิดรูปได้ผ่าน static /uploads
+    const imagePaths = uploaded
+      .filter((f) => f && f.filename)
+      .map((f) => `/uploads/complaints/${f.filename}`)
+
+    let complaint
+    try {
+      complaint = await prisma.complaint.create({
+        data: {
+          userId: me.id,
+          category,
+          subject,
+          message,
+          images: imagePaths, // ✅ เพิ่ม
+        },
+      })
+    } catch (err) {
+      // Fallback: ถ้า prisma client ยังไม่ได้ generate/migrate field images
+      const msg = String(err?.message || '')
+      if (msg.includes('images') || msg.includes('Unknown argument') || msg.includes('Invalid `prisma.complaint.create()` invocation')) {
+        complaint = await prisma.complaint.create({
+          data: {
+            userId: me.id,
+            category,
+            subject,
+            message,
+          },
+        })
+      } else {
+        throw err
+      }
+    }
 
     // แจ้งเตือนกลับไปหาลูกค้า (optional - ถ้าพลาดก็ไม่ทำให้ API ล้ม)
     try {
@@ -384,7 +418,7 @@ export async function createMyComplaint(req, res, next) {
         prisma,
         attrs: {
           userId: me.id,
-          title: 'ส่งคำร้องเรียนแล้ว',
+          title: 'ส่งคำแจ้งปัญหาแล้ว',
           body: `เราได้รับเรื่อง: ${complaint.subject}`,
           data: { type: 'complaint_created', complaintId: complaint.id },
         },
@@ -393,7 +427,7 @@ export async function createMyComplaint(req, res, next) {
       console.warn('notify complaint_created failed', e?.message || e)
     }
 
-    return res.status(201).json({ message: 'รับเรื่องเรียบร้อย', complaint })
+    return res.status(201).json({ message: 'รับแจ้งปัญหาเรียบร้อย', complaint })
   } catch (err) {
     next(err)
   }

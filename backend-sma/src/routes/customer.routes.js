@@ -1,5 +1,8 @@
 // backend-sma/src/routes/customer.routes.js
 import { Router } from 'express'
+import multer from 'multer'
+import fs from 'fs'
+import path from 'path'
 
 // รองรับทุกแบบ: default / named / CJS
 import * as requireAuthMod from '../middleware/requireAuth.js'
@@ -19,6 +22,38 @@ const requireVerified = pickFn(requireVerifiedMod, 'requireVerified')
 const requireCustomer = pickFn(requireCustomerMod, 'requireCustomer')
 
 const router = Router()
+
+/* =========================
+ * ✅ Upload for Complaint Images (NEW)
+ * ========================= */
+
+// เก็บไฟล์ที่: uploads/complaints
+const complaintUploadDir = path.join(process.cwd(), 'uploads', 'complaints')
+try {
+  fs.mkdirSync(complaintUploadDir, { recursive: true })
+} catch (_) { /* ignore */ }
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, complaintUploadDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname || '').toLowerCase() || ''
+    const safeExt = ['.jpg', '.jpeg', '.png', '.webp', '.gif'].includes(ext) ? ext : ''
+    const name = `${Date.now()}-${Math.random().toString(16).slice(2)}${safeExt}`
+    cb(null, name)
+  },
+})
+
+const uploadComplaintImages = multer({
+  storage,
+  limits: {
+    files: 5,
+    fileSize: 5 * 1024 * 1024, // 5MB/ไฟล์
+  },
+  fileFilter: (req, file, cb) => {
+    const ok = (file?.mimetype || '').startsWith('image/')
+    cb(ok ? null : new Error('Only image files are allowed'), ok)
+  },
+})
 
 /* =========================
  *  โปรไฟล์ & รหัสผ่าน (NEW)
@@ -190,8 +225,9 @@ router.get(
   requireAuth, requireVerified, requireCustomer,
   customerCtrl.getMyWarrantyPdf
 )
+
 /* =========================
- *  คำขอ/ร้องเรียน (NEW)
+ *  แจ้งปัญหา (NEW)
  * ========================= */
 
 /**
@@ -199,11 +235,24 @@ router.get(
  * /customer/complaints:
  *   post:
  *     tags: [Customer]
- *     summary: ลูกค้าสร้างคำขอ/ร้องเรียน
+ *     summary: ลูกค้าสร้างคำแจ้งปัญหา (รองรับแนบรูป)
  *     security: [{ bearerAuth: [] }]
  *     requestBody:
  *       required: true
  *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [subject, message]
+ *             properties:
+ *               category: { type: string, nullable: true }
+ *               subject: { type: string }
+ *               message: { type: string }
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
  *         application/json:
  *           schema:
  *             type: object
@@ -220,6 +269,7 @@ router.get(
 router.post(
   '/complaints',
   requireAuth, requireVerified, requireCustomer,
+  uploadComplaintImages.array('images', 5), // ✅ เพิ่ม: รองรับแนบรูป
   customerCtrl.createMyComplaint
 )
 
@@ -228,7 +278,7 @@ router.post(
  * /customer/complaints:
  *   get:
  *     tags: [Customer]
- *     summary: ลูกค้าดูรายการคำร้องเรียนของตัวเอง
+ *     summary: ลูกค้าดูรายการแจ้งปัญหาของตัวเอง
  *     security: [{ bearerAuth: [] }]
  *     responses:
  *       '200': { description: OK }

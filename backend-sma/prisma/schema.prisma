@@ -30,11 +30,11 @@ model User {
   updatedAt       DateTime  @updatedAt
 
   // ✅ เพิ่ม: สถานะ + ข้อมูลระงับ + เวลา login ล่าสุด
-  status          UserStatus @default(ACTIVE)
-  suspendedAt     DateTime?
-  suspendedReason String?
+  status           UserStatus @default(ACTIVE)
+  suspendedAt      DateTime?
+  suspendedReason  String?
   suspendedUntil   DateTime?
-  lastLoginAt     DateTime?
+  lastLoginAt      DateTime?
 
   customerProfile CustomerProfile?
   storeProfile    StoreProfile?
@@ -258,6 +258,8 @@ model Complaint {
   subject   String
   message   String
   status    ComplaintStatus @default(OPEN)
+
+  images    String[]        @default([]) // ✅ เพิ่ม: เก็บ path รูปแนบหลายรูป
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
