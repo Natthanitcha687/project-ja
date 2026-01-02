@@ -23,9 +23,42 @@ function newRandomToken() {
   return crypto.randomBytes(24).toString('hex')
 }
 
+function clientInfo(req) {
+  const ip =
+    req.headers['x-forwarded-for']?.toString()?.split(',')[0]?.trim() ||
+    req.ip ||
+    null
+
+  const userAgent = req.get('user-agent') || null
+  return { ip, userAgent }
+}
+
+async function logSecurityEvent(req, type, payload = {}) {
+  try {
+    const { ip, userAgent } = clientInfo(req)
+    await prisma.securityEvent.create({
+      data: {
+        type,
+        ip,
+        userAgent,
+        ...payload
+      }
+    })
+  } catch (e) {
+    // best-effort (ไม่ให้ระบบพัง)
+    console.log('⚠️ logSecurityEvent failed (ignored):', e?.message || e)
+  }
+}
+
 function sign(user) {
+  const secret = process.env.JWT_SECRET
+  if (!secret) {
+    // ให้พฤติกรรมตรงกับ requireAuth (ที่บังคับต้องมี JWT_SECRET)
+    const err = new Error('JWT_SECRET is missing')
+    err.code = 'JWT_SECRET_MISSING'
+    throw err
+  }
   const payload = { sub: user.id, role: user.role, email: user.email }
-  const secret = process.env.JWT_SECRET || 'dev-secret'
   const expiresIn = process.env.JWT_EXPIRES_IN || '7d'
   return jwt.sign(payload, secret, { expiresIn })
 }
@@ -237,11 +270,14 @@ export async function login(req, res) {
   try {
     const { email, password } = req.body
     const user = await prisma.user.findUnique({ where: { email } })
-    if (!user) return res.status(401).json({ message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' })
 
-    // ✅ กันผู้ใช้ถูกระงับ (token เก่าไม่มีผล เพราะ login ไม่ออก token ให้)
+    if (!user) {
+      await logSecurityEvent(req, 'USER_LOGIN_FAIL', { email: email || null })
+      return res.status(401).json({ message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' })
+    }
+
+    // ✅ กันผู้ใช้ถูกระงับ
     if (user.status === 'SUSPENDED') {
-      // ถ้ามีวันหมดอายุ และหมดแล้ว → ปลดอัตโนมัติ
       if (user.suspendedUntil && user.suspendedUntil <= new Date()) {
         await prisma.user.update({
           where: { id: user.id },
@@ -253,6 +289,10 @@ export async function login(req, res) {
           }
         })
       } else {
+        await logSecurityEvent(req, 'USER_LOGIN_BLOCKED_SUSPENDED', {
+          userId: user.id,
+          email: user.email
+        })
         return res.status(403).json({
           message: 'บัญชีถูกระงับการใช้งาน',
           reason: user.suspendedReason || null,
@@ -262,10 +302,14 @@ export async function login(req, res) {
     }
 
     const ok = await bcrypt.compare(password, user.passwordHash)
-    if (!ok) return res.status(401).json({ message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' })
+    if (!ok) {
+      await logSecurityEvent(req, 'USER_LOGIN_FAIL', { userId: user.id, email: user.email })
+      return res.status(401).json({ message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' })
+    }
 
     // ✅ บล็อคผู้ใช้ที่ยังไม่ยืนยันอีเมล
     if (!user.emailVerifiedAt) {
+      await logSecurityEvent(req, 'USER_LOGIN_BLOCKED_UNVERIFIED', { userId: user.id, email: user.email })
       const resp = await ensureVerifyTokenAndSendEmail(user)
       return res.status(403).json(resp)
     }
@@ -279,6 +323,9 @@ export async function login(req, res) {
     const token = sign(user)
     res.json({ token })
   } catch (err) {
+    if (err?.code === 'JWT_SECRET_MISSING') {
+      return res.status(500).json({ message: 'JWT_SECRET is missing' })
+    }
     console.error('login error:', err)
     res.status(500).json({ message: 'เกิดข้อผิดพลาด' })
   }
@@ -286,7 +333,6 @@ export async function login(req, res) {
 
 export async function me(req, res) {
   try {
-    // ✅ ให้ route /auth/me ใช้ middleware requireAuth (ตัวใหม่) แล้วส่ง req.user มาให้
     const userId = Number(req.user?.id || req.user?.sub)
     if (!userId) return res.status(401).json({ message: 'Unauthorized' })
 
