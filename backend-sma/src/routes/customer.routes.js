@@ -3,6 +3,7 @@ import { Router } from 'express'
 import multer from 'multer'
 import fs from 'fs'
 import path from 'path'
+import { fileURLToPath } from 'url'
 
 // รองรับทุกแบบ: default / named / CJS
 import * as requireAuthMod from '../middleware/requireAuth.js'
@@ -14,8 +15,8 @@ import * as customerCtrl from '../controllers/customer.controller.js'
 // interop ให้ทำงานได้ทั้ง default/named/CJS
 function pickFn(mod, named) {
   return (typeof mod?.default === 'function' && mod.default)
-      || (typeof mod?.[named] === 'function' && mod[named])
-      || (typeof mod === 'function' && mod)
+    || (typeof mod?.[named] === 'function' && mod[named])
+    || (typeof mod === 'function' && mod)
 }
 const requireAuth = pickFn(requireAuthMod, 'requireAuth')
 const requireVerified = pickFn(requireVerifiedMod, 'requireVerified')
@@ -27,15 +28,27 @@ const router = Router()
  * ✅ Upload for Complaint Images (NEW)
  * ========================= */
 
-// เก็บไฟล์ที่: uploads/complaints
-const complaintUploadDir = path.join(process.cwd(), 'uploads', 'complaints')
-try {
-  fs.mkdirSync(complaintUploadDir, { recursive: true })
-} catch (_) { /* ignore */ }
+// ✅ คุณย้าย complaints มาไว้ "ข้างใน" แล้ว => เก็บที่: backend-sma/src/uploads/complaints
+// ไฟล์นี้อยู่ที่: backend-sma/src/routes/customer.routes.js
+// ดังนั้น ../uploads/complaints = backend-sma/src/uploads/complaints
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+const complaintUploadDir = path.resolve(__dirname, '../uploads/complaints')
+
+// กัน ENOENT: สร้างโฟลเดอร์ทุกครั้งก่อนเขียน (เผื่อย้าย/ลบระหว่างรัน)
+function ensureComplaintDir() {
+  try {
+    fs.mkdirSync(complaintUploadDir, { recursive: true })
+  } catch (_) { /* ignore */ }
+}
+ensureComplaintDir()
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, complaintUploadDir),
-  filename: (req, file, cb) => {
+  destination: (_req, _file, cb) => {
+    ensureComplaintDir()
+    cb(null, complaintUploadDir)
+  },
+  filename: (_req, file, cb) => {
     const ext = path.extname(file.originalname || '').toLowerCase() || ''
     const safeExt = ['.jpg', '.jpeg', '.png', '.webp', '.gif'].includes(ext) ? ext : ''
     const name = `${Date.now()}-${Math.random().toString(16).slice(2)}${safeExt}`
@@ -49,9 +62,10 @@ const uploadComplaintImages = multer({
     files: 5,
     fileSize: 5 * 1024 * 1024, // 5MB/ไฟล์
   },
-  fileFilter: (req, file, cb) => {
+  fileFilter: (_req, file, cb) => {
     const ok = (file?.mimetype || '').startsWith('image/')
-    cb(ok ? null : new Error('Only image files are allowed'), ok)
+    // ✅ ให้สอดคล้องกับ error handler ใน server.js (จะตอบ 400 แทน 500)
+    cb(ok ? null : new Error('รองรับเฉพาะไฟล์รูปภาพ (JPEG, JPG, PNG, GIF, WebP)'), ok)
   },
 })
 
