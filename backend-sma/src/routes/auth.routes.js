@@ -6,6 +6,8 @@ import {
   resendVerification,
   verifyEmail,
   login,
+  verifyLoginOtp,
+  resendLoginOtp,
   me,
   requestPasswordReset,
   resetPassword
@@ -183,6 +185,10 @@ router.get('/verify', verifyEmail)
  *         description: อีเมล/รหัสผ่านไม่ถูกต้อง
  */
 router.post('/login', login)
+
+// ✅ OTP (Email) login
+router.post('/login/otp/verify', verifyLoginOtp)
+router.post('/login/otp/resend', resendLoginOtp)
 
 /**
  * @openapi

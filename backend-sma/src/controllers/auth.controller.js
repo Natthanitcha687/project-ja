@@ -2,7 +2,7 @@
 import { prisma } from '../db/prisma.js'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
-import { sendVerificationEmail, sendPasswordResetEmail } from '../services/email.js'
+import { sendVerificationEmail, sendPasswordResetEmail, sendLoginOtpEmail } from '../services/email.js'
 import crypto from 'crypto'
 
 // ========= helpers =========
@@ -61,6 +61,76 @@ function sign(user) {
   const payload = { sub: user.id, role: user.role, email: user.email }
   const expiresIn = process.env.JWT_EXPIRES_IN || '7d'
   return jwt.sign(payload, secret, { expiresIn })
+}
+
+/* =========================
+ * OTP helpers (Email OTP login)
+ * ========================= */
+function isTrue(v) {
+  const s = String(v ?? '').toLowerCase().trim()
+  return s === '1' || s === 'true' || s === 'yes' || s === 'on'
+}
+
+function addMinutes(date, minutes) {
+  const d = new Date(date)
+  d.setMinutes(d.getMinutes() + minutes)
+  return d
+}
+
+function otpSecret() {
+  // แนะนำตั้ง OTP_SECRET ใน .env (ถ้าไม่มีจะ fallback ไป JWT_SECRET)
+  return process.env.OTP_SECRET || process.env.JWT_SECRET || 'dev-otp-secret'
+}
+
+function makeOtpCode() {
+  // 6 หลัก
+  return String(crypto.randomInt(0, 1_000_000)).padStart(6, '0')
+}
+
+function makeChallengeId() {
+  return crypto.randomBytes(16).toString('hex')
+}
+
+function hashOtp(code) {
+  return crypto.createHmac('sha256', otpSecret()).update(String(code)).digest('hex')
+}
+
+function safeEqualHex(a, b) {
+  try {
+    const ab = Buffer.from(String(a), 'hex')
+    const bb = Buffer.from(String(b), 'hex')
+    if (ab.length !== bb.length) return false
+    return crypto.timingSafeEqual(ab, bb)
+  } catch {
+    return false
+  }
+}
+
+// ✅ เพิ่ม: Step-up OTP (ไม่ต้องกรอกทุกครั้ง)
+// - ถ้า lastLoginAt เป็น null (ครั้งแรก) => ต้อง OTP
+// - ถ้าไม่ได้ล็อกอินเกิน N วัน => ต้อง OTP
+function otpStepupDays() {
+  const raw = Number(process.env.EMAIL_OTP_STEPUP_DAYS || 7)
+  if (!Number.isFinite(raw) || raw <= 0) return 7
+  return raw
+}
+
+function shouldRequireOtpForLogin(user) {
+  // เปิด OTP ก่อนค่อยคิด
+  const enableOtp = isTrue(process.env.EMAIL_OTP_LOGIN)
+  if (!enableOtp) return false
+
+  const days = otpStepupDays()
+
+  // ครั้งแรก (ไม่เคยล็อกอิน)
+  if (!user?.lastLoginAt) return true
+
+  const last = new Date(user.lastLoginAt)
+  if (isNaN(last)) return true
+
+  const diffMs = Date.now() - last.getTime()
+  const diffDays = diffMs / (1000 * 60 * 60 * 24)
+  return diffDays >= days
 }
 
 async function ensureVerifyTokenAndSendEmail(user) {
@@ -314,7 +384,52 @@ export async function login(req, res) {
       return res.status(403).json(resp)
     }
 
-    // ✅ อัปเดต lastLoginAt
+    // ✅ Step-up OTP (ครั้งแรก/ไม่ได้ล็อกอินนาน)
+    const needOtp = shouldRequireOtpForLogin(user)
+    if (needOtp) {
+      const OTP_EXPIRES_MIN = Number(process.env.OTP_EXPIRES_MIN || 10)
+      const challengeId = makeChallengeId()
+      const code = makeOtpCode()
+      const codeHash = hashOtp(code)
+      const expiresAt = addMinutes(new Date(), OTP_EXPIRES_MIN)
+      const { ip, userAgent } = clientInfo(req)
+
+      // invalidate OTP เก่า (กันค้าง)
+      await prisma.emailOtp.updateMany({
+        where: { userId: user.id, purpose: 'USER_LOGIN', usedAt: null },
+        data: { usedAt: new Date() }
+      })
+
+      await prisma.emailOtp.create({
+        data: {
+          challengeId,
+          userId: user.id,
+          purpose: 'USER_LOGIN',
+          codeHash,
+          expiresAt,
+          ip,
+          userAgent
+        }
+      })
+
+      try {
+        await sendLoginOtpEmail({ to: user.email, code, minutes: OTP_EXPIRES_MIN })
+      } catch (e) {
+        await logSecurityEvent(req, 'USER_LOGIN_OTP_SEND_FAIL', { userId: user.id, email: user.email })
+        return res.status(500).json({ message: 'ส่ง OTP ไม่สำเร็จ (ตรวจสอบการตั้งค่าอีเมล)' })
+      }
+
+      await logSecurityEvent(req, 'USER_LOGIN_OTP_SENT', { userId: user.id, email: user.email })
+
+      return res.json({
+        otpRequired: true,
+        challengeId,
+        expiresInSec: OTP_EXPIRES_MIN * 60,
+        message: 'ส่งรหัส OTP ไปที่อีเมลแล้ว'
+      })
+    }
+
+    // ✅ อัปเดต lastLoginAt (เฉพาะกรณีไม่ต้องใช้ OTP)
     await prisma.user.update({
       where: { id: user.id },
       data: { lastLoginAt: new Date() }
@@ -328,6 +443,130 @@ export async function login(req, res) {
     }
     console.error('login error:', err)
     res.status(500).json({ message: 'เกิดข้อผิดพลาด' })
+  }
+}
+
+export async function verifyLoginOtp(req, res) {
+  try {
+    const { challengeId, code } = req.body || {}
+    if (!challengeId || !code) return res.status(400).json({ message: 'ข้อมูลไม่ครบ' })
+
+    const OTP_MAX_ATTEMPTS = Number(process.env.OTP_MAX_ATTEMPTS || 5)
+
+    const row = await prisma.emailOtp.findUnique({
+      where: { challengeId: String(challengeId) },
+      include: { user: true }
+    })
+
+    if (!row || row.purpose !== 'USER_LOGIN') return res.status(400).json({ message: 'OTP ไม่ถูกต้อง' })
+    if (row.usedAt) return res.status(400).json({ message: 'OTP ถูกใช้งานแล้ว' })
+    if (row.expiresAt < new Date()) return res.status(400).json({ message: 'OTP หมดอายุแล้ว' })
+    if (row.attempts >= OTP_MAX_ATTEMPTS) return res.status(429).json({ message: 'ใส่ OTP ผิดเกินจำนวนที่กำหนด' })
+
+    const ok = safeEqualHex(hashOtp(code), row.codeHash)
+    if (!ok) {
+      const nextAttempts = row.attempts + 1
+      await prisma.emailOtp.update({
+        where: { challengeId: row.challengeId },
+        data: {
+          attempts: nextAttempts,
+          usedAt: nextAttempts >= OTP_MAX_ATTEMPTS ? new Date() : null
+        }
+      })
+      await logSecurityEvent(req, 'USER_LOGIN_OTP_FAIL', { userId: row.userId, email: row.user?.email })
+      return res.status(401).json({ message: 'รหัส OTP ไม่ถูกต้อง' })
+    }
+
+    // กันกรณีถูกระงับ/ยังไม่ verify หลังจากขอ OTP ไปแล้ว
+    if (row.user?.status === 'SUSPENDED') {
+      return res.status(403).json({ message: 'บัญชีถูกระงับการใช้งาน' })
+    }
+    if (!row.user?.emailVerifiedAt) {
+      await logSecurityEvent(req, 'USER_LOGIN_BLOCKED_UNVERIFIED', { userId: row.userId, email: row.user?.email })
+      const resp = await ensureVerifyTokenAndSendEmail(row.user)
+      return res.status(403).json(resp)
+    }
+
+    await prisma.$transaction([
+      prisma.emailOtp.update({ where: { challengeId: row.challengeId }, data: { usedAt: new Date() } }),
+      prisma.user.update({ where: { id: row.userId }, data: { lastLoginAt: new Date() } }),
+      prisma.emailOtp.updateMany({
+        where: { userId: row.userId, purpose: 'USER_LOGIN', usedAt: null },
+        data: { usedAt: new Date() }
+      })
+    ])
+
+    await logSecurityEvent(req, 'USER_LOGIN_OTP_SUCCESS', { userId: row.userId, email: row.user?.email })
+
+    const token = sign(row.user)
+    return res.json({ token })
+  } catch (err) {
+    console.error('verifyLoginOtp error:', err)
+    return res.status(500).json({ message: 'เกิดข้อผิดพลาด' })
+  }
+}
+
+export async function resendLoginOtp(req, res) {
+  try {
+    const { challengeId } = req.body || {}
+    if (!challengeId) return res.status(400).json({ message: 'ข้อมูลไม่ครบ' })
+
+    const cooldown = Number(process.env.OTP_RESEND_COOLDOWN_SEC || 60)
+    const OTP_EXPIRES_MIN = Number(process.env.OTP_EXPIRES_MIN || 10)
+
+    const row = await prisma.emailOtp.findUnique({
+      where: { challengeId: String(challengeId) },
+      include: { user: true }
+    })
+
+    if (!row || row.purpose !== 'USER_LOGIN') return res.status(400).json({ message: 'OTP ไม่ถูกต้อง' })
+    if (row.usedAt) return res.status(400).json({ message: 'OTP นี้ใช้ไปแล้ว' })
+    if (row.expiresAt < new Date()) return res.status(400).json({ message: 'OTP หมดอายุแล้ว' })
+
+    const ageSec = Math.floor((Date.now() - new Date(row.createdAt).getTime()) / 1000)
+    if (ageSec < cooldown) {
+      return res.status(429).json({ message: `กรุณารอ ${cooldown - ageSec} วินาทีแล้วลองใหม่` })
+    }
+
+    const newChallengeId = makeChallengeId()
+    const code = makeOtpCode()
+    const codeHash = hashOtp(code)
+    const expiresAt = addMinutes(new Date(), OTP_EXPIRES_MIN)
+    const { ip, userAgent } = clientInfo(req)
+
+    await prisma.$transaction([
+      prisma.emailOtp.update({ where: { challengeId: row.challengeId }, data: { usedAt: new Date() } }),
+      prisma.emailOtp.create({
+        data: {
+          challengeId: newChallengeId,
+          userId: row.userId,
+          purpose: 'USER_LOGIN',
+          codeHash,
+          expiresAt,
+          ip,
+          userAgent
+        }
+      })
+    ])
+
+    try {
+      await sendLoginOtpEmail({ to: row.user.email, code, minutes: OTP_EXPIRES_MIN })
+    } catch (e) {
+      await logSecurityEvent(req, 'USER_LOGIN_OTP_SEND_FAIL', { userId: row.userId, email: row.user.email })
+      return res.status(500).json({ message: 'ส่ง OTP ไม่สำเร็จ (ตรวจสอบการตั้งค่าอีเมล)' })
+    }
+
+    await logSecurityEvent(req, 'USER_LOGIN_OTP_SENT', { userId: row.userId, email: row.user.email })
+
+    return res.json({
+      otpRequired: true,
+      challengeId: newChallengeId,
+      expiresInSec: OTP_EXPIRES_MIN * 60,
+      message: 'ส่ง OTP ใหม่แล้ว'
+    })
+  } catch (err) {
+    console.error('resendLoginOtp error:', err)
+    return res.status(500).json({ message: 'เกิดข้อผิดพลาด' })
   }
 }
 

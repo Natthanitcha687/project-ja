@@ -42,6 +42,9 @@ model User {
   verificationTokens VerificationToken[]
   resetTokens        PasswordResetToken[]
 
+  // ✅ เพิ่ม: OTP สำหรับล็อกอินทางอีเมล
+  emailOtps EmailOtp[]
+
   // ใบรับประกันที่ "ร้าน" นี้ออก (Header)
   warranties Warranty[]
 
@@ -112,6 +115,32 @@ model PasswordResetToken {
   expiresAt DateTime
   createdAt DateTime @default(now())
   usedAt    DateTime?
+}
+
+/* =========================================================
+ * ✅ เพิ่ม: Email OTP (สำหรับ Login)
+ * ========================================================= */
+model EmailOtp {
+  id          Int      @id @default(autoincrement())
+  challengeId String   @unique
+
+  userId Int
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  purpose   String
+  codeHash  String
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  usedAt    DateTime?
+
+  ip        String?
+  userAgent String?
+
+  @@index([userId])
+  @@index([purpose])
+  @@index([expiresAt])
+  @@index([userId, purpose, usedAt])
 }
 
 model Warranty {
