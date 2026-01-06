@@ -63,6 +63,74 @@ app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
 app.use(cookieParser());
 
+/* =========================================================
+ * ✅ Access Log (Production-style) -> stdout/console
+ * - Log ทุก request แบบสรุป (ไม่ log body/authorization)
+ * - Render/Docker/PM2 จะเก็บ stdout ให้เอง
+ * - ใส่ X-Request-Id เพื่อ trace
+ * ========================================================= */
+function getClientIp(req) {
+  return (
+    req.headers['x-forwarded-for']?.toString()?.split(',')[0]?.trim() ||
+    req.ip ||
+    null
+  );
+}
+
+function makeRequestId() {
+  // ไม่พึ่งพา lib เพิ่ม: พอสำหรับ trace ใน log
+  return (
+    Date.now().toString(36) +
+    '-' +
+    Math.random().toString(36).slice(2, 10)
+  ).toUpperCase();
+}
+
+function shouldSkipAccessLog(req) {
+  const p = (req.originalUrl || req.url || '').toString();
+  // ลด noise จาก static + swagger
+  if (p.startsWith('/uploads')) return true;
+  if (p.startsWith('/docs')) return true;
+  return false;
+}
+
+app.use((req, res, next) => {
+  if (shouldSkipAccessLog(req)) return next();
+
+  const rid = makeRequestId();
+  const start = process.hrtime.bigint();
+
+  // ส่ง request id กลับไปด้วย (ช่วย debug ฝั่ง client/proxy)
+  try {
+    res.setHeader('X-Request-Id', rid);
+  } catch {
+    // ignore
+  }
+
+  res.on('finish', () => {
+    const durMs = Number(process.hrtime.bigint() - start) / 1e6;
+
+    // อ่าน userId ตอน "finish" เพื่อให้กรณี route ตั้งค่า req.user ทีหลังยังอ่านได้
+    const userId = req.user?.id ?? req.user?.sub ?? null;
+
+    const line = {
+      ts: new Date().toISOString(),
+      rid,
+      method: req.method,
+      path: req.originalUrl || req.url,
+      status: res.statusCode,
+      ms: Math.round(durMs),
+      ip: getClientIp(req),
+      userId,
+      ua: req.get('user-agent') || null,
+    };
+
+    console.log('ACCESS', JSON.stringify(line));
+  });
+
+  next();
+});
+
 // Swagger
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
