@@ -79,7 +79,7 @@ export function AuthProvider({ children }) {
     try {
       setLoading(true);
       const { data } = await api.get("/auth/me");
- 
+
       setUser(data?.user || data || null);
       return data?.user || data || null;
     } catch {
@@ -100,10 +100,31 @@ export function AuthProvider({ children }) {
   // API สะดวกใช้
   async function login(email, password) {
     const { data } = await api.post("/auth/login", { email, password });
+
+    // ✅ รองรับ OTP (Email) — ถ้า server บอกว่า otpRequired ให้ส่งข้อมูลกลับไปให้หน้า SignIn จัดการ
+    if (data?.otpRequired && data?.challengeId) {
+      return data; // { otpRequired, challengeId, expiresInSec, message }
+    }
+
     if (!data?.token) throw new Error("ไม่พบโทเคนจากเซิร์ฟเวอร์");
     setToken(data.token);
     const me = await loadMe();
     return me; // ให้หน้าล็อกอินรู้ role / storeProfile ได้ทันที
+  }
+
+  // ✅ OTP: verify แล้วได้ token
+  async function verifyLoginOtp(challengeId, code) {
+    const { data } = await api.post("/auth/login/otp/verify", { challengeId, code });
+    if (!data?.token) throw new Error("ไม่พบโทเคนจากเซิร์ฟเวอร์");
+    setToken(data.token);
+    const me = await loadMe();
+    return me;
+  }
+
+  // ✅ OTP: resend (ได้ challengeId ใหม่)
+  async function resendLoginOtp(challengeId) {
+    const { data } = await api.post("/auth/login/otp/resend", { challengeId });
+    return data; // { otpRequired, challengeId, expiresInSec, message }
   }
 
   function logout() {
@@ -112,7 +133,18 @@ export function AuthProvider({ children }) {
   }
 
   const value = useMemo(
-    () => ({ token, setToken, user, setUser, loading, login, logout, loadMe }),
+    () => ({
+      token,
+      setToken,
+      user,
+      setUser,
+      loading,
+      login,
+      verifyLoginOtp,
+      resendLoginOtp,
+      logout,
+      loadMe,
+    }),
     [token, user, loading]
   );
 

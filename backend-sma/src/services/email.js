@@ -74,3 +74,27 @@ export async function sendNotificationEmail({ to, subject, text, html }) {
   const htmlBody = html || `<div style="font-family:system-ui,Arial,sans-serif;line-height:1.6"><p>${text || ''}</p></div>`;
   return transport.sendMail({ from, to, subject, text: text || subject, html: htmlBody });
 }
+
+export async function sendLoginOtpEmail({ to, code, minutes = 10 }) {
+  const transport = await getTransport();
+  const from = getFrom();
+
+  const subject = "รหัส OTP สำหรับเข้าสู่ระบบ";
+  const text = `รหัส OTP ของคุณคือ: ${code} (หมดอายุใน ${minutes} นาที)`;
+  const html = `
+    <div style="font-family:system-ui,Arial,sans-serif;line-height:1.6">
+      <h2 style="margin:0 0 12px">รหัส OTP สำหรับเข้าสู่ระบบ</h2>
+      <p>กรอกรหัสด้านล่างเพื่อเข้าสู่ระบบ (หมดอายุใน <b>${minutes}</b> นาที)</p>
+      <div style="font-size:28px;font-weight:800;letter-spacing:6px;
+                  padding:12px 16px;border:1px solid #e5e7eb;border-radius:12px;
+                  display:inline-block;background:#f9fafb">
+        ${code}
+      </div>
+      <p style="margin-top:14px;color:#6b7280;font-size:12px">
+        หากคุณไม่ได้เป็นผู้ร้องขอ OTP นี้ สามารถละเว้นอีเมลนี้ได้
+      </p>
+    </div>
+  `;
+
+  return transport.sendMail({ from, to, subject, text, html });
+}
