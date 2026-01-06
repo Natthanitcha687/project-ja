@@ -48,6 +48,7 @@ export default function CustomerComplaints() {
   const [category, setCategory] = useState(CATEGORY_OPTIONS[0]);
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
+  const [attachments, setAttachments] = useState([]); // ✅ เพิ่ม: แนบรูป
 
   // list / ui
   const [items, setItems] = useState([]);
@@ -78,7 +79,7 @@ export default function CustomerComplaints() {
       setLastUpdatedAt(new Date().toISOString());
     } catch (e) {
       // ถ้าเป็น silent refresh แล้วพัง จะไม่ทับ UI ด้วย loading หนัก
-      setErr(e?.response?.data?.message || "โหลดรายการร้องเรียนไม่สำเร็จ");
+      setErr(e?.response?.data?.message || "โหลดรายการแจ้งปัญหาไม่สำเร็จ");
     } finally {
       if (!silent) setLoading(false);
       inFlightRef.current = false;
@@ -136,20 +137,34 @@ export default function CustomerComplaints() {
 
     setSubmitting(true);
     try {
-      await api.post("/customer/complaints", {
-        category: (category || "").trim() || null,
-        subject: s,
-        message: m,
-      });
+      // ✅ ถ้าแนบรูป -> multipart / ถ้าไม่แนบ -> JSON (คงพฤติกรรมเดิม)
+      if (attachments && attachments.length > 0) {
+        const form = new FormData();
+        form.append("category", (category || "").trim() || "");
+        form.append("subject", s);
+        form.append("message", m);
+        attachments.forEach((f) => form.append("images", f)); // field name = images
 
-      setOk("ส่งคำร้องเรียนเรียบร้อย ✅");
+        await api.post("/customer/complaints", form, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      } else {
+        await api.post("/customer/complaints", {
+          category: (category || "").trim() || null,
+          subject: s,
+          message: m,
+        });
+      }
+
+      setOk("แจ้งปัญหาเรียบร้อย ✅");
       setSubject("");
       setMessage("");
+      setAttachments([]); // ✅ รีเซ็ตไฟล์แนบ
 
       await fetchComplaints();
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (e2) {
-      setErr(e2?.response?.data?.message || "ส่งคำร้องเรียนไม่สำเร็จ");
+      setErr(e2?.response?.data?.message || "แจ้งปัญหาไม่สำเร็จ");
     } finally {
       setSubmitting(false);
     }
@@ -161,7 +176,7 @@ export default function CustomerComplaints() {
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <div className="text-lg font-semibold text-slate-900">ร้องเรียน / ติดต่อแอดมิน</div>
+            <div className="text-lg font-semibold text-slate-900">แจ้งปัญหา / ติดต่อแอดมิน</div>
             <div className="text-sm text-slate-500">
               ส่งปัญหา/ข้อเสนอแนะให้ผู้ดูแลระบบ (ระบบบันทึกลงฐานข้อมูล)
             </div>
@@ -197,7 +212,7 @@ export default function CustomerComplaints() {
           <div className="p-6">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <div className="text-base font-semibold text-slate-900">ส่งคำร้องเรียน</div>
+                <div className="text-base font-semibold text-slate-900">แจ้งปัญหา</div>
                 <div className="text-sm text-slate-500">กรอกให้ครบ แล้วกดส่ง</div>
               </div>
 
@@ -273,16 +288,46 @@ export default function CustomerComplaints() {
                 <div className="mt-1 text-xs text-slate-500">{message.trim().length}/5000</div>
               </div>
 
+              {/* ✅ เพิ่ม: แนบรูปอ้างอิง */}
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  แนบรูปอ้างอิงปัญหา (ถ้ามี)
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => setAttachments(Array.from(e.target.files || []))}
+                  className="w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-sky-200"
+                />
+                {attachments?.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {attachments.map((f, idx) => (
+                      <span
+                        key={`${f.name}-${idx}`}
+                        className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200"
+                        title={f.name}
+                      >
+                        📎 {f.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="mt-1 text-xs text-slate-500">
+                  รองรับรูปภาพเท่านั้น (เลือกได้หลายรูป)
+                </div>
+              </div>
+
               <div className="md:col-span-2 flex flex-wrap items-center justify-between gap-3 pt-2">
                 <div className="text-xs text-slate-500">
-                  * คำร้องเรียนจะถูกส่งไปยังแอดมิน และสามารถติดตามสถานะได้ด้านล่าง
+                  * คำร้องแจ้งปัญหาจะถูกส่งไปยังแอดมิน และสามารถติดตามสถานะได้ด้านล่าง
                 </div>
 
                 <button
                   disabled={submitting}
                   className="rounded-2xl bg-sky-600 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-sky-700 disabled:opacity-60"
                 >
-                  {submitting ? "กำลังส่ง..." : "ส่งคำร้องเรียน"}
+                  {submitting ? "กำลังส่ง..." : "แจ้งปัญหา"}
                 </button>
               </div>
             </form>
@@ -295,8 +340,8 @@ export default function CustomerComplaints() {
           <div className="p-6">
             <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
               <div>
-                <div className="text-base font-semibold text-slate-900">รายการคำร้องเรียน</div>
-                <div className="text-sm text-slate-500">แสดงคำร้องเรียนที่คุณส่งไว้ทั้งหมด</div>
+                <div className="text-base font-semibold text-slate-900">รายการแจ้งปัญหา</div>
+                <div className="text-sm text-slate-500">แสดงคำร้องแจ้งปัญหาที่คุณส่งไว้ทั้งหมด</div>
               </div>
 
               <div className="flex flex-wrap gap-2">
@@ -327,7 +372,7 @@ export default function CustomerComplaints() {
               </div>
             ) : filtered.length === 0 ? (
               <div className="rounded-2xl border border-sky-100 bg-sky-50/60 px-5 py-6 text-center">
-                <div className="text-sm font-semibold text-slate-900">ยังไม่มีคำร้องเรียน</div>
+                <div className="text-sm font-semibold text-slate-900">ยังไม่มีการแจ้งปัญหา</div>
                 <div className="mt-1 text-xs text-slate-500">
                   ถ้าคุณมีปัญหา/ข้อเสนอแนะ สามารถส่งได้จากฟอร์มด้านบน
                 </div>

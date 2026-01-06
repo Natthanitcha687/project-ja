@@ -357,16 +357,39 @@ export async function listAuditLogs(_req, res) {
   res.json({ logs });
 }
 
+/**
+ * ✅ FIX: include user + profile เพื่อให้ฝั่ง Admin UI แสดง "ผู้ส่ง" ได้
+ */
 export async function listComplaints(req, res) {
   const status = (req.query.status || "").toString().trim();
+
   const complaints = await prisma.complaint.findMany({
     where: status ? { status } : {},
     orderBy: { createdAt: "desc" },
     take: 200,
+    include: {
+      user: {
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          customerProfile: {
+            select: { firstName: true, lastName: true, phone: true },
+          },
+          storeProfile: {
+            select: { storeName: true, phone: true },
+          },
+        },
+      },
+    },
   });
+
   res.json({ complaints });
 }
 
+/**
+ * ✅ FIX: update แล้ว include user กลับไปด้วย (กัน UI หลุดข้อมูลผู้ส่งใน modal/list)
+ */
 export async function setComplaintStatus(req, res) {
   const id = req.params.id;
   const { status } = req.body || {};
@@ -377,6 +400,17 @@ export async function setComplaintStatus(req, res) {
   const updated = await prisma.complaint.update({
     where: { id },
     data: { status },
+    include: {
+      user: {
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          customerProfile: { select: { firstName: true, lastName: true, phone: true } },
+          storeProfile: { select: { storeName: true, phone: true } },
+        },
+      },
+    },
   });
 
   await logAudit(req, "SET_COMPLAINT_STATUS", "Complaint", id, { status });

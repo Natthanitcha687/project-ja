@@ -355,7 +355,7 @@ export default function CustomerNavbar() {
                 }}
               >
                 <span className="text-base leading-none">📝</span>
-                <span className="hidden md:inline">ร้องเรียน</span>
+                <span className="hidden md:inline">แจ้งปัญหา</span>
               </Link>
             )}
 
