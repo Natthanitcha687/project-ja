@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 import { prisma } from "../db/prisma.js";
 import { sendError, sendSuccess } from "../utils/http.js";
-import { createAndPublish as createNotification } from '../routes/notifications.routes.js'
+import { createAndPublish as createNotification } from "../routes/notifications.routes.js";
 
 const DEFAULT_NOTIFY_DAYS = 14;
 
@@ -108,10 +108,64 @@ export async function downloadWarrantyPdf(req, res) {
 
     function firstExistingFile(paths) {
       for (const p of paths) {
-        try { if (p && fs.existsSync(p)) return p; } catch {}
+        try {
+          if (p && fs.existsSync(p)) return p;
+        } catch {}
       }
       return null;
     }
+
+    // --- address formatter (ทำให้เป็นภาษาไทย ไม่โชว์ JSON) ---
+    function safeJsonParseMaybe(v) {
+      if (v == null) return null;
+      if (typeof v === "object") return v;
+      const s = String(v).trim();
+      if (!s) return null;
+      if (!(s.startsWith("{") || s.startsWith("["))) return null;
+      try {
+        return JSON.parse(s);
+      } catch {
+        return null;
+      }
+    }
+
+    function formatThaiAddress(addr) {
+      if (!addr) return "-";
+
+      const obj = safeJsonParseMaybe(addr);
+      if (!obj) {
+        return String(addr).trim() || "-";
+      }
+
+      const street = (obj.street || obj.address || obj.line1 || "").toString().trim();
+      const subdistrict = (obj.subdistrict || obj.subDistrict || obj.tambon || "").toString().trim();
+      const district = (obj.district || obj.amphoe || "").toString().trim();
+      const province = (obj.province || obj.state || "").toString().trim();
+      const postcode = (obj.postcode || obj.zip || obj.postalCode || "").toString().trim();
+
+      const isBkk = province.includes("กรุงเทพ") || province.toLowerCase().includes("bangkok");
+
+      const parts = [];
+      if (street) parts.push(street);
+      if (subdistrict) parts.push(isBkk ? `แขวง${subdistrict}` : `ตำบล${subdistrict}`);
+      if (district) parts.push(isBkk ? `เขต${district}` : `อำเภอ${district}`);
+      if (province) parts.push(isBkk ? province : `จังหวัด${province}`);
+      if (postcode) parts.push(postcode);
+
+      const out = parts.join(" ").replace(/\s+/g, " ").trim();
+      return out || "-";
+    }
+
+    // --- logo helper ---
+    const logoCandidates = [
+      process.env.PDF_APP_LOGO,
+      path.resolve(process.cwd(), "src/assets/logo.png"),
+      path.resolve(process.cwd(), "src/assets/app-logo.png"),
+      path.resolve(process.cwd(), "src/assets/images/logo.png"),
+      path.resolve(process.cwd(), "src/assets/logo/logo.png"),
+    ].filter(Boolean);
+
+    const logoPath = firstExistingFile(logoCandidates);
 
     const doc = new PDFDocument({ autoFirstPage: false });
 
@@ -132,178 +186,208 @@ export async function downloadWarrantyPdf(req, res) {
       doc.font("THAI");
     } catch (e) {
       console.error("Font load error:", e);
-      return sendError(
-        res,
-        500,
-        "Unknown font format: โปรดใช้ไฟล์ TTF แบบ static"
-      );
+      return sendError(res, 500, "Unknown font format: โปรดใช้ไฟล์ TTF แบบ static");
     }
 
     doc.pipe(res);
 
     function headerTitle(left, top, width) {
-      doc.font(boldPath ? "THAI_BOLD" : "THAI").fontSize(18).fillColor("#000")
+      doc
+        .font(boldPath ? "THAI_BOLD" : "THAI")
+        .fontSize(18)
+        .fillColor("#000")
         .text("ใบรับประกัน", left, top, { width: width / 2, align: "left" });
-      doc.font("THAI").fontSize(14).text("WARRANTY", left, top + mm(8), {
-        width: width / 2,
-        align: "left",
-      });
-      doc.font("THAI").fontSize(12).text("สำหรับผู้ซื้อ", left + width / 2, top, {
-        width: width / 2,
-        align: "right",
-      });
-    }
 
-    function cell(x, y, w, h, th, en, value, pad = mm(3.5)) {
-      doc.rect(x, y, w, h).stroke();
-      doc.font("THAI").fontSize(10).fillColor("#000")
-        .text(th, x + pad, y + pad, { width: w - pad * 2 });
-      doc.font("THAI").fontSize(9).fillColor("#555")
-        .text(en, x + pad, y + pad + mm(5), { width: w - pad * 2 });
-      doc.font("THAI").fontSize(11).fillColor("#000")
-        .text(T(value), x + pad, y + pad + mm(11), {
-          width: w - pad * 2,
-          height: h - pad * 2 - mm(11),
+      doc
+        .font("THAI")
+        .fontSize(14)
+        .fillColor("#000")
+        .text("WARRANTY", left, top + mm(8), { width: width / 2, align: "left" });
+
+      doc
+        .font("THAI")
+        .fontSize(12)
+        .fillColor("#000")
+        .text("สำหรับผู้ซื้อ", left + width / 2, top, {
+          width: width / 2,
+          align: "right",
         });
     }
 
+    function drawCellBilingual(x, y, w, h, thLabel, enLabel, value, opts = {}) {
+      const pad = opts.pad ?? mm(3.5);
+      const valueY = opts.valueY ?? (y + pad + mm(11));
+
+      doc.lineWidth(1).rect(x, y, w, h).stroke();
+
+      doc.font("THAI").fontSize(10).fillColor("#000").text(thLabel, x + pad, y + pad, {
+        width: w - pad * 2,
+      });
+
+      doc.font("THAI").fontSize(9).fillColor("#555").text(enLabel, x + pad, y + pad + mm(5), {
+        width: w - pad * 2,
+      });
+
+      doc.font("THAI").fontSize(11).fillColor("#000").text(T(value), x + pad, valueY, {
+        width: w - pad * 2,
+        height: h - (valueY - y) - pad,
+      });
+    }
+
+    function drawCellFullWidth(x, y, w, h, thLabel, enLabel, value) {
+      const pad = mm(3.5);
+      doc.lineWidth(1).rect(x, y, w, h).stroke();
+
+      doc.font("THAI").fontSize(10).fillColor("#000").text(thLabel, x + pad, y + pad);
+      doc.font("THAI").fontSize(9).fillColor("#555").text(enLabel, x + pad, y + pad + mm(5));
+
+      doc.font("THAI").fontSize(11).fillColor("#000").text(T(value), x + pad, y + pad + mm(11), {
+        width: w - pad * 2,
+        height: h - pad * 2 - mm(11),
+      });
+    }
+
+    function drawBottomBrandArea(left, bottomY, width, company, footerNote) {
+      // ข้อความหมายเหตุ
+      doc.font("THAI").fontSize(11).fillColor("#000").text(
+        T(footerNote, "โปรดนำใบรับประกันฉบับนี้มาแสดงเป็นหลักฐานทุกครั้งเมื่อใช้บริการ"),
+        left,
+        bottomY,
+        { width, align: "left" }
+      );
+
+      const brandY = bottomY + mm(14);
+      const logoSize = mm(14);
+
+      const logoX = left;
+      const logoY = brandY;
+
+      if (logoPath) {
+        try {
+          const buf = fs.readFileSync(logoPath);
+          doc.image(buf, logoX, logoY, { fit: [logoSize, logoSize] });
+        } catch {
+          doc.save();
+          doc.fillColor("#E11D48").rect(logoX, logoY, logoSize, logoSize).fill();
+          doc.fillColor("#fff")
+            .font(boldPath ? "THAI_BOLD" : "THAI")
+            .fontSize(10)
+            .text("APP", logoX, logoY + mm(4), { width: logoSize, align: "center" });
+          doc.restore();
+        }
+      } else {
+        doc.save();
+        doc.fillColor("#E11D48").rect(logoX, logoY, logoSize, logoSize).fill();
+        doc.fillColor("#fff")
+          .font(boldPath ? "THAI_BOLD" : "THAI")
+          .fontSize(10)
+          .text("APP", logoX, logoY + mm(4), { width: logoSize, align: "center" });
+        doc.restore();
+      }
+
+      const infoX = logoX + logoSize + mm(6);
+      const lines = [
+        T(company?.name, ""),
+        T(company?.address, ""),
+        company?.tel ? `โทร. ${company.tel}` : "",
+      ].filter(Boolean);
+
+      doc.font("THAI").fontSize(10).fillColor("#000").text(lines.join("\n"), infoX, logoY, {
+        width: width - (infoX - left),
+      });
+    }
+
     function drawWarrantyPage(base, item) {
+      // ✅ A3 แนวนอน: 420 x 297 mm
       doc.addPage({
-        size: [mm(210), mm(297)],
+        size: [mm(420), mm(297)],
         margins: { top: mm(12), left: mm(12), right: mm(12), bottom: mm(12) },
       });
 
-      const pageW = mm(210);
+      const pageW = mm(420);
+      const pageH = mm(297);
       const left = mm(12);
       const top = mm(12);
       const width = pageW - mm(12) * 2;
 
       headerTitle(left, top, width);
 
+      // ตารางแบบ “รูปที่ 1”
       const tableTop = top + mm(22);
       const tableW = width;
+
       const colL = Math.round(tableW * 0.55);
       const colR = tableW - colL;
 
-      // ลำดับใหม่ตามที่ขอ:
-      // 1) เลขที่/สินค้า
-      // 2) รุ่น/Serial
-      // 3) วันที่ซื้อ / วันหมดอายุ      ← ย้ายขึ้นมาก่อนชื่อลูกค้า
-      // 4) ชื่อลูกค้า / โทรลูกค้า
-      // 5) เงื่อนไขการรับประกัน (เต็มแถว)
-      // 6) ชื่อร้าน (ซ้าย) / เบอร์โทรร้านค้า (ขวา)
-      // 7) ที่อยู่ร้านค้า (เต็มแถว)
+      const row1 = mm(22); // เลขที่ / สินค้า
+      const row2 = mm(22); // รุ่น / หมายเลขเครื่อง
+      const row3 = mm(24); // ชื่อ-นามสกุล / โทรศัพท์
+      const row4 = mm(28); // ที่อยู่ (เต็มแถว)
+      const row5 = mm(22); // ผู้จำหน่าย / วันที่ซื้อ
+      const tableH = row1 + row2 + row3 + row4 + row5;
 
-      const rowH1 = mm(22);
-      const rowH2 = mm(22);
-      const rowH3 = mm(22);
-      const rowH4 = mm(28);
-      const rowH5 = mm(30);
-      const rowH6 = mm(22);
-      const rowH7 = mm(28);
-      const totalH = rowH1 + rowH2 + rowH3 + rowH4 + rowH5 + rowH6 + rowH7;
-
-      // กรอบรวม
-      doc.rect(left, tableTop, tableW, totalH).stroke();
+      doc.lineWidth(1).rect(left, tableTop, tableW, tableH).stroke();
 
       let y = tableTop;
 
-      // แถว 1 — เลขที่ / สินค้า
-      cell(left, y, colL, rowH1, "เลขที่", "Card No.", base.cardNo);
-      cell(left + colL, y, colR, rowH1, "สินค้า", "Product", item.productName);
-      y += rowH1;
+      // Row 1
+      drawCellBilingual(left, y, colL, row1, "เลขที่:", "Card No.", base.cardNo);
+      drawCellBilingual(left + colL, y, colR, row1, "สินค้า:", "Product", item.productName);
+      y += row1;
 
-      // แถว 2 — รุ่น / Serial
-      cell(left, y, colL, rowH2, "รุ่น", "Model", item.model || "-");
-      cell(left + colL, y, colR, rowH2, "หมายเลขเครื่อง", "Serial No.", item.serialNumber);
-      y += rowH2;
+      // Row 2
+      drawCellBilingual(left, y, colL, row2, "รุ่น:", "Model", item.model || "-");
+      drawCellBilingual(left + colL, y, colR, row2, "หมายเลขเครื่อง:", "Serial No.", item.serialNumber);
+      y += row2;
 
-      // เตรียมวันที่ (UTC)
+      // Row 3
+      drawCellBilingual(left, y, colL, row3, "ชื่อ-นามสกุล", "Customer's Name", base.customerName);
+      drawCellBilingual(left + colL, y, colR, row3, "โทรศัพท์", "Tel.", base.customerTel);
+      y += row3;
+
+      // Row 4 (Address full row)
+      drawCellFullWidth(left, y, tableW, row4, "ที่อยู่", "Address", base.address);
+      y += row4;
+
+      // Row 5
       const purchaseTxt = item.purchaseDate
         ? dateOnlyUTC(item.purchaseDate).toLocaleDateString("th-TH", { timeZone: "UTC" })
         : "-";
-      const expiryTxt = item.expiryDate
-        ? dateOnlyUTC(item.expiryDate).toLocaleDateString("th-TH", { timeZone: "UTC" })
-        : "-";
 
-      // แถว 3 — วันที่ซื้อ / วันหมดอายุ (แยกสองช่อง)
-      cell(left, y, colL, rowH3, "วันที่ซื้อ", "Purchase Date", purchaseTxt);
-      cell(left + colL, y, colR, rowH3, "วันหมดอายุ", "Expiry Date", expiryTxt);
-      y += rowH3;
-
-      // แถว 4 — ชื่อลูกค้า / โทรลูกค้า
-      cell(left, y, colL, rowH4, "ชื่อ-นามสกุล", "Customer's Name", base.customerName);
-      cell(left + colL, y, colR, rowH4, "โทรศัพท์", "Tel.", base.customerTel);
-      y += rowH4;
-
-      // แถว 5 (เต็มแถว) — เงื่อนไขการรับประกัน
-      doc.rect(left, y, tableW, rowH5).stroke();
-      doc.font("THAI").fontSize(10).fillColor("#000")
-        .text("เงื่อนไขการรับประกัน", left + mm(3.5), y + mm(3.5));
-      doc.font("THAI").fontSize(9).fillColor("#555")
-        .text("Warranty Terms", left + mm(3.5), y + mm(8.5));
-      doc.font("THAI").fontSize(11).fillColor("#000")
-        .text(T(item.coverageNote), left + mm(3.5), y + mm(14), {
-          width: tableW - mm(7),
-        });
-      y += rowH5;
-
-      // แถว 6 — ชื่อร้าน / เบอร์โทรร้านค้า (ไม่รวมกัน)
-      cell(left, y, colL, rowH6, "ชื่อจากบริษัทฯ/ตัวแทนจำหน่าย", "Dealer' Name", T(base.dealerName));
-      cell(left + colL, y, colR, rowH6, "โทรศัพท์", "Tel.", T(base.dealerPhone));
-      y += rowH6;
-
-      // แถว 7 (เต็มแถว) — ที่อยู่ร้านค้า
-      doc.rect(left, y, tableW, rowH7).stroke();
-      doc.font("THAI").fontSize(10).fillColor("#000")
-        .text("ที่อยู่ร้านค้า", left + mm(3.5), y + mm(3.5));
-      doc.font("THAI").fontSize(9).fillColor("#555")
-        .text("Store Address", left + mm(3.5), y + mm(8.5));
-      doc.font("THAI").fontSize(11).fillColor("#000")
-        .text(T(base.company?.address || "-"), left + mm(3.5), y + mm(14), {
-          width: tableW - mm(7),
-        });
-      y += rowH7;
-
-      // หมายเหตุท้ายหน้า
-      doc.font("THAI").fontSize(11).fillColor("#000").text(
-        T(base.footerNote, "โปรดนำใบรับประกันฉบับนี้มาแสดงเป็นหลักฐานทุกครั้งเมื่อใช้บริการ"),
+      drawCellBilingual(
         left,
-        y + mm(8),
-        { width, align: "left" }
+        y,
+        colL,
+        row5,
+        "ชื่อจากบริษัทฯ/ตัวแทนจำหน่าย",
+        "Dealer' Name",
+        T(base.dealerName)
       );
+      drawCellBilingual(left + colL, y, colR, row5, "วันที่ซื้อ", "Purchase Date", purchaseTxt);
 
-      // ข้อมูลบริษัท (ล่างซ้าย)
-      const companyLines = [
-        T(base.company?.name, ""),
-        T(base.company?.address, ""),
-        ["โทร.", T(base.company?.tel, ""), base.company?.fax ? `แฟกซ์ ${base.company.fax}` : ""]
-          .filter(Boolean)
-          .join(" "),
-      ].filter(Boolean);
-
-      if (companyLines.length) {
-        doc.font("THAI").fontSize(10).fillColor("#000")
-          .text(companyLines.join("\n"), left + mm(22), mm(297) - mm(44), {
-            width: width - mm(22),
-          });
-      }
+      // ✅ วาง footer ชิดล่างหน้า (สำคัญมากสำหรับ A3 แนวนอน)
+      const footerNoteY = pageH - mm(52); // ปรับได้เล็กน้อยถ้าต้องการ
+      drawBottomBrandArea(left, footerNoteY, width, base.company, base.footerNote);
     }
 
     // map header → base & items
+    const storeAddressThai = formatThaiAddress(profile?.address || profile?.addressText || profile?.storeAddress);
+
     const base = {
       cardNo: header.code || header.id,
       customerName: header.customerName || "-",
       customerTel: header.customerPhone || "-",
+
+      // ไม่มี customerAddress → ใช้ที่อยู่ร้าน (ภาษาไทย)
+      address: storeAddressThai || "-",
+
       dealerName: profile?.storeName || "-",
-      dealerPhone: profile?.phone || "", // ใช้ในช่อง "เบอร์โทรศัพท์ร้านค้า"
-      purchaseDate: header.createdAt,
+
       footerNote: "โปรดนำใบรับประกันฉบับนี้มาแสดงเป็นหลักฐานทุกครั้งเมื่อใช้บริการ",
       company: {
-        name: profile?.storeName || "",
-        address: profile?.address || "",
+        name: profile?.storeName || "แอปของเรา",
+        address: storeAddressThai || "",
         tel: profile?.phone || "",
-        fax: "",
       },
     };
 
@@ -316,14 +400,16 @@ export async function downloadWarrantyPdf(req, res) {
           expiryDate: it.expiryDate || null,
           coverageNote: it.coverageNote || null,
         }))
-      : [{
-          productName: "-",
-          model: "-",
-          serialNumber: "-",
-          purchaseDate: header.createdAt,
-          expiryDate: null,
-          coverageNote: null,
-        }];
+      : [
+          {
+            productName: "-",
+            model: "-",
+            serialNumber: "-",
+            purchaseDate: header.createdAt,
+            expiryDate: null,
+            coverageNote: null,
+          },
+        ];
 
     for (const it of items) {
       drawWarrantyPage(base, it);
@@ -377,9 +463,7 @@ export async function updateWarrantyHeader(req, res) {
     }
 
     const body = req.body || {};
-    const normEmail = body.customerEmail
-      ? String(body.customerEmail).trim().toLowerCase()
-      : null;
+    const normEmail = body.customerEmail ? String(body.customerEmail).trim().toLowerCase() : null;
 
     let customerUserId = header.customerUserId;
     let customerName = header.customerName;
@@ -415,22 +499,38 @@ export async function updateWarrantyHeader(req, res) {
 
     // if header fields changed, create in-app notifications for store and customer
     try {
-      const changed = (
+      const changed =
         header.customerEmail !== updated.customerEmail ||
         header.customerUserId !== updated.customerUserId ||
         header.customerName !== updated.customerName ||
-        header.customerPhone !== updated.customerPhone
-      );
+        header.customerPhone !== updated.customerPhone;
+
       if (changed) {
-        const title = `มีการแก้ไขข้อมูลใบรับประกัน ${updated.code || ''}`
-        const body = `ข้อมูลใบรับประกัน ${updated.code || ''} ถูกแก้ไข`;
-        await createNotification({ prisma, attrs: { storeId: updated.storeId, title, body, data: { type: 'warranty_header_updated', warrantyId: updated.id } } })
+        const title = `มีการแก้ไขข้อมูลใบรับประกัน ${updated.code || ""}`;
+        const body = `ข้อมูลใบรับประกัน ${updated.code || ""} ถูกแก้ไข`;
+        await createNotification({
+          prisma,
+          attrs: {
+            storeId: updated.storeId,
+            title,
+            body,
+            data: { type: "warranty_header_updated", warrantyId: updated.id },
+          },
+        });
         if (updated.customerUserId) {
-          await createNotification({ prisma, attrs: { userId: updated.customerUserId, title, body, data: { type: 'warranty_header_updated', warrantyId: updated.id } } })
+          await createNotification({
+            prisma,
+            attrs: {
+              userId: updated.customerUserId,
+              title,
+              body,
+              data: { type: "warranty_header_updated", warrantyId: updated.id },
+            },
+          });
         }
       }
     } catch (e) {
-      console.warn('notify warranty header update failed', e?.message || e)
+      console.warn("notify warranty header update failed", e?.message || e);
     }
 
     return sendSuccess(res, { warranty: updated });
