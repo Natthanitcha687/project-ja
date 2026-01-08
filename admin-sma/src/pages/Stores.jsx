@@ -1,3 +1,4 @@
+// admin-sma/src/pages/Stores.jsx
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 
@@ -207,7 +208,7 @@ export default function Stores() {
         </div>
       </div>
 
-      {/* Filter row (ตามรูป: dropdown + search) */}
+      {/* Filter row (dropdown + search) */}
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <select
           className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm"
@@ -284,7 +285,13 @@ export default function Stores() {
                     </div>
                   </div>
 
+                  {/* ✅ เพิ่ม User ID ด้านนอกตามที่ขอ */}
                   <div className="mt-3 text-xs text-slate-500">
+                    <div>User ID</div>
+                    <div className="text-slate-700 font-semibold">{s.id}</div>
+                  </div>
+
+                  <div className="mt-2 text-xs text-slate-500">
                     <div>อีเมล</div>
                     <div className="text-slate-700 font-semibold">{s.email}</div>
                   </div>
@@ -324,7 +331,7 @@ export default function Stores() {
         )}
       </div>
 
-      {/* ============ Portal Modal (ตามรูป 2) ============ */}
+      {/* ============ Portal Modal ============ */}
       <ModalShell
         open={openPortal}
         onClose={() => setOpenPortal(false)}
@@ -347,6 +354,12 @@ export default function Stores() {
               <div className="mt-5 grid gap-4 md:grid-cols-2">
                 <div className="space-y-2 text-sm">
                   <div className="grid grid-cols-3 gap-2">
+                    {/* ✅ เพิ่ม userId ใน portal detail (เผื่ออยากเห็นใน modal ด้วย) */}
+                    <div className="text-slate-500">User ID</div>
+                    <div className="col-span-2 font-semibold text-slate-900">
+                      {portal?.store?.id ?? "-"}
+                    </div>
+
                     <div className="text-slate-500">ชื่อร้านค้า</div>
                     <div className="col-span-2 font-semibold text-slate-900">
                       {portal?.store?.storeProfile?.storeName || "-"}
@@ -369,6 +382,7 @@ export default function Stores() {
                   </div>
                 </div>
 
+                {/* ✅ เอาช่อง “อัตราความสำเร็จ” + “เวลาตอบสนองเฉลี่ย” ออก เหลือแค่ 2 ช่อง */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                     <div className="text-xs text-slate-500">การรับประกัน</div>
@@ -380,18 +394,6 @@ export default function Stores() {
                     <div className="text-xs text-slate-500">ลูกค้า</div>
                     <div className="mt-1 text-2xl font-extrabold text-slate-900">
                       {portal?.stats?.customerCount ?? 0}
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                    <div className="text-xs text-slate-500">อัตราความสำเร็จ</div>
-                    <div className="mt-1 text-2xl font-extrabold text-slate-900">
-                      {portal?.stats?.successRatePct != null ? `${portal.stats.successRatePct}%` : "—"}
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                    <div className="text-xs text-slate-500">เวลาตอบสนองเฉลี่ย</div>
-                    <div className="mt-1 text-2xl font-extrabold text-slate-900">
-                      {portal?.stats?.avgResponseHours != null ? `${portal.stats.avgResponseHours}h` : "—"}
                     </div>
                   </div>
                 </div>
@@ -442,7 +444,7 @@ export default function Stores() {
         </div>
       </ModalShell>
 
-      {/* ============ Suspend Modal (ตามรูป 3) ============ */}
+      {/* ============ Suspend Modal ============ */}
       <ModalShell
         open={openSuspend}
         onClose={() => setOpenSuspend(false)}
@@ -552,7 +554,7 @@ export default function Stores() {
         </div>
       </ModalShell>
 
-      {/* ============ Delete Modal (ตามรูป 4) ============ */}
+      {/* ============ Delete Modal ============ */}
       <ModalShell
         open={openDelete}
         onClose={() => setOpenDelete(false)}

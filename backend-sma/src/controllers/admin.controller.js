@@ -1,7 +1,8 @@
+// backend-sma/src/controllers/admin.controller.js
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { prisma } from "../db/prisma.js";
-import { sendMail } from "../config/mail.js"; // มีอยู่แล้วในโปรเจกต์ (ส่งแบบ best-effort)
+import { sendMail } from "../config/mail.js"; // มีอยู่แล้วในโปรกต์ (ส่งแบบ best-effort)
 
 function sign(user) {
   const payload = { sub: user.id, role: user.role, email: user.email };
@@ -11,17 +12,52 @@ function sign(user) {
 }
 
 function clientInfo(req) {
+  const xf = req.headers["x-forwarded-for"];
+  const ipFromXf =
+    typeof xf === "string"
+      ? xf.split(",")[0].trim()
+      : Array.isArray(xf)
+      ? String(xf[0]).split(",")[0].trim()
+      : null;
+
+  const ip =
+    ipFromXf ||
+    req.headers["x-real-ip"]?.toString()?.trim() ||
+    req.headers["cf-connecting-ip"]?.toString()?.trim() ||
+    req.ip ||
+    null;
+
   return {
-    ip: req.headers["x-forwarded-for"]?.toString()?.split(",")[0]?.trim() || req.ip,
+    ip,
     userAgent: req.get("user-agent") || null,
   };
 }
 
-async function logAudit(req, action, targetType = null, targetId = null, meta = null) {
+/**
+ * logAudit(req, action, targetType?, targetId?, meta?, actorUserIdOverride?)
+ * - meta ควรเป็น object/Json
+ * - actorUserIdOverride ใช้กรณี login (ยังไม่มี req.user)
+ */
+async function logAudit(
+  req,
+  action,
+  targetType = null,
+  targetId = null,
+  meta = null,
+  actorUserIdOverride = null
+) {
   const { ip, userAgent } = clientInfo(req);
+
+  const actorUserId =
+    actorUserIdOverride != null
+      ? Number(actorUserIdOverride)
+      : req.user?.id
+      ? Number(req.user.id)
+      : null;
+
   await prisma.auditLog.create({
     data: {
-      actorUserId: req.user?.id ? Number(req.user.id) : null,
+      actorUserId,
       action,
       targetType,
       targetId: targetId ? String(targetId) : null,
@@ -42,6 +78,13 @@ async function sendMailBestEffort({ to, subject, html, text }) {
   }
 }
 
+function fmtTH(v) {
+  if (!v) return "-";
+  const d = v instanceof Date ? v : new Date(v);
+  if (isNaN(d)) return "-";
+  return d.toLocaleString("th-TH");
+}
+
 /* =========================
  * Auth (Admin)
  * ========================= */
@@ -50,13 +93,33 @@ export async function adminLogin(req, res) {
   const { ip, userAgent } = clientInfo(req);
 
   const user = await prisma.user.findUnique({ where: { email } });
+
+  // ❌ ไม่เจอหรือไม่ใช่ ADMIN
   if (!user || user.role !== "ADMIN") {
     await prisma.securityEvent.create({
-      data: { type: "ADMIN_LOGIN_FAIL", email: email || null, ip, userAgent },
+      data: {
+        type: "ADMIN_LOGIN_FAIL",
+        email: email || null,
+        ip,
+        userAgent,
+        meta: { reason: "NOT_ADMIN_OR_NOT_FOUND" },
+      },
     });
+
+    // ✅ Audit (actor ยังไม่รู้ว่าเป็นใคร)
+    await logAudit(
+      req,
+      "ADMIN_LOGIN",
+      "User",
+      null,
+      { result: "FAIL", email: email || null, reason: "NOT_ADMIN_OR_NOT_FOUND" },
+      null
+    );
+
     return res.status(401).json({ message: "อีเมลหรือรหัสผ่านไม่ถูกต้อง" });
   }
 
+  // ❌ ถูกระงับ
   if (user.status === "SUSPENDED") {
     // ถ้ามีวันหมดระงับและหมดอายุแล้ว -> ปลดอัตโนมัติ
     if (user.suspendedUntil && user.suspendedUntil <= new Date()) {
@@ -70,6 +133,30 @@ export async function adminLogin(req, res) {
         },
       });
     } else {
+      await prisma.securityEvent.create({
+        data: {
+          type: "ADMIN_LOGIN_BLOCKED",
+          userId: user.id,
+          email: user.email,
+          ip,
+          userAgent,
+          meta: { reason: "SUSPENDED", suspendedUntil: user.suspendedUntil || null },
+        },
+      });
+
+      await logAudit(
+        req,
+        "ADMIN_LOGIN",
+        "User",
+        user.id,
+        {
+          result: "FAIL",
+          reason: "SUSPENDED",
+          suspendedUntil: user.suspendedUntil || null,
+        },
+        null
+      );
+
       return res.status(403).json({
         message: "บัญชีถูกระงับการใช้งาน",
         reason: user.suspendedReason || null,
@@ -81,8 +168,25 @@ export async function adminLogin(req, res) {
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) {
     await prisma.securityEvent.create({
-      data: { type: "ADMIN_LOGIN_FAIL", userId: user.id, email: user.email, ip, userAgent },
+      data: {
+        type: "ADMIN_LOGIN_FAIL",
+        userId: user.id,
+        email: user.email,
+        ip,
+        userAgent,
+        meta: { reason: "BAD_PASSWORD" },
+      },
     });
+
+    await logAudit(
+      req,
+      "ADMIN_LOGIN",
+      "User",
+      user.id,
+      { result: "FAIL", reason: "BAD_PASSWORD" },
+      null
+    );
+
     return res.status(401).json({ message: "อีเมลหรือรหัสผ่านไม่ถูกต้อง" });
   }
 
@@ -90,6 +194,9 @@ export async function adminLogin(req, res) {
     where: { id: user.id },
     data: { lastLoginAt: new Date() },
   });
+
+  // ✅ Audit: login success (ระบุ actor ได้แล้ว)
+  await logAudit(req, "ADMIN_LOGIN", "User", user.id, { result: "SUCCESS" }, user.id);
 
   const token = sign(user);
   return res.json({ token });
@@ -242,7 +349,13 @@ export async function deleteStoreAccount(req, res) {
   const store = await prisma.user.findUnique({ where: { id: storeId } });
   if (!store || store.role !== "STORE") return res.status(404).json({ message: "ไม่พบร้านค้า" });
 
-  await logAudit(req, "DELETE_STORE_ACCOUNT", "User", storeId, { reason: reason || null });
+  const before = { id: store.id, email: store.email, status: store.status, role: store.role };
+
+  await logAudit(req, "DELETE_STORE_ACCOUNT", "User", storeId, {
+    result: "SUCCESS",
+    reason: reason || null,
+    before,
+  });
 
   await sendMailBestEffort({
     to: store.email,
@@ -253,6 +366,38 @@ export async function deleteStoreAccount(req, res) {
   });
 
   await prisma.user.delete({ where: { id: storeId } });
+  res.json({ ok: true });
+}
+
+// ✅ Delete customer (ส่งเมล + AuditLog แบบเดียวฝั่งร้าน)
+export async function deleteCustomerAccount(req, res) {
+  const customerId = Number(req.params.id);
+  const { reason } = req.body || {};
+  if (!customerId) return res.status(400).json({ message: "customer id ไม่ถูกต้อง" });
+
+  const user = await prisma.user.findUnique({ where: { id: customerId } });
+  if (!user || user.role !== "CUSTOMER") return res.status(404).json({ message: "ไม่พบลูกค้า" });
+
+  const before = { id: user.id, email: user.email, status: user.status, role: user.role };
+
+  await logAudit(req, "DELETE_CUSTOMER_ACCOUNT", "User", customerId, {
+    result: "SUCCESS",
+    reason: reason || null,
+    before,
+  });
+
+  await sendMailBestEffort({
+    to: user.email,
+    subject: "แจ้งเตือน: บัญชีของคุณถูกลบโดยผู้ดูแลระบบ",
+    text: `บัญชีของคุณถูกลบโดยผู้ดูแลระบบ\nเหตุผล: ${reason || "-"}`,
+    html: `<div style="font-family:system-ui,Arial">
+      <h3>บัญชีของคุณถูกลบ</h3>
+      <p><b>เหตุผล:</b> ${reason || "-"}</p>
+      <p>หากคิดว่าเป็นความผิดพลาด กรุณาติดต่อผู้ดูแลระบบ</p>
+    </div>`,
+  });
+
+  await prisma.user.delete({ where: { id: customerId } });
   res.json({ ok: true });
 }
 
@@ -275,7 +420,7 @@ export async function listUsers(req, res) {
   res.json({ users });
 }
 
-// ✅ ระงับ / ปลด / ระงับชั่วคราว (days)
+// ✅ ระงับ / ปลด / ระงับชั่วคราว (days) + เมล “ปลดระงับแบบละเอียด” ให้ทั้ง STORE/CUSTOMER
 export async function setUserStatus(req, res) {
   const userId = Number(req.params.id);
   const { status, reason, days } = req.body || {};
@@ -287,55 +432,126 @@ export async function setUserStatus(req, res) {
   if (!target) return res.status(404).json({ message: "ไม่พบผู้ใช้" });
   if (target.role === "ADMIN") return res.status(400).json({ message: "ไม่อนุญาตให้เปลี่ยนสถานะ ADMIN" });
 
+  const before = {
+    status: target.status,
+    suspendedAt: target.suspendedAt,
+    suspendedUntil: target.suspendedUntil,
+    suspendedReason: target.suspendedReason,
+  };
+
   const daysNum = days != null && days !== "" ? Number(days) : null;
   const suspendedUntil =
     status === "SUSPENDED" && Number.isFinite(daysNum) && daysNum > 0
       ? new Date(Date.now() + daysNum * 86400_000)
       : null;
 
-  const meta = { status, reason: reason || null, days: daysNum ?? null, suspendedUntil };
-
-  const updated = await prisma.user.update({
-    where: { id: userId },
-    data: {
-      status,
-      suspendedAt: status === "SUSPENDED" ? new Date() : null,
-      suspendedReason: status === "SUSPENDED" ? reason || null : null,
-      suspendedUntil,
-    },
-  });
-
-  await logAudit(req, "SET_USER_STATUS", "User", userId, meta);
-
-  // แจ้งเมลถ้าเป็นร้าน
-  if (updated.role === "STORE") {
-    const subj =
-      status === "SUSPENDED"
-        ? "แจ้งเตือน: บัญชีร้านถูกระงับ"
-        : "แจ้งเตือน: บัญชีร้านของคุณถูกปลดระงับ";
-    const html =
-      status === "SUSPENDED"
-        ? `<div style="font-family:system-ui,Arial">
-            <h3>บัญชีร้านถูกระงับ</h3>
-            <p><b>ระยะเวลา(วัน):</b> ${daysNum ?? "-"}</p>
-            <p><b>หมดระงับ:</b> ${
-              suspendedUntil ? new Date(suspendedUntil).toLocaleString("th-TH") : "-"
-            }</p>
-            <p><b>เหตุผล:</b> ${reason || "-"}</p>
-          </div>`
-        : `<div style="font-family:system-ui,Arial">
-            <h3>บัญชีร้านของคุณถูกปลดระงับแล้ว</h3>
-          </div>`;
-
-    await sendMailBestEffort({
-      to: updated.email,
-      subject: subj,
-      html,
-      text: subj,
+  try {
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        status,
+        suspendedAt: status === "SUSPENDED" ? new Date() : null,
+        suspendedReason: status === "SUSPENDED" ? reason || null : null,
+        suspendedUntil,
+      },
     });
-  }
 
-  res.json({ user: updated });
+    const after = {
+      status: updated.status,
+      suspendedAt: updated.suspendedAt,
+      suspendedUntil: updated.suspendedUntil,
+      suspendedReason: updated.suspendedReason,
+    };
+
+    await logAudit(req, "SET_USER_STATUS", "User", userId, {
+      result: "SUCCESS",
+      reason: reason || null,
+      days: daysNum ?? null,
+      suspendedUntil,
+      before,
+      after,
+    });
+
+    // ✅ ส่งเมลทั้ง STORE และ CUSTOMER
+    if (updated.role === "STORE" || updated.role === "CUSTOMER") {
+      const roleLabel = updated.role === "STORE" ? "ร้านค้า" : "ลูกค้า";
+      const whoText = updated.role === "STORE" ? "บัญชีร้านของคุณ" : "บัญชีลูกค้าของคุณ";
+
+      if (status === "SUSPENDED") {
+        const daysTxt = Number.isFinite(daysNum) && daysNum > 0 ? String(daysNum) : "-";
+        const untilTxt = suspendedUntil ? fmtTH(suspendedUntil) : "-";
+        const reasonTxt = (reason || "-").toString();
+
+        await sendMailBestEffort({
+          to: updated.email,
+          subject: `แจ้งเตือน: ${whoText}ถูกระงับ`,
+          text:
+            `${whoText}ถูกระงับโดยผู้ดูแลระบบ\n` +
+            `ประเภทบัญชี: ${roleLabel}\n` +
+            `ระยะเวลา(วัน): ${daysTxt}\n` +
+            `หมดระงับ: ${untilTxt}\n` +
+            `เหตุผล: ${reasonTxt}\n` +
+            `หากคิดว่าเป็นความผิดพลาด กรุณาติดต่อผู้ดูแลระบบ`,
+          html: `<div style="font-family:system-ui,Arial">
+            <h3>${whoText}ถูกระงับ</h3>
+            <p><b>ประเภทบัญชี:</b> ${roleLabel}</p>
+            <p><b>ระยะเวลา(วัน):</b> ${daysTxt}</p>
+            <p><b>หมดระงับ:</b> ${untilTxt}</p>
+            <p><b>เหตุผล:</b> ${reasonTxt}</p>
+            <p style="color:#64748b">หากคิดว่าเป็นความผิดพลาด กรุณาติดต่อผู้ดูแลระบบ</p>
+          </div>`,
+        });
+      } else {
+        // ✅ ปลดระงับ “แบบละเอียด”
+        const prevAt = before?.suspendedAt ? fmtTH(before.suspendedAt) : "-";
+        const prevUntil = before?.suspendedUntil ? fmtTH(before.suspendedUntil) : "-";
+        const prevReason = before?.suspendedReason ? String(before.suspendedReason) : "-";
+
+        const earlyUnsuspend =
+          before?.suspendedUntil && new Date(before.suspendedUntil).getTime() > Date.now();
+
+        await sendMailBestEffort({
+          to: updated.email,
+          subject: `แจ้งเตือน: ${whoText}ถูกปลดระงับแล้ว`,
+          text:
+            `${whoText}ถูกปลดระงับแล้ว\n` +
+            `ประเภทบัญชี: ${roleLabel}\n` +
+            `รายละเอียดการระงับเดิม:\n` +
+            `- เริ่มระงับ: ${prevAt}\n` +
+            `- เดิมหมดระงับ: ${prevUntil}\n` +
+            `- เหตุผลเดิม: ${prevReason}\n` +
+            (earlyUnsuspend ? `*หมายเหตุ: ปลดระงับก่อนกำหนด\n` : "") +
+            `ขณะนี้คุณสามารถเข้าใช้งานระบบได้ตามปกติ`,
+          html: `<div style="font-family:system-ui,Arial">
+            <h3>${whoText}ถูกปลดระงับแล้ว</h3>
+            <p><b>ประเภทบัญชี:</b> ${roleLabel}</p>
+
+            <div style="margin:12px 0;padding:12px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc">
+              <div style="font-weight:600;margin-bottom:6px">รายละเอียดการระงับเดิม</div>
+              <p style="margin:4px 0"><b>เริ่มระงับ:</b> ${prevAt}</p>
+              <p style="margin:4px 0"><b>เดิมหมดระงับ:</b> ${prevUntil}</p>
+              <p style="margin:4px 0"><b>เหตุผลเดิม:</b> ${prevReason}</p>
+              ${earlyUnsuspend ? `<p style="margin:8px 0;color:#b45309"><b>หมายเหตุ:</b> ปลดระงับก่อนกำหนด</p>` : ""}
+            </div>
+
+            <p>ขณะนี้คุณสามารถเข้าใช้งานระบบได้ตามปกติ</p>
+          </div>`,
+        });
+      }
+    }
+
+    return res.json({ user: updated });
+  } catch (e) {
+    await logAudit(req, "SET_USER_STATUS", "User", userId, {
+      result: "FAIL",
+      reason: reason || null,
+      days: daysNum ?? null,
+      suspendedUntil,
+      before,
+      error: e?.message || String(e),
+    });
+    return res.status(500).json({ message: "อัปเดตสถานะผู้ใช้ไม่สำเร็จ" });
+  }
 }
 
 /* =========================
@@ -349,16 +565,22 @@ export async function listSecurityEvents(_req, res) {
   res.json({ events });
 }
 
+// ✅ include actor เพื่อให้ UI โชว์ Who ได้
 export async function listAuditLogs(_req, res) {
   const logs = await prisma.auditLog.findMany({
     orderBy: { createdAt: "desc" },
     take: 200,
+    include: {
+      actor: {
+        select: { id: true, email: true, role: true },
+      },
+    },
   });
   res.json({ logs });
 }
 
 /**
- * ✅ FIX: include user + profile เพื่อให้ฝั่ง Admin UI แสดง "ผู้ส่ง" ได้
+ * include user + profile เพื่อให้ฝั่ง Admin UI แสดง "ผู้ส่ง" ได้
  */
 export async function listComplaints(req, res) {
   const status = (req.query.status || "").toString().trim();
@@ -373,12 +595,8 @@ export async function listComplaints(req, res) {
           id: true,
           email: true,
           role: true,
-          customerProfile: {
-            select: { firstName: true, lastName: true, phone: true },
-          },
-          storeProfile: {
-            select: { storeName: true, phone: true },
-          },
+          customerProfile: { select: { firstName: true, lastName: true, phone: true } },
+          storeProfile: { select: { storeName: true, phone: true } },
         },
       },
     },
@@ -388,7 +606,7 @@ export async function listComplaints(req, res) {
 }
 
 /**
- * ✅ FIX: update แล้ว include user กลับไปด้วย (กัน UI หลุดข้อมูลผู้ส่งใน modal/list)
+ * update แล้ว include user กลับไปด้วย (กัน UI หลุดข้อมูลผู้ส่งใน modal/list)
  */
 export async function setComplaintStatus(req, res) {
   const id = req.params.id;
@@ -397,22 +615,43 @@ export async function setComplaintStatus(req, res) {
   if (!["OPEN", "IN_PROGRESS", "RESOLVED", "REJECTED"].includes(status))
     return res.status(400).json({ message: "สถานะไม่ถูกต้อง" });
 
-  const updated = await prisma.complaint.update({
-    where: { id },
-    data: { status },
-    include: {
-      user: {
-        select: {
-          id: true,
-          email: true,
-          role: true,
-          customerProfile: { select: { firstName: true, lastName: true, phone: true } },
-          storeProfile: { select: { storeName: true, phone: true } },
+  const beforeRow = await prisma.complaint.findUnique({ where: { id } });
+  if (!beforeRow) return res.status(404).json({ message: "ไม่พบข้อมูลการแจ้งปัญหา" });
+
+  const before = { status: beforeRow.status };
+
+  try {
+    const updated = await prisma.complaint.update({
+      where: { id },
+      data: { status },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            role: true,
+            customerProfile: { select: { firstName: true, lastName: true, phone: true } },
+            storeProfile: { select: { storeName: true, phone: true } },
+          },
         },
       },
-    },
-  });
+    });
 
-  await logAudit(req, "SET_COMPLAINT_STATUS", "Complaint", id, { status });
-  res.json({ complaint: updated });
+    const after = { status: updated.status };
+
+    await logAudit(req, "SET_COMPLAINT_STATUS", "Complaint", id, {
+      result: "SUCCESS",
+      before,
+      after,
+    });
+
+    res.json({ complaint: updated });
+  } catch (e) {
+    await logAudit(req, "SET_COMPLAINT_STATUS", "Complaint", id, {
+      result: "FAIL",
+      before,
+      error: e?.message || String(e),
+    });
+    return res.status(500).json({ message: "อัปเดตสถานะไม่สำเร็จ" });
+  }
 }
