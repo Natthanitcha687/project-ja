@@ -6,19 +6,13 @@ import { api } from "../lib/api";
 function clsTab({ isActive }) {
   return [
     "rounded-lg px-4 py-1.5 text-sm font-semibold transition",
-    isActive
-      ? "bg-sky-700 text-white shadow-sm"
-      : "bg-white text-slate-700 hover:bg-slate-50",
+    isActive ? "bg-sky-700 text-white shadow-sm" : "bg-white text-slate-700 hover:bg-slate-50",
   ].join(" ");
 }
 
 function StatCard({ title, value, sub, tone = "normal", icon }) {
   const toneCls =
-    tone === "danger"
-      ? "border-rose-200"
-      : tone === "info"
-      ? "border-sky-200"
-      : "border-slate-200";
+    tone === "danger" ? "border-rose-200" : tone === "info" ? "border-sky-200" : "border-slate-200";
 
   return (
     <div className={`rounded-2xl border ${toneCls} bg-white shadow-sm`}>
@@ -119,9 +113,7 @@ export default function AdminLayout() {
               <ShieldIcon />
             </div>
             <div className="leading-tight">
-              <div className="text-sm font-extrabold text-slate-900">
-                Admin Control Panel
-              </div>
+              <div className="text-sm font-extrabold text-slate-900">Admin Control Panel</div>
               <div className="text-xs text-slate-500">ระบบจัดการผู้ดูแลระบบ</div>
             </div>
           </div>
@@ -153,29 +145,35 @@ export default function AdminLayout() {
               sub="ลูกค้าที่ใช้งานอยู่"
               icon={<UsersIcon />}
             />
+
+            {/* ✅ ย้ายให้ “เคสเปิด” มาใกล้งานหลัก และเปลี่ยนชื่อ */}
+            <StatCard
+              title="ข้อมูลการแจ้งปัญหา (เปิด)"
+              value={stats?.complaintsOpen ?? "—"}
+              sub="ต้องตรวจสอบ"
+              tone="danger"
+              icon={<WarnIcon />}
+            />
+
             <StatCard
               title="การรับประกัน"
               value={stats?.warranties ?? "—"}
               sub="รายการทั้งหมด"
               icon={<DocIcon />}
             />
-            <StatCard
-              title="คำร้องเรียนค้างอยู่"
-              value={stats?.complaintsOpen ?? "—"}
-              sub="ต้องตรวจสอบ"
-              tone="danger"
-              icon={<WarnIcon />}
-            />
           </div>
         </div>
 
-        {/* Tabs */}
+        {/* Tabs (เรียงลำดับใหม่ + เปลี่ยนชื่อ) */}
         <div className="mb-6 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
           <NavLink to="/stores" className={clsTab}>จัดการร้านค้า</NavLink>
           <NavLink to="/users" className={clsTab}>จัดการผู้ใช้</NavLink>
+
+          {/* ✅ เปลี่ยนชื่อ + เลื่อนมาอยู่ก่อน security/logs */}
+          <NavLink to="/complaints" className={clsTab}>ข้อมูลการแจ้งปัญหา</NavLink>
+
           <NavLink to="/security" className={clsTab}>ตรวจสอบความปลอดภัย</NavLink>
           <NavLink to="/logs" className={clsTab}>Activity Logs</NavLink>
-          <NavLink to="/complaints" className={clsTab}>คำร้องเรียน</NavLink>
         </div>
 
         {/* Page */}
