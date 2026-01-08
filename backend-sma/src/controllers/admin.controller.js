@@ -655,3 +655,25 @@ export async function setComplaintStatus(req, res) {
     return res.status(500).json({ message: "อัปเดตสถานะไม่สำเร็จ" });
   }
 }
+// ✅ Lookup users by ids (for AuditLog target rendering)
+export async function lookupUsers(req, res) {
+  const idsRaw = (req.query.ids || "").toString();
+
+  const ids = Array.from(
+    new Set(
+      idsRaw
+        .split(",")
+        .map((s) => Number(s.trim()))
+        .filter((n) => Number.isInteger(n) && n > 0)
+    )
+  ).slice(0, 200);
+
+  if (!ids.length) return res.json({ users: [] });
+
+  const users = await prisma.user.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, email: true, role: true },
+  });
+
+  return res.json({ users });
+}
