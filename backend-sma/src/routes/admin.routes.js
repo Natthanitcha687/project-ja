@@ -8,10 +8,6 @@ import {
   adminStats,
   listStores,
   listUsers,
-
-  // ✅ NEW: lookup users by ids (สำหรับหน้า Activity Logs แสดง Target เป็น email+role)
-  lookupUsers,
-
   setUserStatus,
   listSecurityEvents,
   listAuditLogs,
@@ -217,39 +213,6 @@ router.delete("/stores/:id", requireAuth, requireAdmin, deleteStoreAccount);
  *         description: Success
  */
 router.get("/users", requireAuth, requireAdmin, listUsers);
-
-/**
- * @swagger
- * /admin/users/lookup:
- *   get:
- *     tags: [Admin]
- *     summary: Lookup users by ids (สำหรับหน้า Activity Logs แสดง Target เป็น email + role)
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: ids
- *         required: true
- *         schema: { type: string }
- *         description: "comma-separated user ids เช่น 1,2,3"
- *     responses:
- *       200:
- *         description: Success
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 users:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id: { type: integer }
- *                       email: { type: string }
- *                       role: { type: string }
- */
-router.get("/users/lookup", requireAuth, requireAdmin, lookupUsers);
 
 /**
  * @swagger

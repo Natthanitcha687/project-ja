@@ -1,5 +1,5 @@
 // admin-sma/src/pages/Logs.jsx
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 
 function fmtDT(v) {
@@ -32,39 +32,6 @@ function actorText(l) {
   const id = a.id != null ? `#${a.id}` : "";
   const role = a.role ? `(${a.role})` : "";
   return `${a.email || "—"} ${id} ${role}`.trim();
-}
-
-function roleLabel(role) {
-  const r = (role || "").toString().toUpperCase();
-  if (r === "STORE") return "store";
-  if (r === "CUSTOMER") return "customer";
-  if (r === "ADMIN") return "admin";
-  return r ? r.toLowerCase() : "";
-}
-
-function targetRawText(l) {
-  if (!l?.targetType) return "—";
-  const id = l?.targetId != null ? String(l.targetId) : "";
-  return id ? `${l.targetType}:${id}` : `${l.targetType}:—`;
-}
-
-function targetNiceText(l, userById) {
-  if (!l?.targetType) return "—";
-  const t = String(l.targetType || "");
-  const idRaw = l?.targetId;
-
-  if (t.toLowerCase() === "user") {
-    const idNum = Number(String(idRaw ?? "").trim());
-    const u = Number.isFinite(idNum) ? userById?.[idNum] : null;
-
-    if (u?.email) {
-      const rl = roleLabel(u.role);
-      return `${u.email}${rl ? ` (${rl})` : ""}`;
-    }
-    return `User:${idRaw ?? "—"}`;
-  }
-
-  return targetRawText(l);
 }
 
 function metaOf(l) {
@@ -131,14 +98,12 @@ function changeSummary(l) {
     const aKeys = a ? Object.keys(a) : [];
     const keys = Array.from(new Set([...bKeys, ...aKeys])).slice(0, 4);
     if (!keys.length) return "";
-    const parts = keys
-      .map((k) => {
-        const bv = b?.[k];
-        const av = a?.[k];
-        if (bv === av) return null;
-        return `${k}:${safeStr(bv)}→${safeStr(av)}`;
-      })
-      .filter(Boolean);
+    const parts = keys.map((k) => {
+      const bv = b?.[k];
+      const av = a?.[k];
+      if (bv === av) return null;
+      return `${k}:${safeStr(bv)}→${safeStr(av)}`;
+    }).filter(Boolean);
     return parts.join(" • ");
   }
 
@@ -158,9 +123,7 @@ function ResultPill({ value }) {
 
   const label = v || "—";
   return (
-    <span
-      className={["inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold", cls].join(" ")}
-    >
+    <span className={["inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold", cls].join(" ")}>
       {label}
     </span>
   );
@@ -187,7 +150,9 @@ function PageButton({ active, disabled, children, onClick }) {
       className={[
         "min-w-[38px] h-9 px-3 rounded-xl border text-sm font-semibold transition",
         disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-slate-50",
-        active ? "bg-sky-700 text-white border-sky-700 hover:bg-sky-800" : "bg-white text-slate-700 border-slate-200",
+        active
+          ? "bg-sky-700 text-white border-sky-700 hover:bg-sky-800"
+          : "bg-white text-slate-700 border-slate-200",
       ].join(" ")}
     >
       {children}
@@ -224,10 +189,6 @@ export default function Logs() {
 
   const [selected, setSelected] = useState(null); // modal
 
-  // Target user cache (for showing email+role instead of UserId)
-  const [targetUsers, setTargetUsers] = useState({}); // { [id]: {id,email,role} }
-  const requestedTargetIdsRef = useRef(new Set());
-
   async function load() {
     setErr("");
     setLoading(true);
@@ -246,73 +207,6 @@ export default function Logs() {
   useEffect(() => {
     load();
   }, []);
-
-  // Resolve target users (User:<id>) to email + role for display
-  useEffect(() => {
-    const ids = Array.from(
-      new Set(
-        (logs || [])
-          .filter((l) => String(l?.targetType || "").toLowerCase() === "user")
-          .map((l) => Number(String(l?.targetId ?? "").trim()))
-          .filter((n) => Number.isInteger(n) && n > 0)
-      )
-    );
-
-    const missing = ids.filter((id) => !targetUsers[id] && !requestedTargetIdsRef.current.has(id));
-    if (!missing.length) return;
-
-    const chunk = missing.slice(0, 200);
-    chunk.forEach((id) => requestedTargetIdsRef.current.add(id));
-
-    let ignore = false;
-
-    (async () => {
-      try {
-        // Preferred: lightweight lookup endpoint
-        const r = await api.get("/admin/users/lookup", {
-          params: { ids: chunk.join(",") },
-        });
-        const arr = r?.data?.users || [];
-        if (ignore) return;
-
-        if (Array.isArray(arr) && arr.length) {
-          setTargetUsers((prev) => {
-            const next = { ...prev };
-            for (const u of arr) {
-              if (!u || u.id == null) continue;
-              next[u.id] = { id: u.id, email: u.email, role: u.role };
-            }
-            return next;
-          });
-          return;
-        }
-      } catch (e) {
-        // Fallback (older backend): pull all users then map
-        try {
-          const r2 = await api.get("/admin/users");
-          if (ignore) return;
-          const arr2 = r2?.data?.users || [];
-          if (Array.isArray(arr2) && arr2.length) {
-            setTargetUsers((prev) => {
-              const next = { ...prev };
-              for (const u of arr2) {
-                if (!u || u.id == null) continue;
-                next[u.id] = { id: u.id, email: u.email, role: u.role };
-              }
-              return next;
-            });
-          }
-        } catch {
-          // allow retry later
-          chunk.forEach((id) => requestedTargetIdsRef.current.delete(id));
-        }
-      }
-    })();
-
-    return () => {
-      ignore = true;
-    };
-  }, [logs, targetUsers]);
 
   // ESC ปิด modal
   useEffect(() => {
@@ -341,15 +235,21 @@ export default function Logs() {
       if (!query) return true;
 
       const who = actorText(l).toLowerCase();
-      const tgtRaw = targetRawText(l).toLowerCase();
-      const tgtNice = targetNiceText(l, targetUsers).toLowerCase();
-      const hay = [l.action || "", who, tgtRaw, tgtNice, l.ip || "", l.userAgent || "", safeStr(l.meta)]
+      const tgt = `${l.targetType || ""}:${l.targetId || ""}`.toLowerCase();
+      const hay = [
+        l.action || "",
+        who,
+        tgt,
+        l.ip || "",
+        l.userAgent || "",
+        safeStr(l.meta),
+      ]
         .join(" ")
         .toLowerCase();
 
       return hay.includes(query);
     });
-  }, [logs, q, result, targetUsers]);
+  }, [logs, q, result]);
 
   const total = filtered.length;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -474,8 +374,7 @@ export default function Logs() {
       {/* ===== Mobile (Card list) ===== */}
       <div className="mt-4 md:hidden space-y-3">
         {pageLogs.map((l) => {
-          const tgtRaw = targetRawText(l);
-          const tgt = targetNiceText(l, targetUsers);
+          const tgt = l.targetType ? `${l.targetType}:${l.targetId}` : "—";
           const rs = resultOf(l);
           const why = reasonOf(l);
           const sum = changeSummary(l);
@@ -500,9 +399,7 @@ export default function Logs() {
               <div className="mt-3 grid grid-cols-1 gap-3">
                 <div>
                   <div className="text-xs text-slate-500">Target</div>
-                  <div className="text-sm text-slate-800 break-words" title={tgtRaw}>
-                    {tgt}
-                  </div>
+                  <div className="text-sm text-slate-800 break-words">{tgt}</div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
@@ -521,7 +418,9 @@ export default function Logs() {
                 {(sum || why) && (
                   <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
                     <div className="text-xs text-slate-500">Meta</div>
-                    <div className="text-sm text-slate-800 break-words">{sum || (why ? `เหตุผล: ${why}` : "—")}</div>
+                    <div className="text-sm text-slate-800 break-words">
+                      {sum || (why ? `เหตุผล: ${why}` : "—")}
+                    </div>
                   </div>
                 )}
               </div>
@@ -547,11 +446,15 @@ export default function Logs() {
         })}
 
         {!pageLogs.length && !loading && (
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 text-slate-500">ยังไม่มี log</div>
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 text-slate-500">
+            ยังไม่มี log
+          </div>
         )}
 
         {loading && (
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 text-slate-500">กำลังโหลด...</div>
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 text-slate-500">
+            กำลังโหลด...
+          </div>
         )}
       </div>
 
@@ -574,8 +477,7 @@ export default function Logs() {
 
           <tbody className="text-slate-800">
             {pageLogs.map((l) => {
-              const tgtRaw = targetRawText(l);
-              const tgt = targetNiceText(l, targetUsers);
+              const tgt = l.targetType ? `${l.targetType}:${l.targetId}` : "—";
               const rs = resultOf(l);
               const sum = changeSummary(l);
               const ua = l.userAgent || "";
@@ -595,7 +497,9 @@ export default function Logs() {
                         {actorText(l)}
                       </div>
                       {l.actor?.id != null ? (
-                        <div className="text-xs text-slate-500 truncate">actorUserId: {l.actor.id}</div>
+                        <div className="text-xs text-slate-500 truncate">
+                          actorUserId: {l.actor.id}
+                        </div>
                       ) : (
                         <div className="text-xs text-slate-500 truncate">actorUserId: —</div>
                       )}
@@ -607,7 +511,7 @@ export default function Logs() {
                   </td>
 
                   <td className="p-3 text-slate-700">
-                    <div className="truncate" title={tgtRaw}>
+                    <div className="truncate" title={tgt}>
                       <span className="font-medium text-slate-900">{tgt}</span>
                     </div>
                   </td>
@@ -683,7 +587,9 @@ export default function Logs() {
           <div className="relative mx-auto mt-10 w-[min(980px,92vw)] rounded-2xl border border-white/10 bg-zinc-950 text-white shadow-2xl overflow-hidden">
             <div className="bg-white/5 px-5 py-4 flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <div className="text-lg font-semibold truncate text-white">{selected.action || "Log Detail"}</div>
+                <div className="text-lg font-semibold truncate text-white">
+                  {selected.action || "Log Detail"}
+                </div>
 
                 <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/70">
                   <div>
@@ -696,7 +602,10 @@ export default function Logs() {
 
                 <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/70">
                   <div>
-                    Target: <span className="text-white/90">{targetNiceText(selected, targetUsers)}</span>
+                    Target:{" "}
+                    <span className="text-white/90">
+                      {selected.targetType ? `${selected.targetType}:${selected.targetId}` : "—"}
+                    </span>
                   </div>
                   <div>IP: {selected.ip || "—"}</div>
                   <div className="text-white/40">ID: {selected.id}</div>
@@ -754,8 +663,7 @@ export default function Logs() {
 
       {!loading && filtered.length >= 200 && (
         <div className="mt-3 text-xs text-slate-500">
-          หมายเหตุ: ตอนนี้ backend ดึงมาเฉพาะรายการล่าสุด 200 รายการ ถ้าต้องการดูเก่ากว่านี้ต้องเพิ่ม pagination ที่ backend
-          (skip/take)
+          หมายเหตุ: ตอนนี้ backend ดึงมาเฉพาะรายการล่าสุด 200 รายการ ถ้าต้องการดูเก่ากว่านี้ต้องเพิ่ม pagination ที่ backend (skip/take)
         </div>
       )}
     </div>
