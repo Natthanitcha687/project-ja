@@ -28,12 +28,18 @@ const router = Router()
  * ✅ Upload for Complaint Images (NEW)
  * ========================= */
 
-// ✅ คุณย้าย complaints มาไว้ "ข้างใน" แล้ว => เก็บที่: backend-sma/src/uploads/complaints
-// ไฟล์นี้อยู่ที่: backend-sma/src/routes/customer.routes.js
-// ดังนั้น ../uploads/complaints = backend-sma/src/uploads/complaints
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
-const complaintUploadDir = path.resolve(__dirname, '../uploads/complaints')
+
+// ✅ IMPORTANT (Render Disk):
+// - ถ้ามี UPLOAD_ROOT -> เก็บไฟล์ลง disk ถาวร เช่น /var/data/uploads
+// - ถ้าไม่มี -> fallback ใช้โฟลเดอร์เดิมในโปรเจกต์ (src/uploads)
+const uploadRoot = process.env.UPLOAD_ROOT
+  ? path.resolve(process.env.UPLOAD_ROOT)
+  : path.resolve(__dirname, '../uploads')
+
+// เก็บที่: <uploadRoot>/complaints
+const complaintUploadDir = path.join(uploadRoot, 'complaints')
 
 // กัน ENOENT: สร้างโฟลเดอร์ทุกครั้งก่อนเขียน (เผื่อย้าย/ลบระหว่างรัน)
 function ensureComplaintDir() {

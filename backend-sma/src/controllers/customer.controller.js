@@ -1,3 +1,4 @@
+// backend-sma/src/controllers/customer.controller.js
 import bcrypt from 'bcryptjs'
 import { prisma } from '../db/prisma.js'
 import * as warrantyCtrl from './warranty.controller.js'
