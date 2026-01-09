@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 
 const ROLE_LOCK = "CUSTOMER";
+const PAGE_SIZE = 10;
 
 function clsx(...xs) {
   return xs.filter(Boolean).join(" ");
@@ -14,6 +15,42 @@ function fmtDT(v) {
   return d.toLocaleString("th-TH");
 }
 
+function PageButton({ active, disabled, children, onClick }) {
+  return (
+    <button
+      disabled={disabled}
+      onClick={onClick}
+      className={[
+        "min-w-[38px] h-9 px-3 rounded-xl border text-sm font-semibold transition",
+        disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-slate-50",
+        active
+          ? "bg-sky-700 text-white border-sky-700 hover:bg-sky-800"
+          : "bg-white text-slate-700 border-slate-200",
+      ].join(" ")}
+    >
+      {children}
+    </button>
+  );
+}
+
+function buildPageItems(current, total) {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+
+  const items = new Set([1, total, current, current - 1, current + 1]);
+  const arr = [...items]
+    .filter((n) => n >= 1 && n <= total)
+    .sort((a, b) => a - b);
+
+  const out = [];
+  for (let i = 0; i < arr.length; i++) {
+    const n = arr[i];
+    const prev = arr[i - 1];
+    if (i > 0 && n - prev > 1) out.push("…");
+    out.push(n);
+  }
+  return out;
+}
+
 export default function Users() {
   const [q, setQ] = useState("");
   const [rows, setRows] = useState([]);
@@ -22,6 +59,9 @@ export default function Users() {
 
   // ✅ Status filter (เพิ่มใหม่) : "" | ACTIVE | SUSPENDED
   const [status, setStatus] = useState("");
+
+  // ✅ Pagination
+  const [page, setPage] = useState(1);
 
   // Suspend modal
   const [openSuspend, setOpenSuspend] = useState(false);
@@ -50,9 +90,11 @@ export default function Users() {
       // กันหลุด: แม้ backend รับ role อื่น ให้กรองซ้ำใน UI
       const onlyCustomers = (data.users || []).filter((u) => u.role === "CUSTOMER");
       setRows(onlyCustomers);
+      setPage(1); // ✅ โหลดใหม่กลับหน้า 1
     } catch (e) {
       setErr(e?.response?.data?.message || "โหลดข้อมูลไม่สำเร็จ");
       setRows([]);
+      setPage(1);
     } finally {
       setLoading(false);
     }
@@ -148,6 +190,26 @@ export default function Users() {
     return (rows || []).filter((u) => String(u.status) === status);
   }, [rows, status]);
 
+  // ✅ เปลี่ยนฟิลเตอร์ -> กลับหน้า 1
+  useEffect(() => {
+    setPage(1);
+  }, [status]);
+
+  // ✅ Pagination derived
+  const total = viewRows.length;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+
+  const pageRows = useMemo(() => {
+    const start = (safePage - 1) * PAGE_SIZE;
+    return viewRows.slice(start, start + PAGE_SIZE);
+  }, [viewRows, safePage]);
+
+  const pageItems = useMemo(() => buildPageItems(safePage, totalPages), [safePage, totalPages]);
+
+  const showingFrom = total ? (safePage - 1) * PAGE_SIZE + 1 : 0;
+  const showingTo = total ? Math.min(safePage * PAGE_SIZE, total) : 0;
+
   return (
     <div className="text-slate-900">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -187,12 +249,14 @@ export default function Users() {
             }}
           />
 
+          {/* ✅ เปลี่ยนปุ่ม "ค้นหา" สีน้ำเงิน -> ปุ่ม "รีเฟรช" แบบเดียวกับหน้าร้าน */}
           <button
             onClick={load}
-            className="w-[110px] rounded-xl bg-sky-700 text-white px-4 py-2 font-semibold shadow-sm hover:bg-sky-800 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-[110px] rounded-xl border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed"
             disabled={loading}
+            title="รีเฟรชรายการ"
           >
-            ค้นหา
+            รีเฟรช
           </button>
         </div>
       </div>
@@ -203,9 +267,47 @@ export default function Users() {
         </div>
       )}
 
+      {/* ✅ Summary + Pagination (แสดง 10 ต่อหน้า) */}
+      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-sm text-slate-600">
+          {loading ? (
+            "กำลังโหลด…"
+          ) : total ? (
+            <>
+              แสดง {showingFrom}-{showingTo} จาก {total} รายการ
+              <span className="text-slate-400"> • หน้า {safePage}/{totalPages}</span>
+            </>
+          ) : (
+            "ไม่มีข้อมูลลูกค้า"
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <PageButton disabled={loading || safePage <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+            ←
+          </PageButton>
+
+          {pageItems.map((it, idx) =>
+            it === "…" ? (
+              <span key={`e-${idx}`} className="px-2 text-slate-500">
+                …
+              </span>
+            ) : (
+              <PageButton key={it} active={it === safePage} disabled={loading} onClick={() => setPage(it)}>
+                {it}
+              </PageButton>
+            )
+          )}
+
+          <PageButton disabled={loading || safePage >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
+            →
+          </PageButton>
+        </div>
+      </div>
+
       {/* ===== Mobile (Card list) ===== */}
       <div className="mt-4 md:hidden space-y-3">
-        {viewRows.map((u) => (
+        {pageRows.map((u) => (
           <div key={u.id} className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -266,7 +368,7 @@ export default function Users() {
           </div>
         ))}
 
-        {!viewRows.length && (
+        {!total && (
           <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 text-slate-500">
             ไม่มีข้อมูลลูกค้า
           </div>
@@ -287,7 +389,7 @@ export default function Users() {
           </thead>
 
           <tbody className="text-slate-800">
-            {viewRows.map((u) => (
+            {pageRows.map((u) => (
               <tr key={u.id} className="border-t border-slate-200 hover:bg-slate-50/70">
                 <td className="p-3">{u.id}</td>
 
@@ -344,7 +446,7 @@ export default function Users() {
               </tr>
             ))}
 
-            {!viewRows.length && (
+            {!total && (
               <tr>
                 <td className="p-3 text-slate-500" colSpan={5}>
                   ไม่มีข้อมูลลูกค้า

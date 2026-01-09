@@ -302,7 +302,7 @@ export default function Logs() {
         <div>
           <div className="text-xl font-semibold text-slate-900">Activity Logs</div>
           <div className="mt-1 text-sm text-slate-500">
-            บันทึกการกระทำสำคัญในระบบ (Who / Action / Result / IP / User-Agent / Before-After)
+            บันทึกการกระทำสำคัญในระบบ (การจัดการสถาะบัญชีผู้ใช้โดยแอดมิน ระงับ ปลดระงับ ลบบัญชี / กาารสร้างใบรับประกันและแก้ไข / การแจ้งปัญหา )
           </div>
         </div>
 
