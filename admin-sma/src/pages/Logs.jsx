@@ -482,7 +482,10 @@ export default function Logs() {
               <th className="p-3 text-left w-[220px]">Action</th>
               <th className="p-3 text-left w-[220px]">Target</th>
               <th className="p-3 text-left w-[140px]">Result</th>
-              <th className="p-3 text-left w-[170px]">IP</th>
+
+              {/* ✅ FIX: ขยายคอลัมน์ IP */}
+              <th className="p-3 text-left w-[240px]">IP</th>
+
               <th className="p-3 text-left hidden xl:table-cell">User-Agent</th>
               <th className="p-3 text-left hidden xl:table-cell">Meta (สรุป)</th>
               <th className="p-3 text-left w-[140px]"> </th>
@@ -533,8 +536,8 @@ export default function Logs() {
                   </td>
 
                   <td className="p-3 text-slate-800">
-                    {/* ✅ FIX: ให้ IP แสดงครบ (ไม่ตัดด้วย …) แต่ยังไม่ล้นคอลัมน์ */}
-                    <div className="break-all" title={l.ip || "—"}>
+                    {/* ✅ FIX: แสดง IP เต็มในบรรทัดเดียว (ไม่ truncate) */}
+                    <div className="whitespace-nowrap font-mono" title={l.ip || "—"}>
                       {l.ip || "—"}
                     </div>
                   </td>
