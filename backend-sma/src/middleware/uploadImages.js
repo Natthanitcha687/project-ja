@@ -9,12 +9,16 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// โฟลเดอร์อัปโหลดให้สอดคล้องกับ server.js ที่เสิร์ฟ /uploads
-// server.js ใช้: app.use('/uploads', express.static(path.join(__dirname, '../uploads')))
-const uploadRoot = path.resolve(__dirname, '../uploads');
+// ✅ IMPORTANT (Render Disk):
+// - ถ้ามี UPLOAD_ROOT -> เก็บไฟล์ลง disk ถาวร เช่น /var/data/uploads
+// - ถ้าไม่มี -> fallback ใช้โฟลเดอร์เดิมในโปรเจกต์ (src/uploads)
+const uploadRoot = process.env.UPLOAD_ROOT
+  ? path.resolve(process.env.UPLOAD_ROOT)
+  : path.resolve(__dirname, '../uploads');
+
 const targetDir = path.join(uploadRoot, 'warranty-images');
 
-// สร้างโฟลเดอร์ถ้ายังไม่มี (ทั้ง /uploads และ /uploads/warranty-images)
+// สร้างโฟลเดอร์ถ้ายังไม่มี (ทั้ง uploadRoot และ uploadRoot/warranty-images)
 if (!fs.existsSync(uploadRoot)) {
   fs.mkdirSync(uploadRoot, { recursive: true });
 }
@@ -33,8 +37,13 @@ const storage = multer.diskStorage({
 
 // ตรวจสอบประเภทไฟล์ (รองรับ jpg/jpeg/png/gif/webp)
 const ALLOWED_MIME = new Set([
-  'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/gif',
+  'image/webp',
 ]);
+
 function fileFilter(_req, file, cb) {
   if (ALLOWED_MIME.has(file.mimetype)) return cb(null, true);
   cb(new Error('รองรับเฉพาะไฟล์รูปภาพ (JPEG, JPG, PNG, GIF, WebP)'));
@@ -46,12 +55,12 @@ const upload = multer({
   fileFilter,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB ต่อไฟล์
-    files: 5,                  // สูงสุด 5 ไฟล์
+    files: 5, // สูงสุด 5 ไฟล์
   },
 });
 
 // FRONTEND ส่งฟิลด์ชื่อ "images"
 export const uploadWarrantyImages = upload.array('images', 5);
 
-// ใช้ประกอบ URL รูปใน controller
+// ใช้ประกอบ URL รูปใน controller (ยังคงเดิม)
 export const uploadSubPath = '/uploads/warranty-images';

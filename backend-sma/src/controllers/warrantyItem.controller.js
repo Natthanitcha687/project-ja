@@ -1,3 +1,4 @@
+// backend-sma/src/controllers/warrantyItem.controller.js
 import { prisma } from '../db/prisma.js';
 import fs from 'fs';
 import path from 'path';
@@ -6,6 +7,42 @@ import { uploadSubPath } from '../middleware/uploadImages.js';
 const publicBase =
   (process.env.APP_URL && process.env.APP_URL.replace(/\/+$/, '')) ||
   `http://localhost:${process.env.PORT || 4000}`;
+
+/* =========================================================
+ * ✅ IMPORTANT (Render Disk)
+ * - ใช้ UPLOAD_ROOT เดียวกับ server.js / uploadImages.js
+ * - ถ้าไม่ตั้ง UPLOAD_ROOT จะ fallback ไปที่ backend-sma/src/uploads
+ * ========================================================= */
+const uploadsRoot = process.env.UPLOAD_ROOT
+  ? path.resolve(process.env.UPLOAD_ROOT)
+  : path.resolve(process.cwd(), 'src/uploads');
+
+function resolveUploadedFilePath(url) {
+  if (!url || typeof url !== 'string') return null;
+
+  // ตัด query/hash เผื่อมี
+  const cleaned = url.split('?')[0].split('#')[0];
+
+  // เราเก็บ URL เป็นรูปแบบ "/uploads/...."
+  // แปลงเป็น relative path ภายใต้ uploadsRoot: "warranty-images/xxx.jpg"
+  let rel = cleaned;
+  if (rel.startsWith('/uploads/')) rel = rel.slice('/uploads/'.length);
+  else rel = rel.replace(/^\/+/, ''); // กัน leading '/'
+
+  // normalize แบบ posix เพื่อกัน path traversal
+  const norm = path.posix.normalize(rel);
+
+  // block traversal
+  if (norm.startsWith('..') || norm.includes('../')) return null;
+
+  const abs = path.resolve(path.join(uploadsRoot, norm));
+  const rootAbs = path.resolve(uploadsRoot);
+
+  // ensure อยู่ใต้ uploadsRoot จริง ๆ
+  if (!(abs === rootAbs || abs.startsWith(rootAbs + path.sep))) return null;
+
+  return abs;
+}
 
 /* ---------- helpers (UTC-safe) ---------- */
 function toDateOnly(v) {
@@ -228,10 +265,10 @@ export async function deleteItemImage(req, res) {
     const target = current.find(im => im.id === imageId);
     if (!target) return res.status(404).json({ message: 'ไม่พบรูปภาพที่ต้องการลบ' });
 
-    // ลบไฟล์จริง (ถ้ามี)
+    // ✅ ลบไฟล์จริงจาก UPLOAD_ROOT (Render Disk) ตาม URL /uploads/...
     try {
-      const filePath = path.resolve(process.cwd(), `.${target.url}`);
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      const filePath = resolveUploadedFilePath(target.url);
+      if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
     } catch { /* ignore */ }
 
     const updated = await prisma.warrantyItem.update({

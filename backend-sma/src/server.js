@@ -78,7 +78,7 @@ app.use(cookieParser());
  * ========================================================= */
 function getClientIp(req) {
   return (
-    req.headers['x-forwarded-for']?.toString()?.split(',')[0]?.trim() ||
+    req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() ||
     req.ip ||
     null
   );
@@ -141,11 +141,16 @@ app.use((req, res, next) => {
 // Swagger
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-// เสิร์ฟไฟล์อัปโหลดกลับให้หน้าเว็บ (ฐานเดียวกับ uploadImages.js)
-// ถ้าโฟลเดอร์อัปโหลดอยู่ที่ src/uploads ให้ใช้บรรทัดนี้
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-// ถ้าอยู่ที่ root (../uploads) ให้สลับมาใช้บรรทัดด้านล่างแทน
-// app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+/* =========================================================
+ * ✅ Serve uploaded files (IMPORTANT for Render Disk)
+ * - ถ้า set UPLOAD_ROOT=/var/data/uploads -> รูปจะไม่หายหลัง redeploy
+ * - ถ้าไม่ตั้ง -> fallback ใช้โฟลเดอร์เดิม src/uploads
+ * ========================================================= */
+const uploadsDir = process.env.UPLOAD_ROOT
+  ? path.resolve(process.env.UPLOAD_ROOT)
+  : path.join(__dirname, 'uploads');
+
+app.use('/uploads', express.static(uploadsDir));
 
 app.get('/', (_req, res) => res.send('SME Email Auth API - Running OK'));
 
@@ -194,10 +199,10 @@ app.listen(port, () => {
   console.log(`✅ Allowed origins: ${allowedOrigins.join(', ')}`);
   // start expiry notification job: run once at startup and then every 24h
   try {
-    runExpiryScanJob()
-    setInterval(() => runExpiryScanJob(), 24 * 3600 * 1000)
-    console.log('🔔 Expiry scan job scheduled (every 24h)')
+    runExpiryScanJob();
+    setInterval(() => runExpiryScanJob(), 24 * 3600 * 1000);
+    console.log('🔔 Expiry scan job scheduled (every 24h)');
   } catch (e) {
-    console.warn('Unable to start expiry scan job', e?.message || e)
+    console.warn('Unable to start expiry scan job', e?.message || e);
   }
 });
