@@ -483,8 +483,8 @@ export default function Logs() {
               <th className="p-3 text-left w-[220px]">Target</th>
               <th className="p-3 text-left w-[140px]">Result</th>
 
-              {/* ✅ FIX: ขยายคอลัมน์ IP */}
-              <th className="p-3 text-left w-[240px]">IP</th>
+              {/* ✅ FIX (เห็นผลจริง): ขยายคอลัมน์ IP + อนุญาตให้ขึ้นบรรทัด */}
+              <th className="p-3 text-left w-[260px]">IP</th>
 
               <th className="p-3 text-left hidden xl:table-cell">User-Agent</th>
               <th className="p-3 text-left hidden xl:table-cell">Meta (สรุป)</th>
@@ -535,9 +535,13 @@ export default function Logs() {
                     <ResultPill value={rs} />
                   </td>
 
-                  <td className="p-3 text-slate-800">
-                    {/* ✅ FIX: แสดง IP เต็มในบรรทัดเดียว (ไม่ truncate) */}
-                    <div className="whitespace-nowrap font-mono" title={l.ip || "—"}>
+                  <td className="p-3 text-slate-800 align-top">
+                    {/* ✅ FIX (เห็นผลจริง): ไม่ตัด IP + ให้ wrap/break-all */}
+                    <div
+                      className="font-mono whitespace-normal break-all leading-5"
+                      title={l.ip || "—"}
+                      style={{ whiteSpace: "normal", wordBreak: "break-all", overflow: "visible", textOverflow: "clip" }}
+                    >
                       {l.ip || "—"}
                     </div>
                   </td>
