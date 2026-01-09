@@ -1,5 +1,5 @@
 // admin-sma/src/pages/Logs.jsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../lib/api";
 
 function fmtDT(v) {
@@ -42,15 +42,12 @@ function targetText(l) {
   if (tt === "user") {
     const u = l.targetUser;
     if (u?.email) return `${u.email} (${u.role || "—"})`;
-    // fallback กรณี backend หา user ไม่เจอ / user ถูกลบ
     return l.targetId != null ? `User:${l.targetId}` : "User:—";
   }
 
-  // ✅ Complaint: แทนที่จะโชว์ Complaint:<id> ให้โชว์ email/role ของเจ้าของ complaint
   if (tt === "complaint") {
     const u = l.targetComplaintUser;
     if (u?.email) return `${u.email} (${u.role || "—"})`;
-    // fallback กรณีหาเจ้าของ complaint ไม่เจอ
     return l.targetId != null ? `Complaint:${l.targetId}` : "Complaint:—";
   }
 
@@ -61,7 +58,6 @@ function metaOf(l) {
   const m = l?.meta;
   if (!m) return null;
   if (typeof m === "object") return m;
-  // เผื่อ backend ส่ง string
   try {
     return JSON.parse(m);
   } catch {
@@ -85,11 +81,9 @@ function changeSummary(l) {
   const m = metaOf(l);
   if (!m) return "";
 
-  // พยายามสรุป before -> after (เน้น status)
   const b = m.before || null;
   const a = m.after || null;
 
-  // เคส: เปลี่ยนสถานะผู้ใช้
   if (l.action === "SET_USER_STATUS") {
     const bSt = b?.status ?? "";
     const aSt = a?.status ?? m?.status ?? "";
@@ -100,14 +94,12 @@ function changeSummary(l) {
     return [core, days, until, rs].join("").trim();
   }
 
-  // เคส: เปลี่ยนสถานะการแจ้งปัญหา
   if (l.action === "SET_COMPLAINT_STATUS") {
     const bSt = b?.status ?? "";
     const aSt = a?.status ?? "";
     return bSt && aSt ? `${bSt} → ${aSt}` : aSt ? `${aSt}` : "";
   }
 
-  // login
   if (l.action === "ADMIN_LOGIN") {
     const r = m?.result ? String(m.result).toUpperCase() : "";
     const why = m?.reason ? ` • ${m.reason}` : "";
@@ -115,7 +107,6 @@ function changeSummary(l) {
     return `${r}${em}${why}`.trim();
   }
 
-  // ทั่วไป: ถ้ามี before/after ให้ย่อ key สำคัญ
   if (b || a) {
     const bKeys = b ? Object.keys(b) : [];
     const aKeys = a ? Object.keys(a) : [];
@@ -132,7 +123,6 @@ function changeSummary(l) {
     return parts.join(" • ");
   }
 
-  // reason/error เฉย ๆ
   const r = reasonOf(l);
   return r ? `เหตุผล: ${r}` : "";
 }
@@ -148,9 +138,7 @@ function ResultPill({ value }) {
 
   const label = v || "—";
   return (
-    <span
-      className={["inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold", cls].join(" ")}
-    >
+    <span className={["inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold", cls].join(" ")}>
       {label}
     </span>
   );
@@ -177,9 +165,7 @@ function PageButton({ active, disabled, children, onClick }) {
       className={[
         "min-w-[38px] h-9 px-3 rounded-xl border text-sm font-semibold transition",
         disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-slate-50",
-        active
-          ? "bg-sky-700 text-white border-sky-700 hover:bg-sky-800"
-          : "bg-white text-slate-700 border-slate-200",
+        active ? "bg-sky-700 text-white border-sky-700 hover:bg-sky-800" : "bg-white text-slate-700 border-slate-200",
       ].join(" ")}
     >
       {children}
@@ -216,6 +202,10 @@ export default function Logs() {
 
   const [selected, setSelected] = useState(null); // modal
 
+  // ✅ IP Popover state
+  const [ipPop, setIpPop] = useState(null); // { ip, left, top, width }
+  const ipPopRef = useRef(null);
+
   async function load() {
     setErr("");
     setLoading(true);
@@ -235,16 +225,31 @@ export default function Logs() {
     load();
   }, []);
 
-  // ESC ปิด modal
+  // ESC ปิด modal + ปิด popover IP
   useEffect(() => {
     function onKey(e) {
-      if (e.key === "Escape") setSelected(null);
+      if (e.key === "Escape") {
+        setSelected(null);
+        setIpPop(null);
+      }
     }
-    if (selected) window.addEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selected]);
+  }, []);
 
-  // เปลี่ยนค้นหา/ตัวกรอง -> กลับหน้า 1
+  // ปิด popover IP เมื่อคลิกนอกกล่อง
+  useEffect(() => {
+    if (!ipPop) return;
+
+    function onDown(e) {
+      const box = ipPopRef.current;
+      if (box && box.contains(e.target)) return;
+      setIpPop(null);
+    }
+    document.addEventListener("mousedown", onDown, true);
+    return () => document.removeEventListener("mousedown", onDown, true);
+  }, [ipPop]);
+
   useEffect(() => {
     setPage(1);
   }, [q, result]);
@@ -292,6 +297,42 @@ export default function Logs() {
   function copyMeta(l) {
     const m = metaOf(l);
     const text = m ? JSON.stringify(m, null, 2) : "";
+    if (!text) return;
+    navigator.clipboard?.writeText(text).catch(() => {});
+  }
+
+  function openIpPopover(e, ip) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const full = (ip ?? "").toString().trim();
+    if (!full) return;
+
+    if (ipPop?.ip === full) {
+      setIpPop(null);
+      return;
+    }
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const WIDTH = 340;
+    const PAD = 12;
+
+    let left = rect.left;
+    left = Math.min(left, window.innerWidth - WIDTH - PAD);
+    left = Math.max(PAD, left);
+
+    let top = rect.bottom + 8;
+    const estHeight = 120;
+    if (top + estHeight > window.innerHeight - PAD) {
+      top = rect.top - estHeight - 8;
+      top = Math.max(PAD, top);
+    }
+
+    setIpPop({ ip: full, left, top, width: WIDTH });
+  }
+
+  function copyIp(ip) {
+    const text = (ip ?? "").toString();
     if (!text) return;
     navigator.clipboard?.writeText(text).catch(() => {});
   }
@@ -425,8 +466,21 @@ export default function Logs() {
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <div className="text-xs text-slate-500">IP</div>
-                    <div className="text-sm text-slate-800 break-words">{l.ip || "—"}</div>
+
+                    {l.ip ? (
+                      <button
+                        type="button"
+                        onClick={(e) => openIpPopover(e, l.ip)}
+                        className="mt-1 inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                        title="Show IP"
+                      >
+                        Show
+                      </button>
+                    ) : (
+                      <div className="mt-1 text-sm text-slate-400">—</div>
+                    )}
                   </div>
+
                   <div>
                     <div className="text-xs text-slate-500">User-Agent</div>
                     <div className="text-sm text-slate-800 break-words" title={l.userAgent || ""}>
@@ -483,8 +537,8 @@ export default function Logs() {
               <th className="p-3 text-left w-[220px]">Target</th>
               <th className="p-3 text-left w-[140px]">Result</th>
 
-              {/* ✅ FIX (เห็นผลจริง): ขยายคอลัมน์ IP + อนุญาตให้ขึ้นบรรทัด */}
-              <th className="p-3 text-left w-[260px]">IP</th>
+              {/* ✅ ปุ่ม Show อย่างเดียว */}
+              <th className="p-3 text-left w-[120px]">IP</th>
 
               <th className="p-3 text-left hidden xl:table-cell">User-Agent</th>
               <th className="p-3 text-left hidden xl:table-cell">Meta (สรุป)</th>
@@ -535,15 +589,20 @@ export default function Logs() {
                     <ResultPill value={rs} />
                   </td>
 
-                  <td className="p-3 text-slate-800 align-top">
-                    {/* ✅ FIX (เห็นผลจริง): ไม่ตัด IP + ให้ wrap/break-all */}
-                    <div
-                      className="font-mono whitespace-normal break-all leading-5"
-                      title={l.ip || "—"}
-                      style={{ whiteSpace: "normal", wordBreak: "break-all", overflow: "visible", textOverflow: "clip" }}
-                    >
-                      {l.ip || "—"}
-                    </div>
+                  {/* ✅ IP: Show button */}
+                  <td className="p-3" onClick={(e) => e.stopPropagation()}>
+                    {l.ip ? (
+                      <button
+                        type="button"
+                        onClick={(e) => openIpPopover(e, l.ip)}
+                        className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                        title="Show IP"
+                      >
+                        Show
+                      </button>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
                   </td>
 
                   <td className="p-3 hidden xl:table-cell">
@@ -598,6 +657,43 @@ export default function Logs() {
           </tbody>
         </table>
       </div>
+
+      {/* ✅ IP Popover (fixed) ไม่โดน overflow-hidden ตัดแน่นอน */}
+      {ipPop && (
+        <div
+          ref={ipPopRef}
+          className="fixed z-[9999] rounded-2xl border border-slate-200 bg-white shadow-xl p-4"
+          style={{ left: ipPop.left, top: ipPop.top, width: ipPop.width }}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-slate-900">IP Address</div>
+              <div className="mt-1 text-xs text-slate-500">คลิกนอกกล่องหรือกด ESC เพื่อปิด</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIpPop(null)}
+              className="shrink-0 rounded-xl border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              ปิด
+            </button>
+          </div>
+
+          <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+            <div className="font-mono text-sm text-slate-900 break-all">{ipPop.ip}</div>
+          </div>
+
+          <div className="mt-3 flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => copyIp(ipPop.ip)}
+              className="rounded-xl bg-sky-700 text-white px-3 py-2 text-xs font-semibold hover:bg-sky-800"
+            >
+              คัดลอก IP
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Modal รายละเอียด */}
       {selected && (
