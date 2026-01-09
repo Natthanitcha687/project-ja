@@ -31,6 +31,13 @@ const __dirname = path.dirname(__filename);
 const app = express();
 
 /* =========================================================
+ * ✅ TRUST PROXY (สำคัญ)
+ * - ทำให้ req.ip อ่าน IP จริงจาก X-Forwarded-For ได้เมื่ออยู่หลัง Render/Proxy
+ * - ต้องตั้งก่อน middleware ที่อ่าน req.ip (เช่น access log)
+ * ========================================================= */
+app.set('trust proxy', 1);
+
+/* =========================================================
  * ✅ CORS: รองรับทั้งหน้าเว็บเดิม + หน้า Admin (แยก frontend)
  * - คง behavior เดิมไว้ (credentials + Authorization header)
  * - เพิ่ม allow หลาย origin ด้วย callback

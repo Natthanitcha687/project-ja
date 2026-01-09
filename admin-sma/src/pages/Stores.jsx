@@ -1,5 +1,8 @@
+// admin-sma/src/pages/Stores.jsx
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
+
+const PAGE_SIZE = 10;
 
 function fmtDate(v) {
   if (!v) return "—";
@@ -61,11 +64,50 @@ function ModalShell({ open, onClose, children, widthClass = "max-w-xl" }) {
   );
 }
 
+function PageButton({ active, disabled, children, onClick }) {
+  return (
+    <button
+      disabled={disabled}
+      onClick={onClick}
+      className={[
+        "min-w-[38px] h-9 px-3 rounded-xl border text-sm font-semibold transition",
+        disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-slate-50",
+        active
+          ? "bg-sky-700 text-white border-sky-700 hover:bg-sky-800"
+          : "bg-white text-slate-700 border-slate-200",
+      ].join(" ")}
+    >
+      {children}
+    </button>
+  );
+}
+
+function buildPageItems(current, total) {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+
+  const items = new Set([1, total, current, current - 1, current + 1]);
+  const arr = [...items]
+    .filter((n) => n >= 1 && n <= total)
+    .sort((a, b) => a - b);
+
+  const out = [];
+  for (let i = 0; i < arr.length; i++) {
+    const n = arr[i];
+    const prev = arr[i - 1];
+    if (i > 0 && n - prev > 1) out.push("…");
+    out.push(n);
+  }
+  return out;
+}
+
 export default function Stores() {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState(""); // "" | ACTIVE | SUSPENDED
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // ✅ Pagination
+  const [page, setPage] = useState(1);
 
   // Portal modal
   const [openPortal, setOpenPortal] = useState(false);
@@ -91,6 +133,7 @@ export default function Stores() {
     try {
       const { data } = await api.get("/admin/stores", { params: { q, status } });
       setRows(data?.stores || []);
+      setPage(1); // ✅ โหลดใหม่กลับหน้า 1
     } finally {
       setLoading(false);
     }
@@ -100,6 +143,11 @@ export default function Stores() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
+
+  // ✅ เปลี่ยนคำค้นหา (client-side filter) -> กลับหน้า 1 (กันหน้าล้น/หน้าว่าง)
+  useEffect(() => {
+    setPage(1);
+  }, [q]);
 
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
@@ -112,6 +160,21 @@ export default function Stores() {
       return `${name} ${email} ${type}`.toLowerCase().includes(query);
     });
   }, [rows, q]);
+
+  // ✅ Pagination derived (แสดง 10 ต่อหน้า)
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+
+  const pageRows = useMemo(() => {
+    const start = (safePage - 1) * PAGE_SIZE;
+    return filtered.slice(start, start + PAGE_SIZE);
+  }, [filtered, safePage]);
+
+  const pageItems = useMemo(() => buildPageItems(safePage, totalPages), [safePage, totalPages]);
+
+  const showingFrom = total ? (safePage - 1) * PAGE_SIZE + 1 : 0;
+  const showingTo = total ? Math.min(safePage * PAGE_SIZE, total) : 0;
 
   async function openPortalModal(storeId) {
     setOpenPortal(true);
@@ -207,7 +270,7 @@ export default function Stores() {
         </div>
       </div>
 
-      {/* Filter row (ตามรูป: dropdown + search) */}
+      {/* Filter row (dropdown + search) */}
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <select
           className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm"
@@ -224,7 +287,7 @@ export default function Stores() {
             <span className="text-slate-400">🔍</span>
             <input
               className="w-full bg-transparent text-sm outline-none"
-              placeholder="ค้นหาร้านค้า"
+              placeholder="ค้นหาร้านค้า/อีเมลร้านค้า"
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />
@@ -239,19 +302,57 @@ export default function Stores() {
         </div>
       </div>
 
+      {/* ✅ Summary + Pagination */}
+      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-sm text-slate-600">
+          {loading ? (
+            "กำลังโหลดข้อมูล..."
+          ) : total ? (
+            <>
+              แสดง {showingFrom}-{showingTo} จาก {total} รายการ
+              <span className="text-slate-400"> • หน้า {safePage}/{totalPages}</span>
+            </>
+          ) : (
+            "ไม่มีร้านค้า"
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <PageButton disabled={loading || safePage <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+            ←
+          </PageButton>
+
+          {pageItems.map((it, idx) =>
+            it === "…" ? (
+              <span key={`e-${idx}`} className="px-2 text-slate-500">
+                …
+              </span>
+            ) : (
+              <PageButton key={it} active={it === safePage} disabled={loading} onClick={() => setPage(it)}>
+                {it}
+              </PageButton>
+            )
+          )}
+
+          <PageButton disabled={loading || safePage >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
+            →
+          </PageButton>
+        </div>
+      </div>
+
       {/* Cards */}
       <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {loading ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm md:col-span-2 xl:col-span-3">
             กำลังโหลดข้อมูล...
           </div>
-        ) : filtered.length === 0 ? (
+        ) : pageRows.length === 0 ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm md:col-span-2 xl:col-span-3">
             <div className="text-sm font-semibold text-slate-900">ไม่มีร้านค้า</div>
             <div className="mt-1 text-xs text-slate-500">ลองเปลี่ยนคำค้นหา/ตัวกรอง</div>
           </div>
         ) : (
-          filtered.map((s) => {
+          pageRows.map((s) => {
             const name = s?.storeProfile?.storeName || "-";
             const type = s?.storeProfile?.storeType || "-";
             const warrantiesCount = s?.warrantiesCount ?? 0;
@@ -284,7 +385,13 @@ export default function Stores() {
                     </div>
                   </div>
 
+                  {/* ✅ เพิ่ม User ID ด้านนอกตามที่ขอ */}
                   <div className="mt-3 text-xs text-slate-500">
+                    <div>User ID</div>
+                    <div className="text-slate-700 font-semibold">{s.id}</div>
+                  </div>
+
+                  <div className="mt-2 text-xs text-slate-500">
                     <div>อีเมล</div>
                     <div className="text-slate-700 font-semibold">{s.email}</div>
                   </div>
@@ -324,7 +431,7 @@ export default function Stores() {
         )}
       </div>
 
-      {/* ============ Portal Modal (ตามรูป 2) ============ */}
+      {/* ============ Portal Modal ============ */}
       <ModalShell
         open={openPortal}
         onClose={() => setOpenPortal(false)}
@@ -347,6 +454,12 @@ export default function Stores() {
               <div className="mt-5 grid gap-4 md:grid-cols-2">
                 <div className="space-y-2 text-sm">
                   <div className="grid grid-cols-3 gap-2">
+                    {/* ✅ เพิ่ม userId ใน portal detail (เผื่ออยากเห็นใน modal ด้วย) */}
+                    <div className="text-slate-500">User ID</div>
+                    <div className="col-span-2 font-semibold text-slate-900">
+                      {portal?.store?.id ?? "-"}
+                    </div>
+
                     <div className="text-slate-500">ชื่อร้านค้า</div>
                     <div className="col-span-2 font-semibold text-slate-900">
                       {portal?.store?.storeProfile?.storeName || "-"}
@@ -369,6 +482,7 @@ export default function Stores() {
                   </div>
                 </div>
 
+                {/* ✅ เอาช่อง “อัตราความสำเร็จ” + “เวลาตอบสนองเฉลี่ย” ออก เหลือแค่ 2 ช่อง */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                     <div className="text-xs text-slate-500">การรับประกัน</div>
@@ -380,18 +494,6 @@ export default function Stores() {
                     <div className="text-xs text-slate-500">ลูกค้า</div>
                     <div className="mt-1 text-2xl font-extrabold text-slate-900">
                       {portal?.stats?.customerCount ?? 0}
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                    <div className="text-xs text-slate-500">อัตราความสำเร็จ</div>
-                    <div className="mt-1 text-2xl font-extrabold text-slate-900">
-                      {portal?.stats?.successRatePct != null ? `${portal.stats.successRatePct}%` : "—"}
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                    <div className="text-xs text-slate-500">เวลาตอบสนองเฉลี่ย</div>
-                    <div className="mt-1 text-2xl font-extrabold text-slate-900">
-                      {portal?.stats?.avgResponseHours != null ? `${portal.stats.avgResponseHours}h` : "—"}
                     </div>
                   </div>
                 </div>
@@ -442,7 +544,7 @@ export default function Stores() {
         </div>
       </ModalShell>
 
-      {/* ============ Suspend Modal (ตามรูป 3) ============ */}
+      {/* ============ Suspend Modal ============ */}
       <ModalShell
         open={openSuspend}
         onClose={() => setOpenSuspend(false)}
@@ -552,7 +654,7 @@ export default function Stores() {
         </div>
       </ModalShell>
 
-      {/* ============ Delete Modal (ตามรูป 4) ============ */}
+      {/* ============ Delete Modal ============ */}
       <ModalShell
         open={openDelete}
         onClose={() => setOpenDelete(false)}

@@ -1,4 +1,4 @@
-// src/routes/admin.routes.js
+// backend-sma/src/routes/admin.routes.js
 import { Router } from "express";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { requireAdmin } from "../middleware/requireAdmin.js";
@@ -17,6 +17,9 @@ import {
   // ✅ เพิ่มสำหรับ UI จัดการร้านค้าตามรูป
   getStorePortal,
   deleteStoreAccount,
+
+  // ✅ NEW: ลบบัญชีลูกค้า (ถาวร) + ส่งเมล + AuditLog
+  deleteCustomerAccount,
 } from "../controllers/admin.controller.js";
 
 const router = Router();
@@ -253,6 +256,37 @@ router.get("/users", requireAuth, requireAdmin, listUsers);
  *         description: User not found
  */
 router.patch("/users/:id/status", requireAuth, requireAdmin, setUserStatus);
+
+/**
+ * @swagger
+ * /admin/customers/{id}:
+ *   delete:
+ *     tags: [Admin]
+ *     summary: ลบบัญชีลูกค้า (ถาวร)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 description: เหตุผลการลบ (ถ้ามี)
+ *     responses:
+ *       200:
+ *         description: Success
+ *       404:
+ *         description: Customer not found
+ */
+router.delete("/customers/:id", requireAuth, requireAdmin, deleteCustomerAccount);
 
 /* =========================
  * Security / Logs / Complaints
