@@ -533,8 +533,8 @@ export default function Logs() {
                   </td>
 
                   <td className="p-3 text-slate-800">
-                    {/* ✅ FIX: กัน IP ล้น */}
-                    <div className="min-w-0 max-w-[170px] truncate" title={l.ip || "—"}>
+                    {/* ✅ FIX: ให้ IP แสดงครบ (ไม่ตัดด้วย …) แต่ยังไม่ล้นคอลัมน์ */}
+                    <div className="break-all" title={l.ip || "—"}>
                       {l.ip || "—"}
                     </div>
                   </td>
