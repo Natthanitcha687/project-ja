@@ -533,7 +533,8 @@ export default function Logs() {
                   </td>
 
                   <td className="p-3 text-slate-800">
-                    <div className="truncate" title={l.ip || "—"}>
+                    {/* ✅ FIX: กัน IP ล้น */}
+                    <div className="min-w-0 max-w-[170px] truncate" title={l.ip || "—"}>
                       {l.ip || "—"}
                     </div>
                   </td>
