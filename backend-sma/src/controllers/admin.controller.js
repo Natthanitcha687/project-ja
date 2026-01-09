@@ -565,7 +565,7 @@ export async function listSecurityEvents(_req, res) {
   res.json({ events });
 }
 
-// ✅ include actor เพื่อให้ UI โชว์ Who ได้
+// ✅ include actor เพื่อให้ UI โชว์ Who ได้ + เติม targetUser (กรณี targetType=User)
 export async function listAuditLogs(_req, res) {
   const logs = await prisma.auditLog.findMany({
     orderBy: { createdAt: "desc" },
@@ -576,7 +576,40 @@ export async function listAuditLogs(_req, res) {
       },
     },
   });
-  res.json({ logs });
+
+  // เก็บ target user ids ที่เป็นตัวเลขเท่านั้น (targetId ใน AuditLog เก็บเป็น String)
+  const userTargetIds = Array.from(
+    new Set(
+      (logs || [])
+        .filter(
+          (l) =>
+            (l.targetType || "").toLowerCase() === "user" &&
+            l.targetId &&
+            /^\d+$/.test(String(l.targetId))
+        )
+        .map((l) => Number(l.targetId))
+    )
+  );
+
+  let userMap = new Map(); // key เป็น "id" แบบ string
+  if (userTargetIds.length) {
+    const users = await prisma.user.findMany({
+      where: { id: { in: userTargetIds } },
+      select: { id: true, email: true, role: true },
+    });
+    userMap = new Map(users.map((u) => [String(u.id), u]));
+  }
+
+  const enriched = (logs || []).map((l) => {
+    const isUserTarget = (l.targetType || "").toLowerCase() === "user";
+    const tu = isUserTarget && l.targetId ? userMap.get(String(l.targetId)) : null;
+    return {
+      ...l,
+      targetUser: tu || null,
+    };
+  });
+
+  res.json({ logs: enriched });
 }
 
 /**

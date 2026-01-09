@@ -34,6 +34,21 @@ function actorText(l) {
   return `${a.email || "—"} ${id} ${role}`.trim();
 }
 
+// ✅ แสดง Target เป็น "email (ROLE)" เมื่อเป็น User
+function targetText(l) {
+  if (!l) return "—";
+  const tt = (l.targetType || "").toString().toLowerCase();
+
+  if (tt === "user") {
+    const u = l.targetUser;
+    if (u?.email) return `${u.email} (${u.role || "—"})`;
+    // fallback กรณี backend หา user ไม่เจอ / user ถูกลบ
+    return l.targetId != null ? `User:${l.targetId}` : "User:—";
+  }
+
+  return l.targetType ? `${l.targetType}:${l.targetId}` : "—";
+}
+
 function metaOf(l) {
   const m = l?.meta;
   if (!m) return null;
@@ -98,12 +113,14 @@ function changeSummary(l) {
     const aKeys = a ? Object.keys(a) : [];
     const keys = Array.from(new Set([...bKeys, ...aKeys])).slice(0, 4);
     if (!keys.length) return "";
-    const parts = keys.map((k) => {
-      const bv = b?.[k];
-      const av = a?.[k];
-      if (bv === av) return null;
-      return `${k}:${safeStr(bv)}→${safeStr(av)}`;
-    }).filter(Boolean);
+    const parts = keys
+      .map((k) => {
+        const bv = b?.[k];
+        const av = a?.[k];
+        if (bv === av) return null;
+        return `${k}:${safeStr(bv)}→${safeStr(av)}`;
+      })
+      .filter(Boolean);
     return parts.join(" • ");
   }
 
@@ -123,7 +140,9 @@ function ResultPill({ value }) {
 
   const label = v || "—";
   return (
-    <span className={["inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold", cls].join(" ")}>
+    <span
+      className={["inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold", cls].join(" ")}
+    >
       {label}
     </span>
   );
@@ -235,15 +254,8 @@ export default function Logs() {
       if (!query) return true;
 
       const who = actorText(l).toLowerCase();
-      const tgt = `${l.targetType || ""}:${l.targetId || ""}`.toLowerCase();
-      const hay = [
-        l.action || "",
-        who,
-        tgt,
-        l.ip || "",
-        l.userAgent || "",
-        safeStr(l.meta),
-      ]
+      const tgt = targetText(l).toLowerCase();
+      const hay = [l.action || "", who, tgt, l.ip || "", l.userAgent || "", safeStr(l.meta)]
         .join(" ")
         .toLowerCase();
 
@@ -341,7 +353,10 @@ export default function Logs() {
           ) : total ? (
             <>
               แสดง {showingFrom}-{showingTo} จาก {total} รายการ (หลังกรอง/ค้นหา)
-              <span className="text-slate-400"> • หน้า {safePage}/{totalPages}</span>
+              <span className="text-slate-400">
+                {" "}
+                • หน้า {safePage}/{totalPages}
+              </span>
             </>
           ) : (
             "ยังไม่มี log"
@@ -365,7 +380,10 @@ export default function Logs() {
             )
           )}
 
-          <PageButton disabled={loading || safePage >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
+          <PageButton
+            disabled={loading || safePage >= totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          >
             →
           </PageButton>
         </div>
@@ -374,7 +392,7 @@ export default function Logs() {
       {/* ===== Mobile (Card list) ===== */}
       <div className="mt-4 md:hidden space-y-3">
         {pageLogs.map((l) => {
-          const tgt = l.targetType ? `${l.targetType}:${l.targetId}` : "—";
+          const tgt = targetText(l);
           const rs = resultOf(l);
           const why = reasonOf(l);
           const sum = changeSummary(l);
@@ -418,9 +436,7 @@ export default function Logs() {
                 {(sum || why) && (
                   <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
                     <div className="text-xs text-slate-500">Meta</div>
-                    <div className="text-sm text-slate-800 break-words">
-                      {sum || (why ? `เหตุผล: ${why}` : "—")}
-                    </div>
+                    <div className="text-sm text-slate-800 break-words">{sum || (why ? `เหตุผล: ${why}` : "—")}</div>
                   </div>
                 )}
               </div>
@@ -446,9 +462,7 @@ export default function Logs() {
         })}
 
         {!pageLogs.length && !loading && (
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 text-slate-500">
-            ยังไม่มี log
-          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 text-slate-500">ยังไม่มี log</div>
         )}
 
         {loading && (
@@ -477,7 +491,7 @@ export default function Logs() {
 
           <tbody className="text-slate-800">
             {pageLogs.map((l) => {
-              const tgt = l.targetType ? `${l.targetType}:${l.targetId}` : "—";
+              const tgt = targetText(l);
               const rs = resultOf(l);
               const sum = changeSummary(l);
               const ua = l.userAgent || "";
@@ -497,9 +511,7 @@ export default function Logs() {
                         {actorText(l)}
                       </div>
                       {l.actor?.id != null ? (
-                        <div className="text-xs text-slate-500 truncate">
-                          actorUserId: {l.actor.id}
-                        </div>
+                        <div className="text-xs text-slate-500 truncate">actorUserId: {l.actor.id}</div>
                       ) : (
                         <div className="text-xs text-slate-500 truncate">actorUserId: —</div>
                       )}
@@ -587,9 +599,7 @@ export default function Logs() {
           <div className="relative mx-auto mt-10 w-[min(980px,92vw)] rounded-2xl border border-white/10 bg-zinc-950 text-white shadow-2xl overflow-hidden">
             <div className="bg-white/5 px-5 py-4 flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <div className="text-lg font-semibold truncate text-white">
-                  {selected.action || "Log Detail"}
-                </div>
+                <div className="text-lg font-semibold truncate text-white">{selected.action || "Log Detail"}</div>
 
                 <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/70">
                   <div>
@@ -602,10 +612,7 @@ export default function Logs() {
 
                 <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/70">
                   <div>
-                    Target:{" "}
-                    <span className="text-white/90">
-                      {selected.targetType ? `${selected.targetType}:${selected.targetId}` : "—"}
-                    </span>
+                    Target: <span className="text-white/90">{targetText(selected)}</span>
                   </div>
                   <div>IP: {selected.ip || "—"}</div>
                   <div className="text-white/40">ID: {selected.id}</div>
