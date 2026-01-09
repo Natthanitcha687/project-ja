@@ -65,6 +65,70 @@ function addMonths(date, m) {
   return d;
 }
 
+// ✅ ทำ meta ให้เป็น JSON-safe (กัน Prisma Json ไม่รับ Date/Object พิเศษ)
+function jsonSafe(v) {
+  try {
+    return JSON.parse(JSON.stringify(v));
+  } catch {
+    return null;
+  }
+}
+
+// ✅ best-effort audit log ตอนสร้างใบรับประกัน (ห้ามทำให้ระบบพัง)
+async function auditCreateWarrantyBestEffort(req, storeId, createdHeader) {
+  try {
+    const actorUserId = Number(req.user?.id ?? req.user?.sub);
+    const actorOk = Number.isInteger(actorUserId) ? actorUserId : null;
+
+    const customerUserId = createdHeader?.customerUserId ?? null;
+    const customerEmail = createdHeader?.customerEmail ?? null;
+
+    const targetType = customerUserId
+      ? "User"
+      : customerEmail
+      ? "CustomerEmail"
+      : null;
+
+    const targetId = customerUserId
+      ? String(customerUserId)
+      : customerEmail
+      ? String(customerEmail)
+      : null;
+
+    const xf = req.headers["x-forwarded-for"];
+    const ip =
+      (typeof xf === "string" ? xf.split(",")[0].trim() : null) ||
+      req.headers["x-real-ip"]?.toString()?.trim() ||
+      req.headers["cf-connecting-ip"]?.toString()?.trim() ||
+      req.ip ||
+      null;
+
+    const userAgent = (typeof req.get === "function" ? req.get("user-agent") : null) || null;
+
+    await prisma.auditLog.create({
+      data: {
+        actorUserId: actorOk,
+        action: "CREATE_WARRANTY",
+        targetType,
+        targetId,
+        ip,
+        userAgent,
+        meta: {
+          result: "SUCCESS",
+          storeId,
+          warrantyId: createdHeader?.id ?? null,
+          warrantyCode: createdHeader?.code ?? null,
+          customerUserId,
+          customerEmail,
+          after: jsonSafe(createdHeader),
+        },
+      },
+    });
+  } catch (e) {
+    console.warn("audit CREATE_WARRANTY failed (ignored):", e?.message || e);
+  }
+}
+
 /* ==================== Allocate WR (per store) ==================== */
 async function nextWarrantyCodeForStore(tx, storeId, { prefix = "WR" } = {}) {
   const last = await tx.warranty.findFirst({
@@ -563,6 +627,9 @@ export async function createWarranty(req, res) {
         } })
       }
     } catch (e) { console.warn('notify warranty created failed', e?.message || e) }
+
+    // ✅ AuditLog: CREATE_WARRANTY (best-effort)
+    await auditCreateWarrantyBestEffort(req, storeId, createdHeader);
 
     return sendSuccess(
       res,

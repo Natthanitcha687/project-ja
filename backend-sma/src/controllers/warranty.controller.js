@@ -12,6 +12,78 @@ function currentStoreId(req) {
   return Number.isInteger(id) ? id : null;
 }
 
+// ✅ ทำ meta ให้เป็น JSON-safe (กัน Prisma Json ไม่รับ Date/Object พิเศษ)
+function jsonSafe(v) {
+  try {
+    return JSON.parse(JSON.stringify(v));
+  } catch {
+    return null;
+  }
+}
+
+// ✅ best-effort audit log ตอนอัปเดตข้อมูลระดับ “ใบ” (ห้ามทำให้ระบบพัง)
+async function auditUpdateWarrantyHeaderBestEffort(req, beforeHeader, afterHeader) {
+  try {
+    const actorUserId = Number(req.user?.id ?? req.user?.sub);
+    const actorOk = Number.isInteger(actorUserId) ? actorUserId : null;
+
+    const customerUserId = afterHeader?.customerUserId ?? null;
+    const customerEmail = afterHeader?.customerEmail ?? null;
+
+    const targetType = customerUserId
+      ? "User"
+      : customerEmail
+      ? "CustomerEmail"
+      : null;
+
+    const targetId = customerUserId
+      ? String(customerUserId)
+      : customerEmail
+      ? String(customerEmail)
+      : null;
+
+    const xf = req.headers["x-forwarded-for"];
+    const ipFromXf =
+      typeof xf === "string"
+        ? xf.split(",")[0].trim()
+        : Array.isArray(xf)
+        ? String(xf[0]).split(",")[0].trim()
+        : null;
+
+    const ip =
+      ipFromXf ||
+      req.headers["x-real-ip"]?.toString()?.trim() ||
+      req.headers["cf-connecting-ip"]?.toString()?.trim() ||
+      req.ip ||
+      null;
+
+    const userAgent = (typeof req.get === "function" ? req.get("user-agent") : null) || null;
+
+    await prisma.auditLog.create({
+      data: {
+        actorUserId: actorOk,
+        action: "UPDATE_WARRANTY_HEADER",
+        targetType,
+        targetId,
+        ip,
+        userAgent,
+        meta: {
+          result: "SUCCESS",
+          storeId: afterHeader?.storeId ?? null,
+          warrantyId: afterHeader?.id ?? null,
+          warrantyCode: afterHeader?.code ?? null,
+          customerUserId,
+          customerEmail,
+          before: jsonSafe(beforeHeader),
+          after: jsonSafe(afterHeader),
+        },
+      },
+    });
+  } catch (e) {
+    console.warn("audit UPDATE_WARRANTY_HEADER failed (ignored):", e?.message || e);
+  }
+}
+
 // ---------- UTC-safe helpers ----------
 function dateOnlyUTC(v) {
   const d = v instanceof Date ? v : new Date(v);
@@ -462,6 +534,12 @@ export async function updateWarrantyHeader(req, res) {
       return sendError(res, 404, "ไม่พบใบรับประกัน");
     }
 
+    // ✅ เก็บ before snapshot (รวม items) เพื่อทำ before/after ใน Activity Logs
+    const beforeSnap = await prisma.warranty.findUnique({
+      where: { id: warrantyId },
+      include: { items: true },
+    });
+
     const body = req.body || {};
     const normEmail = body.customerEmail ? String(body.customerEmail).trim().toLowerCase() : null;
 
@@ -498,8 +576,9 @@ export async function updateWarrantyHeader(req, res) {
     });
 
     // if header fields changed, create in-app notifications for store and customer
+    let changed = false;
     try {
-      const changed =
+      changed =
         header.customerEmail !== updated.customerEmail ||
         header.customerUserId !== updated.customerUserId ||
         header.customerName !== updated.customerName ||
@@ -531,6 +610,11 @@ export async function updateWarrantyHeader(req, res) {
       }
     } catch (e) {
       console.warn("notify warranty header update failed", e?.message || e);
+    }
+
+    // ✅ AuditLog: UPDATE_WARRANTY_HEADER (best-effort) เฉพาะตอนมีการเปลี่ยนจริง
+    if (changed) {
+      await auditUpdateWarrantyHeaderBestEffort(req, beforeSnap || header, updated);
     }
 
     return sendSuccess(res, { warranty: updated });

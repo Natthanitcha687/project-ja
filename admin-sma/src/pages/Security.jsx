@@ -95,7 +95,7 @@ export default function Security() {
         <div>
           <div className="text-xl font-semibold text-slate-900">ตรวจสอบความปลอดภัย</div>
           <div className="mt-1 text-sm text-slate-500">
-            แสดงเหตุการณ์ด้านความปลอดภัย เช่น login fail, การเข้าถึงผิดปกติ ฯลฯ
+            แสดงเหตุการณ์ด้านความปลอดภัย  login fail, การเข้าถึงผิดปกติ 
           </div>
         </div>
 

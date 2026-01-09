@@ -225,7 +225,7 @@ export default function Stores() {
             <span className="text-slate-400">🔍</span>
             <input
               className="w-full bg-transparent text-sm outline-none"
-              placeholder="ค้นหาร้านค้า"
+              placeholder="ค้นหาร้านค้า/อีเมลร้านค้า"
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />

@@ -47,6 +47,82 @@ function daysBetween(a, b) {
   return Math.ceil((B - A) / (24 * 3600 * 1000));
 }
 
+// ✅ ทำ meta ให้เป็น JSON-safe (กัน Prisma Json ไม่รับ Date/Object พิเศษ)
+function jsonSafe(v) {
+  try {
+    return JSON.parse(JSON.stringify(v));
+  } catch {
+    return null;
+  }
+}
+
+// ✅ best-effort audit log สำหรับ action เกี่ยวกับ WarrantyItem (ห้ามทำให้ระบบพัง)
+async function auditWarrantyItemBestEffort(req, action, itemWithWarranty, meta = {}) {
+  try {
+    const actorUserId = Number(req.user?.id ?? req.user?.sub);
+    const actorOk = Number.isInteger(actorUserId) ? actorUserId : null;
+
+    const warr = itemWithWarranty?.warranty || null;
+    const storeId = warr?.storeId ?? null;
+
+    const customerUserId = warr?.customerUserId ?? null;
+    const customerEmail = warr?.customerEmail ?? null;
+
+    const targetType = customerUserId
+      ? 'User'
+      : customerEmail
+      ? 'CustomerEmail'
+      : null;
+
+    const targetId = customerUserId
+      ? String(customerUserId)
+      : customerEmail
+      ? String(customerEmail)
+      : null;
+
+    const xf = req.headers['x-forwarded-for'];
+    const ipFromXf =
+      typeof xf === 'string'
+        ? xf.split(',')[0].trim()
+        : Array.isArray(xf)
+        ? String(xf[0]).split(',')[0].trim()
+        : null;
+
+    const ip =
+      ipFromXf ||
+      req.headers['x-real-ip']?.toString()?.trim() ||
+      req.headers['cf-connecting-ip']?.toString()?.trim() ||
+      req.ip ||
+      null;
+
+    const userAgent =
+      (typeof req.get === 'function' ? req.get('user-agent') : null) || null;
+
+    await prisma.auditLog.create({
+      data: {
+        actorUserId: actorOk,
+        action,
+        targetType,
+        targetId,
+        ip,
+        userAgent,
+        meta: {
+          result: 'SUCCESS',
+          storeId,
+          warrantyId: warr?.id ?? null,
+          warrantyCode: warr?.code ?? null,
+          customerUserId,
+          customerEmail,
+          warrantyItemId: itemWithWarranty?.id ?? null,
+          ...meta,
+        },
+      },
+    });
+  } catch (e) {
+    console.warn(`audit ${action} failed (ignored):`, e?.message || e);
+  }
+}
+
 /* ---------- เพิ่มรูปให้ WarrantyItem (many files) ---------- */
 export async function addItemImages(req, res) {
   try {
@@ -107,6 +183,14 @@ export async function addItemImages(req, res) {
     } catch (e) {
       console.warn('images-added notify error', e?.message || e)
     }
+
+    // ✅ AuditLog: ADD_WARRANTY_ITEM_IMAGES (best-effort)
+    await auditWarrantyItemBestEffort(req, 'ADD_WARRANTY_ITEM_IMAGES', item, {
+      before: jsonSafe({ item }),
+      after: jsonSafe({ item: { ...updated, warranty: item.warranty } }),
+      addedImages: jsonSafe(files),
+    });
+
     return res.json({
       data: {
         item: {
@@ -182,6 +266,15 @@ export async function deleteItemImage(req, res) {
     } catch (e) {
       console.warn('image-deleted notify error', e?.message || e)
     }
+
+    // ✅ AuditLog: DELETE_WARRANTY_ITEM_IMAGE (best-effort)
+    await auditWarrantyItemBestEffort(req, 'DELETE_WARRANTY_ITEM_IMAGE', item, {
+      before: jsonSafe({ item }),
+      after: jsonSafe({ item: { ...updated, warranty: item.warranty } }),
+      removedImage: jsonSafe(target),
+      removedImageId: imageId,
+    });
+
     return res.json({ data: { item: updated } });
   } catch (err) {
     console.error('deleteItemImage error', err);
@@ -378,6 +471,16 @@ export async function updateItem(req, res) {
     } catch (e) {
       console.warn('item-update notify error', e?.message || e)
     }
+
+    // ✅ AuditLog: UPDATE_WARRANTY_ITEM (best-effort)
+    await auditWarrantyItemBestEffort(req, 'UPDATE_WARRANTY_ITEM', item, {
+      before: jsonSafe({ item }),
+      after: jsonSafe({ item: { ...updated, warranty: item.warranty } }),
+      addedImages: newImages.length ? jsonSafe(newImages) : null,
+      status: (typeof beforeStatus !== 'undefined' && typeof afterStatus !== 'undefined')
+        ? { before: beforeStatus, after: afterStatus }
+        : null,
+    });
 
     return res.json({
       data: {

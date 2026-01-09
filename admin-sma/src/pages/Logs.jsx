@@ -34,7 +34,7 @@ function actorText(l) {
   return `${a.email || "—"} ${id} ${role}`.trim();
 }
 
-// ✅ แสดง Target เป็น "email (ROLE)" เมื่อเป็น User
+// ✅ แสดง Target เป็น "email (ROLE)" เมื่อเป็น User / Complaint
 function targetText(l) {
   if (!l) return "—";
   const tt = (l.targetType || "").toString().toLowerCase();
@@ -44,6 +44,14 @@ function targetText(l) {
     if (u?.email) return `${u.email} (${u.role || "—"})`;
     // fallback กรณี backend หา user ไม่เจอ / user ถูกลบ
     return l.targetId != null ? `User:${l.targetId}` : "User:—";
+  }
+
+  // ✅ Complaint: แทนที่จะโชว์ Complaint:<id> ให้โชว์ email/role ของเจ้าของ complaint
+  if (tt === "complaint") {
+    const u = l.targetComplaintUser;
+    if (u?.email) return `${u.email} (${u.role || "—"})`;
+    // fallback กรณีหาเจ้าของ complaint ไม่เจอ
+    return l.targetId != null ? `Complaint:${l.targetId}` : "Complaint:—";
   }
 
   return l.targetType ? `${l.targetType}:${l.targetId}` : "—";
@@ -353,10 +361,7 @@ export default function Logs() {
           ) : total ? (
             <>
               แสดง {showingFrom}-{showingTo} จาก {total} รายการ (หลังกรอง/ค้นหา)
-              <span className="text-slate-400">
-                {" "}
-                • หน้า {safePage}/{totalPages}
-              </span>
+              <span className="text-slate-400"> • หน้า {safePage}/{totalPages}</span>
             </>
           ) : (
             "ยังไม่มี log"
@@ -380,10 +385,7 @@ export default function Logs() {
             )
           )}
 
-          <PageButton
-            disabled={loading || safePage >= totalPages}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-          >
+          <PageButton disabled={loading || safePage >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
             →
           </PageButton>
         </div>
@@ -466,9 +468,7 @@ export default function Logs() {
         )}
 
         {loading && (
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 text-slate-500">
-            กำลังโหลด...
-          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 text-slate-500">กำลังโหลด...</div>
         )}
       </div>
 
@@ -593,11 +593,11 @@ export default function Logs() {
 
       {/* Modal รายละเอียด */}
       {selected && (
-        <div className="fixed inset-0 z-50">
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-3 sm:p-6">
           <div className="absolute inset-0 bg-black/70" onClick={() => setSelected(null)} />
 
-          <div className="relative mx-auto mt-10 w-[min(980px,92vw)] rounded-2xl border border-white/10 bg-zinc-950 text-white shadow-2xl overflow-hidden">
-            <div className="bg-white/5 px-5 py-4 flex items-start justify-between gap-4">
+          <div className="relative w-full max-w-[980px] max-h-[calc(100vh-24px)] sm:max-h-[calc(100vh-48px)] rounded-2xl border border-white/10 bg-zinc-950 text-white shadow-2xl overflow-hidden flex flex-col">
+            <div className="shrink-0 bg-white/5 px-5 py-4 flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <div className="text-lg font-semibold truncate text-white">{selected.action || "Log Detail"}</div>
 
@@ -619,7 +619,7 @@ export default function Logs() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <ResultPill value={resultOf(selected)} />
                 <button
                   onClick={() => setSelected(null)}
@@ -630,7 +630,7 @@ export default function Logs() {
               </div>
             </div>
 
-            <div className="p-5 space-y-4">
+            <div className="flex-1 overflow-auto p-5 space-y-4">
               <div>
                 <div className="text-sm font-semibold text-white/85">User-Agent</div>
                 <div className="mt-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/85 break-words">

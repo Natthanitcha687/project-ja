@@ -565,7 +565,7 @@ export async function listSecurityEvents(_req, res) {
   res.json({ events });
 }
 
-// ✅ include actor เพื่อให้ UI โชว์ Who ได้ + เติม targetUser (กรณี targetType=User)
+// ✅ include actor เพื่อให้ UI โชว์ Who ได้ + เติม targetUser (กรณี targetType=User) + เติม targetComplaintUser (กรณี targetType=Complaint)
 export async function listAuditLogs(_req, res) {
   const logs = await prisma.auditLog.findMany({
     orderBy: { createdAt: "desc" },
@@ -600,12 +600,46 @@ export async function listAuditLogs(_req, res) {
     userMap = new Map(users.map((u) => [String(u.id), u]));
   }
 
+  // ✅ เก็บ complaint ids (เป็น string/cuid) เพื่อ map ไปเป็น user ของ complaint
+  const complaintIds = Array.from(
+    new Set(
+      (logs || [])
+        .filter(
+          (l) =>
+            (l.targetType || "").toLowerCase() === "complaint" &&
+            l.targetId
+        )
+        .map((l) => String(l.targetId))
+    )
+  );
+
+  let complaintUserMap = new Map(); // key = complaintId, value = {id,email,role} | null
+  if (complaintIds.length) {
+    const complaints = await prisma.complaint.findMany({
+      where: { id: { in: complaintIds } },
+      include: {
+        user: { select: { id: true, email: true, role: true } },
+      },
+      take: 200,
+    });
+    complaintUserMap = new Map(
+      (complaints || []).map((c) => [String(c.id), c.user || null])
+    );
+  }
+
   const enriched = (logs || []).map((l) => {
-    const isUserTarget = (l.targetType || "").toLowerCase() === "user";
+    const ttype = (l.targetType || "").toLowerCase();
+
+    const isUserTarget = ttype === "user";
     const tu = isUserTarget && l.targetId ? userMap.get(String(l.targetId)) : null;
+
+    const isComplaintTarget = ttype === "complaint";
+    const cu = isComplaintTarget && l.targetId ? complaintUserMap.get(String(l.targetId)) : null;
+
     return {
       ...l,
       targetUser: tu || null,
+      targetComplaintUser: cu || null,
     };
   });
 
