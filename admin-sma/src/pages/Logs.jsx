@@ -531,14 +531,14 @@ export default function Logs() {
         <table className="w-full text-sm table-fixed">
           <thead className="bg-slate-50 text-slate-600">
             <tr>
-              <th className="p-3 text-left w-[210px]">Time</th>
+              <th className="p-3 text-left w-[190px]">Time</th>
               <th className="p-3 text-left w-[260px]">Who</th>
               <th className="p-3 text-left w-[220px]">Action</th>
               <th className="p-3 text-left w-[220px]">Target</th>
               <th className="p-3 text-left w-[140px]">Result</th>
 
               {/* ✅ ปุ่ม Show อย่างเดียว */}
-              <th className="p-3 text-left w-[120px]">IP</th>
+              <th className="p-3 text-left w-[140px]">IP</th>
 
               <th className="p-3 text-left hidden xl:table-cell">User-Agent</th>
               <th className="p-3 text-left hidden xl:table-cell">Meta (สรุป)</th>
