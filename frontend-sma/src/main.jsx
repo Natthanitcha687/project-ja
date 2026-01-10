@@ -28,6 +28,15 @@ import CustomerComplaints from './pages/CustomerComplaints'
 import CustomerNavbar from './components/CustomerNavbar.jsx'
 import Navbar from './components/Navbar.jsx'
 
+import * as Sentry from '@sentry/react'
+
+// ✅ Sentry init (ใช้ DSN จาก ENV: VITE_SENTRY_DSN)
+Sentry.init({
+  dsn: import.meta.env.VITE_SENTRY_DSN,
+  environment: import.meta.env.MODE,
+  enabled: Boolean(import.meta.env.VITE_SENTRY_DSN),
+})
+
 /** ===== Helpers / Guards ===== */
 function decodeJwt(token) {
   try {

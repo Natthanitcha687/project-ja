@@ -7,6 +7,8 @@ import {
 } from "react-router-dom";
 import "./index.css";
 
+import * as Sentry from "@sentry/react";
+
 import { AuthProvider } from "./store/auth.jsx";
 import AdminProtectedRoute from "./routes/AdminProtectedRoute.jsx";
 
@@ -18,6 +20,13 @@ import Users from "./pages/Users.jsx";
 import Security from "./pages/Security.jsx";
 import Logs from "./pages/Logs.jsx";
 import Complaints from "./pages/Complaints.jsx";
+
+// ✅ Sentry init (ใช้ DSN จาก ENV: VITE_SENTRY_DSN)
+Sentry.init({
+  dsn: import.meta.env.VITE_SENTRY_DSN,
+  environment: import.meta.env.MODE,
+  enabled: Boolean(import.meta.env.VITE_SENTRY_DSN),
+});
 
 const router = createBrowserRouter([
   { path: "/login", element: <AdminLogin /> },
