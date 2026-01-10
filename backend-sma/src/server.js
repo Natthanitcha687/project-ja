@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
+import * as Sentry from '@sentry/node';
 
 import authRoutes from './routes/auth.routes.js';
 import storeRoutes from './routes/store.routes.js';
@@ -32,6 +33,19 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+
+/* =========================================================
+ * ✅ SENTRY (แบบที่ 3)
+ * - ใช้ ENV: SENTRY_DSN (ตั้งใน Render)
+ * - ส่งเฉพาะ server errors (>=500) เข้า Sentry
+ * ========================================================= */
+const SENTRY_DSN = process.env.SENTRY_DSN || '';
+if (SENTRY_DSN) {
+  Sentry.init({
+    dsn: SENTRY_DSN,
+    environment: process.env.NODE_ENV || 'production',
+  });
+}
 
 /* =========================================================
  * ✅ TRUST PROXY (สำคัญ)
@@ -224,10 +238,39 @@ app.use((err, _req, res, next) => {
   return next(err);
 });
 
-// Global error handler (ของเดิม)
-app.use((err, _req, res, _next) => {
+// Global error handler (ของเดิม + ✅ ส่งเข้า Sentry เฉพาะ 5xx)
+app.use((err, req, res, _next) => {
+  const code = err?.status || 500;
+
+  // ส่งเข้า Sentry เฉพาะ error ฝั่ง server (>=500)
+  if (SENTRY_DSN && Number(code) >= 500) {
+    try {
+      Sentry.withScope((scope) => {
+        // request id (จาก access log middleware)
+        const rid = res.getHeader('X-Request-Id');
+        if (rid) scope.setTag('rid', String(rid));
+
+        const userId = req.user?.id ?? req.user?.sub ?? null;
+        if (userId != null) scope.setUser({ id: String(userId) });
+
+        scope.setContext('request', {
+          method: req.method,
+          path: req.originalUrl || req.url,
+          ip:
+            req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() ||
+            req.ip ||
+            null,
+          ua: req.get('user-agent') || null,
+        });
+
+        Sentry.captureException(err);
+      });
+    } catch {
+      // ignore sentry failures
+    }
+  }
+
   console.error('GlobalError:', err);
-  const code = err.status || 500;
   const msg = err.message || 'Server error';
   res.status(code).json({ message: msg });
 });
