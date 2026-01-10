@@ -21,6 +21,9 @@ import runExpiryScanJob from './jobs/notifyExpirations.js';
 // ✅ NEW: Admin routes
 import adminRoutes from './routes/admin.routes.js';
 
+// ✅ แบบที่ 2: readiness ต้องเช็ค DB
+import { prisma } from './db/prisma.js';
+
 // Swagger
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from './docs/swagger.js';
@@ -102,6 +105,9 @@ function shouldSkipAccessLog(req) {
   // ✅ แบบที่ 1: ลด noise จาก Render health check (ยิงถี่)
   if (p === '/healthz') return true;
 
+  // ✅ แบบที่ 2: ลด noise จาก external uptime (ยิงถี่ได้เหมือนกัน)
+  if (p === '/readyz') return true;
+
   return false;
 }
 
@@ -169,6 +175,27 @@ app.get('/healthz', (_req, res) => {
     ts: new Date().toISOString(),
     uptimeSec: Math.floor(process.uptime()),
   });
+});
+
+/* =========================================================
+ * ✅ แบบที่ 2: External Uptime (Readiness)
+ * - เช็ค DB ต่อได้จริง: ถ้า DB ล่มจะตอบ 503 เพื่อให้ UptimeRobot แจ้งเตือน
+ * - แนะนำให้ UptimeRobot ยิง path นี้: /readyz
+ * ========================================================= */
+app.get('/readyz', async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    return res.status(200).json({
+      ok: true,
+      ts: new Date().toISOString(),
+    });
+  } catch (_e) {
+    return res.status(503).json({
+      ok: false,
+      ts: new Date().toISOString(),
+      error: 'db_unreachable',
+    });
+  }
 });
 
 // routes (คง prefix เดิมไว้ทั้งหมด)
