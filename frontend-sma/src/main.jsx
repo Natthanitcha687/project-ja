@@ -37,14 +37,6 @@ Sentry.init({
   enabled: Boolean(import.meta.env.VITE_SENTRY_DSN),
 })
 
-// ✅ TEMP: ให้ทดสอบว่า Sentry ส่ง event เข้าได้แน่นอน (ลบทิ้งหลังเทส)
-window.__sentryTest = () => {
-  Sentry.captureException(new Error('Sentry test - frontend (capture)'))
-}
-window.__sentryThrow = () => {
-  throw new Error('Sentry test - frontend (throw)')
-}
-
 /** ===== Helpers / Guards ===== */
 function decodeJwt(token) {
   try {
