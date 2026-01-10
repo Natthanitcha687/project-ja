@@ -98,6 +98,10 @@ function shouldSkipAccessLog(req) {
   // ลด noise จาก static + swagger
   if (p.startsWith('/uploads')) return true;
   if (p.startsWith('/docs')) return true;
+
+  // ✅ แบบที่ 1: ลด noise จาก Render health check (ยิงถี่)
+  if (p === '/healthz') return true;
+
   return false;
 }
 
@@ -153,6 +157,19 @@ const uploadsDir = process.env.UPLOAD_ROOT
 app.use('/uploads', express.static(uploadsDir));
 
 app.get('/', (_req, res) => res.send('SME Email Auth API - Running OK'));
+
+/* =========================================================
+ * ✅ แบบที่ 1: Render Health Check (Liveness)
+ * - ตอบไว ๆ ไม่เช็ค DB (กัน fail/restart loop เวลา DB มีปัญหา)
+ * - ใช้ตั้งค่า Health Check Path ใน Render เป็น /healthz
+ * ========================================================= */
+app.get('/healthz', (_req, res) => {
+  return res.status(200).json({
+    ok: true,
+    ts: new Date().toISOString(),
+    uptimeSec: Math.floor(process.uptime()),
+  });
+});
 
 // routes (คง prefix เดิมไว้ทั้งหมด)
 app.use('/auth', authRoutes);
