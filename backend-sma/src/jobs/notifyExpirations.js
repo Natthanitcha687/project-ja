@@ -1,3 +1,4 @@
+// backend-sma/src/jobs/notifyExpirations.js
 import { prisma } from '../db/prisma.js'
 import { createAndPublish as createNotification } from '../routes/notifications.routes.js'
 
@@ -50,22 +51,29 @@ export async function runExpiryScanJob() {
           const title = `รายการหมดประกันแล้ว`
           const body = `สินค้า "${it.productName}" (Serial: ${it.serial || '-'}) หมดประกันแล้ว`;
           try {
-            await createNotification({ prisma, attrs: {
-              storeId: store?.id ?? null,
-              title,
-              body,
-              data: { type: 'expired', warrantyId: it.warrantyId, warrantyItemId: it.id }
-            } })
+            await createNotification({
+              prisma,
+              attrs: {
+                storeId: store?.id ?? null,
+                title,
+                body,
+                data: { type: 'expired', warrantyId: it.warrantyId, warrantyItemId: it.id }
+              }
+            })
           } catch (e) { console.warn('create expired notification failed', e?.message || e) }
 
           if (it.warranty?.customerUserId) {
             try {
-              await createNotification({ prisma, attrs: {
-                userId: it.warranty.customerUserId,
-                title,
-                body,
-                data: { type: 'expired', warrantyId: it.warrantyId, warrantyItemId: it.id }
-              } })
+              await createNotification({
+                prisma,
+                attrs: {
+                  userId: it.warranty.customerUserId,
+                  title,
+                  body,
+                  data: { type: 'expired', warrantyId: it.warrantyId, warrantyItemId: it.id },
+                  sendEmail: true
+                }
+              })
             } catch (e) { console.warn('notify customer expired failed', e?.message || e) }
           }
         }
@@ -90,12 +98,15 @@ export async function runExpiryScanJob() {
         const title = `รายการใกล้หมดประกัน (${daysLeft} วัน)`
         const body = `สินค้า "${it.productName}" (Serial: ${it.serial || '-'}) จะหมดประกันภายใน ${daysLeft} วัน`;
         try {
-          await createNotification({ prisma, attrs: {
-            storeId: store?.id ?? null,
-            title,
-            body,
-            data: { type: 'nearing_expiration', warrantyId: it.warrantyId, warrantyItemId: it.id, daysLeft }
-          } })
+          await createNotification({
+            prisma,
+            attrs: {
+              storeId: store?.id ?? null,
+              title,
+              body,
+              data: { type: 'nearing_expiration', warrantyId: it.warrantyId, warrantyItemId: it.id, daysLeft }
+            }
+          })
         } catch (e) {
           console.warn('create nearing_expiration notification failed', e?.message || e)
         }
@@ -103,12 +114,16 @@ export async function runExpiryScanJob() {
         // also notify customer user if linked
         if (it.warranty?.customerUserId) {
           try {
-            await createNotification({ prisma, attrs: {
-              userId: it.warranty.customerUserId,
-              title,
-              body,
-              data: { type: 'nearing_expiration', warrantyId: it.warrantyId, warrantyItemId: it.id, daysLeft }
-            } })
+            await createNotification({
+              prisma,
+              attrs: {
+                userId: it.warranty.customerUserId,
+                title,
+                body,
+                data: { type: 'nearing_expiration', warrantyId: it.warrantyId, warrantyItemId: it.id, daysLeft },
+                sendEmail: true
+              }
+            })
           } catch (e) {
             console.warn('notify customer nearing_expiration failed', e?.message || e)
           }

@@ -62,10 +62,10 @@ router.patch('/:id/read', requireAuth, async (req, res) => {
     const storeId = req.user?.role === 'STORE' ? uid : null
 
     // authorize: either notification.userId matches uid OR notification.storeId matches storeId
-      // allow if notification belongs to the user OR belongs to the store
-      if (!(n.userId === uid || (n.storeId && storeId && n.storeId === storeId))) {
-        return res.status(403).json({ message: 'Forbidden' })
-      }
+    // allow if notification belongs to the user OR belongs to the store
+    if (!(n.userId === uid || (n.storeId && storeId && n.storeId === storeId))) {
+      return res.status(403).json({ message: 'Forbidden' })
+    }
 
     const updated = await prisma.notification.update({ where: { id }, data: { read: true } })
     res.json({ ok: true, notification: updated })
@@ -122,10 +122,16 @@ router.post('/cleanup-warranty', requireAuth, async (req, res) => {
     const warranty = await prisma.warranty.findFirst({ where: { storeId, code } })
     if (!warranty) return res.status(404).json({ message: 'Warranty not found for this store' })
 
-    const deleted = await prisma.notification.deleteMany({ where: {
-      storeId,
-      OR: [ { title: { contains: code } }, { body: { contains: code } }, { data: { path: ['warrantyId'], equals: warranty.id } } ]
-    } })
+    const deleted = await prisma.notification.deleteMany({
+      where: {
+        storeId,
+        OR: [
+          { title: { contains: code } },
+          { body: { contains: code } },
+          { data: { path: ['warrantyId'], equals: warranty.id } },
+        ],
+      },
+    })
 
     if (deleteWarranty) {
       await prisma.warranty.delete({ where: { id: warranty.id } })
@@ -140,27 +146,36 @@ router.post('/cleanup-warranty', requireAuth, async (req, res) => {
 
 // helper to create notification and publish
 export async function createAndPublish({ prisma, attrs }) {
+  // strip non-DB fields to avoid Prisma errors
+  const { sendEmail, ...dbAttrs } = attrs || {}
+
   // create DB notification and publish via SSE
-  const n = await prisma.notification.create({ data: attrs })
-  console.log(`createAndPublish: created notification id=${n.id} userId=${n.userId || ''} storeId=${n.storeId || ''} title=${n.title || ''}`)
+  const n = await prisma.notification.create({ data: dbAttrs })
+  console.log(
+    `createAndPublish: created notification id=${n.id} userId=${n.userId || ''} storeId=${n.storeId || ''} title=${n.title || ''}`
+  )
   await publishNotification({ prisma, notification: n })
 
-  // Only send email if explicitly requested (attrs.sendEmail === true)
+  // Only send email if explicitly requested AND is CUSTOMER AND type is allowlisted
   try {
-    if (attrs.sendEmail === true) {
-      let toEmail = null
-      if (n.userId) {
-        const u = await prisma.user.findUnique({ where: { id: n.userId }, select: { email: true } })
-        toEmail = u?.email || null
-      }
-      if (!toEmail && n.storeId) {
-        const sp = await prisma.storeProfile.findUnique({ where: { userId: n.storeId }, select: { email: true } })
-        toEmail = sp?.email || null
-        if (!toEmail) {
-          const su = await prisma.user.findUnique({ where: { id: n.storeId }, select: { email: true } })
-          toEmail = su?.email || null
-        }
-      }
+    const allowTypes = new Set([
+      'nearing_expiration',
+      'expired',
+      'warranty_created',
+      'complaint_created',
+      'warranty_header_updated', // ร้านอัปเดตใบ (หัวใบ)
+      'warranty_updated', // เผื่อมีการใช้ชื่อรวมในอนาคต
+    ])
+
+    const type = n?.data?.type
+
+    if (sendEmail === true && n.userId && allowTypes.has(type)) {
+      const u = await prisma.user.findUnique({
+        where: { id: n.userId },
+        select: { email: true, role: true },
+      })
+
+      const toEmail = u?.role === 'CUSTOMER' ? u?.email || null : null
 
       if (toEmail) {
         const subject = n.title || 'การแจ้งเตือน'

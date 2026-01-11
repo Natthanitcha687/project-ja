@@ -541,24 +541,54 @@ export async function updateWarrantyHeader(req, res) {
     });
 
     const body = req.body || {};
+
     const normEmail = body.customerEmail ? String(body.customerEmail).trim().toLowerCase() : null;
 
-    let customerUserId = header.customerUserId;
-    let customerName = header.customerName;
-    let customerPhone = header.customerPhone;
+    const inputPhone =
+      body.customerPhone != null && String(body.customerPhone).trim() !== ""
+        ? String(body.customerPhone).trim()
+        : null;
 
-    // เปลี่ยนอีเมล → ผูกกับบัญชีลูกค้าโดยอัตโนมัติถ้ามี
+    let inputName = null;
+    if (body.customerName != null && String(body.customerName).trim() !== "") {
+      inputName = String(body.customerName).trim();
+    } else if (
+      body.customerFirstName != null ||
+      body.customerLastName != null
+    ) {
+      const fn = (body.customerFirstName != null ? String(body.customerFirstName) : "").trim();
+      const ln = (body.customerLastName != null ? String(body.customerLastName) : "").trim();
+      const nm = `${fn} ${ln}`.trim();
+      inputName = nm || null;
+    }
+
+    let customerUserId = header.customerUserId;
+    let customerName = inputName ?? header.customerName;
+    let customerPhone = inputPhone ?? header.customerPhone;
+
+    // เปลี่ยนอีเมล → ผูกกับบัญชีลูกค้าโดยอัตโนมัติถ้ามี (✅ case-insensitive + เฉพาะ CUSTOMER)
     if (normEmail) {
-      const user = await prisma.user.findUnique({ where: { email: normEmail } });
+      const user = await prisma.user.findFirst({
+        where: { email: { equals: normEmail, mode: "insensitive" }, role: "CUSTOMER" },
+        select: { id: true },
+      });
+
       if (user) {
         customerUserId = user.id;
+
+        // ถ้าไม่ได้ส่งชื่อ/เบอร์มาเอง → เติมจาก CustomerProfile (คงเจตนาเดิม)
         const cp = await prisma.customerProfile.findUnique({
           where: { userId: user.id },
           select: { firstName: true, lastName: true, phone: true },
         });
-        const nm = `${(cp?.firstName || "").trim()} ${(cp?.lastName || "").trim()}`.trim();
-        if (nm) customerName = nm;
-        if (cp?.phone) customerPhone = cp.phone;
+
+        if (!inputName) {
+          const nm = `${(cp?.firstName || "").trim()} ${(cp?.lastName || "").trim()}`.trim();
+          if (nm) customerName = nm;
+        }
+        if (!inputPhone && cp?.phone) {
+          customerPhone = cp.phone;
+        }
       } else {
         customerUserId = null;
       }
@@ -586,24 +616,27 @@ export async function updateWarrantyHeader(req, res) {
 
       if (changed) {
         const title = `มีการแก้ไขข้อมูลใบรับประกัน ${updated.code || ""}`;
-        const body = `ข้อมูลใบรับประกัน ${updated.code || ""} ถูกแก้ไข`;
+        const bodyText = `ข้อมูลใบรับประกัน ${updated.code || ""} ถูกแก้ไข`;
+
         await createNotification({
           prisma,
           attrs: {
             storeId: updated.storeId,
             title,
-            body,
+            body: bodyText,
             data: { type: "warranty_header_updated", warrantyId: updated.id },
           },
         });
+
         if (updated.customerUserId) {
           await createNotification({
             prisma,
             attrs: {
               userId: updated.customerUserId,
               title,
-              body,
+              body: bodyText,
               data: { type: "warranty_header_updated", warrantyId: updated.id },
+              sendEmail: true, // ✅ เพิ่ม: ส่งเมลด้วย
             },
           });
         }
