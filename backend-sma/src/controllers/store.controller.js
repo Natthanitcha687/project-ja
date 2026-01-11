@@ -9,6 +9,13 @@ const DEFAULT_NOTIFY_DAYS = 14;
 /* ==================== Helpers ==================== */
 const normalizeEmail = (e) => (e ? String(e).trim().toLowerCase() : null);
 
+// ✅ เพิ่ม (ยึดรูปแบบเดียวกับ customer.controller.js)
+function trimOrNull(s) {
+  if (typeof s !== "string") return null;
+  const t = s.trim();
+  return t ? t : null;
+}
+
 function parseStoreId(req, res) {
   const storeId = Number(req.params.storeId);
   if (!Number.isInteger(storeId)) {
@@ -622,5 +629,123 @@ export async function createWarranty(req, res) {
     }
     console.error("createWarranty error", error);
     return sendError(res, 500, "ไม่สามารถสร้างใบรับประกันได้");
+  }
+}
+
+/* =========================
+ * Complaints (Store) (NEW)
+ * ========================= */
+
+// POST /store/:storeId/complaints
+export async function createStoreComplaint(req, res) {
+  const storeId = parseStoreId(req, res);
+  if (storeId == null) return;
+
+  try {
+    const me = await prisma.user.findUnique({ where: { id: Number(storeId) } });
+    if (!me || me.role !== "STORE") {
+      return sendError(res, 404, "ไม่พบบัญชีร้านค้า");
+    }
+
+    const body = req.body ?? {};
+    const category = trimOrNull(body.category);
+    const subject = trimOrNull(body.subject);
+    const message = trimOrNull(body.message);
+
+    if (!subject) return sendError(res, 400, "กรุณากรอกหัวข้อ (subject)");
+    if (!message) return sendError(res, 400, "กรุณากรอกรายละเอียด (message)");
+
+    if (subject.length > 200) {
+      return sendError(res, 400, "subject ยาวเกินไป (สูงสุด 200 ตัวอักษร)");
+    }
+    if (message.length > 5000) {
+      return sendError(res, 400, "message ยาวเกินไป (สูงสุด 5000 ตัวอักษร)");
+    }
+
+    // ✅ รับไฟล์แนบจาก multer (field: images)
+    const uploaded = [];
+    const files = req.files;
+    if (Array.isArray(files)) {
+      uploaded.push(...files);
+    } else if (files && typeof files === "object") {
+      for (const v of Object.values(files)) {
+        if (Array.isArray(v)) uploaded.push(...v);
+      }
+    }
+
+    const imagePaths = uploaded
+      .filter((f) => f && f.filename)
+      .map((f) => `/uploads/complaints/${f.filename}`);
+
+    let complaint;
+    try {
+      complaint = await prisma.complaint.create({
+        data: {
+          userId: me.id,
+          category,
+          subject,
+          message,
+          images: imagePaths,
+        },
+      });
+    } catch (err) {
+      // Fallback: ถ้า prisma client ยังไม่ได้ generate/migrate field images
+      const msg = String(err?.message || "");
+      if (
+        msg.includes("images") ||
+        msg.includes("Unknown argument") ||
+        msg.includes("Invalid `prisma.complaint.create()` invocation")
+      ) {
+        complaint = await prisma.complaint.create({
+          data: {
+            userId: me.id,
+            category,
+            subject,
+            message,
+          },
+        });
+      } else {
+        throw err;
+      }
+    }
+
+    // แจ้งเตือนกลับไปหาร้าน (best-effort)
+    try {
+      await createNotification({
+        prisma,
+        attrs: {
+          storeId: storeId,
+          title: "ส่งคำแจ้งปัญหาแล้ว",
+          body: `เราได้รับเรื่อง: ${complaint.subject}`,
+          data: { type: "complaint_created", complaintId: complaint.id },
+        },
+      });
+    } catch (e) {
+      console.warn("notify complaint_created failed", e?.message || e);
+    }
+
+    return res.status(201).json({ message: "รับแจ้งปัญหาเรียบร้อย", complaint });
+  } catch (error) {
+    console.error("createStoreComplaint error", error);
+    return sendError(res, 500, "ไม่สามารถส่งคำแจ้งปัญหาได้");
+  }
+}
+
+// GET /store/:storeId/complaints
+export async function listStoreComplaints(req, res) {
+  const storeId = parseStoreId(req, res);
+  if (storeId == null) return;
+
+  try {
+    const complaints = await prisma.complaint.findMany({
+      where: { userId: Number(storeId) },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    });
+
+    return res.json({ complaints });
+  } catch (error) {
+    console.error("listStoreComplaints error", error);
+    return sendError(res, 500, "ไม่สามารถโหลดรายการแจ้งปัญหาได้");
   }
 }

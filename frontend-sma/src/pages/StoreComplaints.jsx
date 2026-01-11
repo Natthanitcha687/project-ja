@@ -1,0 +1,478 @@
+// frontend-sma/src/pages/StoreComplaints.jsx
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { api, API_URL, getToken } from "../lib/api";
+import { useAuth } from "../store/auth";
+import DashboardHeader from "../components/DashboardHeader";
+import StoreTabs from "../components/StoreTabs";
+
+const CATEGORY_OPTIONS = [
+  "การใช้งานระบบ",
+  "ปัญหาใบรับประกัน",
+  "บัญชีผู้ใช้/เข้าสู่ระบบ",
+  "คำแนะนำ/เสนอแนะ",
+  "อื่นๆ",
+];
+
+const STATUS_META = {
+  OPEN: { label: "เปิดเรื่อง", cls: "bg-amber-100 text-amber-800 ring-1 ring-amber-200" },
+  IN_PROGRESS: { label: "กำลังดำเนินการ", cls: "bg-sky-100 text-sky-800 ring-1 ring-sky-200" },
+  RESOLVED: { label: "แก้ไขแล้ว", cls: "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200" },
+  REJECTED: { label: "ปฏิเสธ", cls: "bg-rose-100 text-rose-800 ring-1 ring-rose-200" },
+};
+
+function fmtDateTime(v) {
+  if (!v) return "—";
+  const d = new Date(v);
+  if (isNaN(d)) return "—";
+  return d.toLocaleString("th-TH", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function StatusPill({ status }) {
+  const meta =
+    STATUS_META[status] || {
+      label: status || "—",
+      cls: "bg-slate-100 text-slate-700 ring-1 ring-slate-200",
+    };
+  return (
+    <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${meta.cls}`}>
+      {meta.label}
+    </span>
+  );
+}
+
+export default function StoreComplaints() {
+  const { user } = useAuth();
+
+  const storeIdResolved = useMemo(() => {
+    if (!user) return null;
+    return Number(user.sub ?? user.id ?? null);
+  }, [user]);
+
+  // ===== notifications (ให้ DashboardHeader ใช้งานได้เหมือนหน้า StoreDashboard) =====
+  const [notifications, setNotifications] = useState([]);
+
+  const fetchNotifications = useCallback(async () => {
+    if (!storeIdResolved) return [];
+    try {
+      let res;
+      try {
+        res = await api.get(`/store/${storeIdResolved}/notifications`);
+      } catch {
+        res = await api.get("/notifications");
+      }
+
+      const data = res?.data?.data || res?.data || [];
+      const arr = Array.isArray(data) ? data : [];
+      arr.sort(
+        (a, b) =>
+          new Date(b.createdAt || b.time || b.created_at || 0) -
+          new Date(a.createdAt || a.time || a.created_at || 0)
+      );
+      setNotifications(arr);
+      return arr;
+    } catch {
+      setNotifications([]);
+      return [];
+    }
+  }, [storeIdResolved]);
+
+  // SSE realtime notifications
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    const base = String(API_URL || "").replace(/\/+$/, "");
+    const es = new EventSource(`${base}/notifications/stream?token=${token}`);
+    es.addEventListener("notification", (ev) => {
+      try {
+        const payload = JSON.parse(ev.data);
+        setNotifications((p) => [payload, ...(p || [])]);
+      } catch {}
+    });
+    es.onerror = () => {};
+    return () => es.close();
+  }, []);
+
+  useEffect(() => {
+    fetchNotifications().catch(() => {});
+  }, [fetchNotifications]);
+
+  // ===== form =====
+  const [category, setCategory] = useState(CATEGORY_OPTIONS[0]);
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [attachments, setAttachments] = useState([]);
+
+  // ===== list / ui =====
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [q, setQ] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  const [err, setErr] = useState("");
+  const [ok, setOk] = useState("");
+
+  // auto refresh
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
+  const inFlightRef = useRef(false);
+
+  async function fetchComplaints({ silent = false } = {}) {
+    if (!storeIdResolved) {
+      if (!silent) setLoading(false);
+      return;
+    }
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+
+    if (!silent) setLoading(true);
+    setErr("");
+
+    try {
+      const r = await api.get(`/store/${storeIdResolved}/complaints`);
+      setItems(r.data?.complaints || []);
+      setLastUpdatedAt(new Date().toISOString());
+    } catch (e) {
+      setErr(e?.response?.data?.message || "โหลดรายการแจ้งปัญหาไม่สำเร็จ");
+    } finally {
+      if (!silent) setLoading(false);
+      inFlightRef.current = false;
+    }
+  }
+
+  useEffect(() => {
+    if (!storeIdResolved) return;
+    fetchComplaints();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storeIdResolved]);
+
+  useEffect(() => {
+    if (!autoRefresh) return;
+    if (!storeIdResolved) return;
+
+    const intervalMs = 15000;
+    const id = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      if (submitting) return;
+      fetchComplaints({ silent: true });
+    }, intervalMs);
+
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRefresh, submitting, storeIdResolved]);
+
+  const filtered = useMemo(() => {
+    const query = (q || "").trim().toLowerCase();
+
+    return (items || []).filter((it) => {
+      const passStatus = statusFilter === "all" ? true : it.status === statusFilter;
+      if (!query) return passStatus;
+
+      const hay = `${it.category || ""} ${it.subject || ""} ${it.message || ""}`.toLowerCase();
+      return passStatus && hay.includes(query);
+    });
+  }, [items, q, statusFilter]);
+
+  async function onSubmit(e) {
+    e.preventDefault();
+    setErr("");
+    setOk("");
+
+    if (!storeIdResolved) return setErr("ไม่พบบัญชีร้านค้า (storeId)");
+
+    const s = subject.trim();
+    const m = message.trim();
+
+    if (!s) return setErr("กรุณากรอกหัวข้อ (subject)");
+    if (!m) return setErr("กรุณากรอกรายละเอียด (message)");
+    if (s.length > 200) return setErr("หัวข้อยาวเกินไป (สูงสุด 200 ตัวอักษร)");
+    if (m.length > 5000) return setErr("รายละเอียด ยาวเกินไป (สูงสุด 5000 ตัวอักษร)");
+
+    setSubmitting(true);
+    try {
+      if (attachments && attachments.length > 0) {
+        const form = new FormData();
+        form.append("category", (category || "").trim() || "");
+        form.append("subject", s);
+        form.append("message", m);
+        attachments.forEach((f) => form.append("images", f));
+
+        await api.post(`/store/${storeIdResolved}/complaints`, form, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      } else {
+        await api.post(`/store/${storeIdResolved}/complaints`, {
+          category: (category || "").trim() || null,
+          subject: s,
+          message: m,
+        });
+      }
+
+      setOk("แจ้งปัญหาเรียบร้อย ✅");
+      setSubject("");
+      setMessage("");
+      setAttachments([]);
+
+      await fetchComplaints();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (e2) {
+      setErr(e2?.response?.data?.message || "แจ้งปัญหาไม่สำเร็จ");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const storeName =
+    user?.storeProfile?.storeName || user?.storeName || user?.name || "ร้านของฉัน";
+  const storeEmail = user?.storeProfile?.email || user?.email || "";
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-sky-50 to-sky-100/60 pb-12">
+      <DashboardHeader
+        title="แจ้งปัญหา"
+        subtitle="ติดต่อแอดมิน/ผู้ดูแลระบบ"
+        notifications={notifications}
+        onFetchNotifications={fetchNotifications}
+      />
+
+      <main className="mx-auto max-w-6xl px-4 pt-6">
+        <div className="mb-6">
+          <StoreTabs />
+        </div>
+
+        {/* Header */}
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <div className="text-lg font-semibold text-slate-900">แจ้งปัญหา / ติดต่อแอดมิน</div>
+            <div className="text-sm text-slate-500">
+              ส่งปัญหา/ข้อเสนอแนะให้ผู้ดูแลระบบ (ระบบบันทึกลงฐานข้อมูล)
+            </div>
+          </div>
+
+          <div className="hidden text-right text-sm md:block">
+            <div className="font-medium text-slate-900">สวัสดี, {storeName}</div>
+            <div className="text-xs text-slate-500">{storeEmail}</div>
+          </div>
+        </div>
+
+        {/* Alerts */}
+        {(err || ok) && (
+          <div className="mb-4 space-y-2">
+            {err && (
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+                {err}
+              </div>
+            )}
+            {ok && (
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                {ok}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Form */}
+        <div className="overflow-hidden rounded-2xl border border-sky-100 bg-white shadow-sm">
+          <div className="h-2 w-full bg-sky-500" />
+          <div className="p-6">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="text-base font-semibold text-slate-900">แจ้งปัญหา</div>
+                <div className="text-sm text-slate-500">กรอกให้ครบ แล้วกดส่ง</div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-900">
+                  <input
+                    type="checkbox"
+                    className="accent-sky-600"
+                    checked={autoRefresh}
+                    onChange={(e) => setAutoRefresh(e.target.checked)}
+                  />
+                  อัปเดตอัตโนมัติ
+                </label>
+
+                <button
+                  type="button"
+                  onClick={() => fetchComplaints()}
+                  className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-semibold text-sky-800 hover:bg-sky-100"
+                >
+                  รีเฟรชรายการ
+                </button>
+              </div>
+            </div>
+
+            {lastUpdatedAt && (
+              <div className="mb-4 text-xs text-slate-500">
+                อัปเดตล่าสุดเมื่อ: {fmtDateTime(lastUpdatedAt)}
+              </div>
+            )}
+
+            <form onSubmit={onSubmit} className="grid gap-4 md:grid-cols-2">
+              <div className="md:col-span-1">
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  หมวดหมู่ (ไม่บังคับ)
+                </label>
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-sky-200"
+                >
+                  {CATEGORY_OPTIONS.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="md:col-span-1">
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  หัวข้อ (subject) <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  placeholder="เช่น ดาวน์โหลด PDF ไม่ได้"
+                  className="w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-sky-200"
+                />
+                <div className="mt-1 text-xs text-slate-500">{subject.trim().length}/200</div>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  รายละเอียด (message) <span className="text-rose-500">*</span>
+                </label>
+                <textarea
+                  rows={6}
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="อธิบายปัญหา/รายละเอียดเพิ่มเติม เช่น ขั้นตอนที่ทำ, วันเวลา, ข้อความ error ฯลฯ"
+                  className="w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-sky-200"
+                />
+                <div className="mt-1 text-xs text-slate-500">{message.trim().length}/5000</div>
+              </div>
+
+              {/* แนบรูป */}
+              <div className="md:col-span-2">
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  แนบรูปอ้างอิงปัญหา (ถ้ามี)
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => setAttachments(Array.from(e.target.files || []))}
+                  className="w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-sky-200"
+                />
+                {attachments?.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {attachments.map((f, idx) => (
+                      <span
+                        key={`${f.name}-${idx}`}
+                        className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200"
+                        title={f.name}
+                      >
+                        📎 {f.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="mt-1 text-xs text-slate-500">รองรับรูปภาพเท่านั้น (เลือกได้หลายรูป)</div>
+              </div>
+
+              <div className="md:col-span-2 flex flex-wrap items-center justify-between gap-3 pt-2">
+                <div className="text-xs text-slate-500">
+                  * คำร้องแจ้งปัญหาจะถูกส่งไปยังแอดมิน และสามารถติดตามสถานะได้ด้านล่าง
+                </div>
+
+                <button
+                  disabled={submitting}
+                  className="rounded-2xl bg-sky-600 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-sky-700 disabled:opacity-60"
+                >
+                  {submitting ? "กำลังส่ง..." : "แจ้งปัญหา"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        {/* List */}
+        <div className="mt-6 overflow-hidden rounded-2xl border border-sky-100 bg-white shadow-sm">
+          <div className="h-2 w-full bg-slate-900" />
+          <div className="p-6">
+            <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <div className="text-base font-semibold text-slate-900">รายการแจ้งปัญหา</div>
+                <div className="text-sm text-slate-500">แสดงคำร้องแจ้งปัญหาที่คุณส่งไว้ทั้งหมด</div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-900"
+                >
+                  <option value="all">ทุกสถานะ</option>
+                  <option value="OPEN">เปิดเรื่อง</option>
+                  <option value="IN_PROGRESS">กำลังดำเนินการ</option>
+                  <option value="RESOLVED">แก้ไขแล้ว</option>
+                  <option value="REJECTED">ปฏิเสธ</option>
+                </select>
+
+                <input
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="ค้นหา..."
+                  className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-sky-200"
+                />
+              </div>
+            </div>
+
+            {loading ? (
+              <div className="rounded-2xl border border-sky-100 bg-sky-50/60 px-5 py-4 text-sm text-slate-600">
+                กำลังโหลดข้อมูล...
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="rounded-2xl border border-sky-100 bg-sky-50/60 px-5 py-6 text-center">
+                <div className="text-sm font-semibold text-slate-900">ยังไม่มีการแจ้งปัญหา</div>
+                <div className="mt-1 text-xs text-slate-500">
+                  ถ้าคุณมีปัญหา/ข้อเสนอแนะ สามารถส่งได้จากฟอร์มด้านบน
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filtered.map((it) => (
+                  <div key={it.id} className="rounded-2xl border border-sky-100 bg-white p-5 shadow-sm">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-base font-semibold text-slate-900">{it.subject}</div>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+                          <div>หมวด: {it.category || "—"}</div>
+                          <div>ส่งเมื่อ: {fmtDateTime(it.createdAt)}</div>
+                          <div>อัปเดตล่าสุด: {fmtDateTime(it.updatedAt)}</div>
+                        </div>
+                      </div>
+                      <StatusPill status={it.status} />
+                    </div>
+
+                    <div className="mt-4 whitespace-pre-wrap rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-3 text-sm text-slate-700">
+                      {it.message}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}

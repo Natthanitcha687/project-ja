@@ -11,6 +11,8 @@ import AppLogo from '../components/AppLogo'
 import Footer from '../components/Footer' // ✅
 import StoreTabs from '../components/StoreTabs'
 
+
+
 const defaultFilters = [
   { value: 'all', label: 'ทั้งหมด' },
   { value: 'active', label: 'ใช้งานได้' },
@@ -1012,129 +1014,166 @@ export default function WarrantyDashboard() {
   return (
     <>
       {/* 🟦 BG: ปรับให้เหมือนโค้ด1 */}
-      <div className="min-h-screen bg-gradient-to-b from-sky-50 to-sky-100/60 pb-16">
-        {/* 🟦 Header: ใช้สไตล์และโลโก้มุมซ้ายบนแบบโค้ด1 */}
-        <header className="sticky top-0 z-30 border-b border-sky-100 bg-white/80 py-3 backdrop-blur">
-          <div className="mx-auto flex max-w-6xl items-center justify-between px-4">
-            {/* โลโก้มุมซ้ายบนจากโค้ด1 */}
-            <div className="flex items-center gap-3">
-              <Link to="/" aria-label="หน้าแรก" className="relative grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-sky-50 to-white ring-1 ring-black/5 shadow-sm">
-                <AppLogo className="h-7 w-7" />
-                <div className="absolute -inset-px rounded-2xl pointer-events-none [mask-image:radial-gradient(18px_18px_at_16px_16px,white,transparent)]"></div>
-              </Link>
-              <div>
-                <div className="text-lg font-semibold text-slate-900">Warranty</div>
-                <div className="text-xs text-slate-500">จัดการการรับประกันของคุณได้ในที่เดียว</div>
-              </div>
-            </div>
+<div className="min-h-screen bg-gradient-to-b from-sky-50 to-sky-100/60 pb-16">
+  {/* 🟦 Header: ใช้สไตล์และโลโก้มุมซ้ายบนแบบโค้ด1 */}
+  <header className="sticky top-0 z-30 border-b border-sky-100 bg-white/80 py-3 backdrop-blur">
+    <div className="mx-auto flex max-w-6xl items-center justify-between px-4">
+      {/* โลโก้มุมซ้ายบนจากโค้ด1 */}
+      <div className="flex items-center gap-3">
+        <Link
+          to="/"
+          aria-label="หน้าแรก"
+          className="relative grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-sky-50 to-white ring-1 ring-black/5 shadow-sm"
+        >
+          <AppLogo className="h-7 w-7" />
+          <div className="absolute -inset-px rounded-2xl pointer-events-none [mask-image:radial-gradient(18px_18px_at_16px_16px,white,transparent)]"></div>
+        </Link>
+        <div>
+          <div className="text-lg font-semibold text-slate-900">Warranty</div>
+          <div className="text-xs text-slate-500">จัดการการรับประกันของคุณได้ในที่เดียว</div>
+        </div>
+      </div>
 
-              <div className="flex items-center gap-3" ref={profileMenuRef}>
-              {/* Notifications bell */}
-              <div className="relative" ref={notifRef}>
+      <div className="flex items-center gap-3" ref={profileMenuRef}>
+        {/* Notifications bell */}
+        <div className="relative" ref={notifRef}>
+          <button
+            type="button"
+            onClick={async () => {
+              const next = !notifOpen
+              setNotifOpen((p) => !p)
+              if (next) {
+                await markAllAsRead()
+              }
+            }}
+            aria-label="การแจ้งเตือน"
+            className="relative grid h-10 w-10 place-items-center rounded-full bg-white shadow ring-1 ring-black/5 hover:bg-gray-50 transition"
+          >
+            <span className="text-xl">🔔</span>
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4 min-w-[14px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] text-white">
+                {unreadCount}
+              </span>
+            )}
+          </button>
+
+          {notifOpen && (
+            <div className="absolute right-0 top-12 w-80 rounded-2xl bg-white p-3 text-sm shadow-xl ring-1 ring-black/5">
+              <div className="mb-2 flex items-center justify-between">
+                <div className="text-sm font-medium text-slate-900">การแจ้งเตือน</div>
                 <button
                   type="button"
-                  onClick={async () => {
-                    const next = !notifOpen
-                    setNotifOpen((p) => !p)
-                    if (next) {
-                      await markAllAsRead()
-                    }
-                  }}
-                  aria-label="การแจ้งเตือน"
-                  className="relative grid h-10 w-10 place-items-center rounded-full bg-white shadow ring-1 ring-black/5 hover:bg-gray-50 transition"
+                  onClick={() => setNotifOpen(false)}
+                  className="text-xs text-slate-500"
                 >
-                  <span className="text-xl">🔔</span>
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-4 min-w-[14px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] text-white">{unreadCount}</span>
-                  )}
+                  ปิด
                 </button>
-
-                {notifOpen && (
-                  <div className="absolute right-0 top-12 w-80 rounded-2xl bg-white p-3 text-sm shadow-xl ring-1 ring-black/5">
-                    <div className="mb-2 flex items-center justify-between">
-                      <div className="text-sm font-medium text-slate-900">การแจ้งเตือน</div>
-                      <button type="button" onClick={() => setNotifOpen(false)} className="text-xs text-slate-500">ปิด</button>
-                    </div>
-                    {notifLoading ? (
-                      <div className="py-6 text-center text-slate-500">กำลังโหลด...</div>
-                    ) : (notifications || []).length === 0 ? (
-                      <div className="py-4 text-slate-600">
-                        <div className="text-center">ไม่มีการแจ้งเตือน</div>
-                      </div>
-                    ) : (
-                      <ul className="space-y-2 max-h-64 overflow-y-auto">
-                        {(notifications || []).map((n, i) => (
-                          <li key={n.id || i} className="rounded-lg p-3 hover:bg-sky-50">
-                            <div className="flex items-start gap-3">
-                              <div className="h-8 w-8 shrink-0 rounded-full bg-sky-100 grid place-items-center text-xs text-sky-700">🔔</div>
-                              <div className="flex-1">
-                                <div className="text-sm font-medium text-slate-900">{n.title || n.message || 'การแจ้งเตือน'}</div>
-                                { (n.body || n.message) ? (
-                                  <div className="text-xs text-slate-600 mt-1 break-words">{n.body || n.message}</div>
-                                ) : null }
-                                <div className="text-[10px] text-slate-400 mt-1">{(n.createdAt || n.time || n.created_at) ? new Date(n.createdAt || n.time || n.created_at).toLocaleString() : ''}</div>
-                              </div>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                )}
               </div>
-              
-              
-              <button
-                type="button"
-                onClick={() => setProfileMenuOpen((prev) => !prev)}
-                className="flex items-center gap-3 rounded-full bg-white px-3 py-2 shadow ring-1 ring-black/10 hover:-translate-y-0.5 hover:bg-slate-50 transition"
-              >
-                {profileAvatarSrc ? (
-                  <img src={profileAvatarSrc} alt="Store profile" className="h-10 w-10 rounded-full object-cover" />
-                  ) : (
-                  <div className="grid h-10 w-10 place-items-center rounded-full bg-sky-200 text-xl">🏪</div>
-                )}
-                <div className="hidden text-left text-sm md:block">
-                  <div className="font-medium text-slate-900">{storeDisplayName}</div>
-                  <div className="text-xs text-slate-500">{storeEmail}</div>
+              {notifLoading ? (
+                <div className="py-6 text-center text-slate-500">กำลังโหลด...</div>
+              ) : (notifications || []).length === 0 ? (
+                <div className="py-4 text-slate-600">
+                  <div className="text-center">ไม่มีการแจ้งเตือน</div>
                 </div>
-                <span className="hidden text-slate-400 md:inline">▾</span>
-              </button>
-              {isProfileMenuOpen && (
-                <div className="absolute right-4 top-14 w-64 rounded-2xl bg-white p-4 text-sm shadow-xl ring-1 ring-black/5">
-                  <div className="mb-4 flex items-center gap-3">
-                    {profileAvatarSrc ? (
-                      <img src={profileAvatarSrc} alt="Store profile" className="h-12 w-12 rounded-full object-cover" />
-                    ) : (
-                      <div className="grid h-12 w-12 place-items-center rounded-full bg-sky-200 text-2xl">🏪</div>
-                    )}
-                    <div className="min-w-0">
-                      <div className="truncate font-semibold text-slate-900">{storeDisplayName}</div>
-                      <div className="truncate text-xs text-slate-500">{storeEmail}</div>
-                      {storeAddrShort ? <div className="truncate text-xs text-slate-400">{storeAddrShort}</div> : null}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={openProfileModal}
-                    className="flex w-full items-center justify-between rounded-xl bg-sky-50 px-3 py-2 text-slate-700 hover:bg-sky-100"
-                  >
-                    <span>แก้ไขโปรไฟล์</span>
-                    <span aria-hidden>✏️</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="mt-2 flex w-full items-center justify-between rounded-xl px-3 py-2 text-slate-500 hover:bg-slate-50"
-                  >
-                    <span>ออกจากระบบ</span>
-                    <span aria-hidden>↪️</span>
-                  </button>
-                </div>
+              ) : (
+                <ul className="space-y-2 max-h-64 overflow-y-auto">
+                  {(notifications || []).map((n, i) => (
+                    <li key={n.id || i} className="rounded-lg p-3 hover:bg-sky-50">
+                      <div className="flex items-start gap-3">
+                        <div className="h-8 w-8 shrink-0 rounded-full bg-sky-100 grid place-items-center text-xs text-sky-700">
+                          🔔
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-sm font-medium text-slate-900">
+                            {n.title || n.message || 'การแจ้งเตือน'}
+                          </div>
+                          {(n.body || n.message) ? (
+                            <div className="text-xs text-slate-600 mt-1 break-words">
+                              {n.body || n.message}
+                            </div>
+                          ) : null}
+                          <div className="text-[10px] text-slate-400 mt-1">
+                            {(n.createdAt || n.time || n.created_at)
+                              ? new Date(n.createdAt || n.time || n.created_at).toLocaleString()
+                              : ''}
+                          </div>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
+          )}
+        </div>
+
+        {/* ✅ เพิ่ม: ปุ่มแจ้งปัญหา (ไอคอนกลมข้างกระดิ่ง) */}
+        <Link
+          to="/dashboard/complaints"
+          title="แจ้งปัญหา/ติดต่อแอดมิน"
+          aria-label="แจ้งปัญหา/ติดต่อแอดมิน"
+          className="relative grid h-10 w-10 place-items-center rounded-full bg-white shadow ring-1 ring-black/5 hover:bg-gray-50 transition"
+          onClick={() => {
+            setNotifOpen(false)
+            setProfileMenuOpen(false)
+          }}
+        >
+          <span className="text-xl">📝</span>
+        </Link>
+
+        <button
+          type="button"
+          onClick={() => setProfileMenuOpen((prev) => !prev)}
+          className="flex items-center gap-3 rounded-full bg-white px-3 py-2 shadow ring-1 ring-black/10 hover:-translate-y-0.5 hover:bg-slate-50 transition"
+        >
+          {profileAvatarSrc ? (
+            <img src={profileAvatarSrc} alt="Store profile" className="h-10 w-10 rounded-full object-cover" />
+          ) : (
+            <div className="grid h-10 w-10 place-items-center rounded-full bg-sky-200 text-xl">🏪</div>
+          )}
+          <div className="hidden text-left text-sm md:block">
+            <div className="font-medium text-slate-900">{storeDisplayName}</div>
+            <div className="text-xs text-slate-500">{storeEmail}</div>
           </div>
-        </header>
+          <span className="hidden text-slate-400 md:inline">▾</span>
+        </button>
+
+        {isProfileMenuOpen && (
+          <div className="absolute right-4 top-14 w-64 rounded-2xl bg-white p-4 text-sm shadow-xl ring-1 ring-black/5">
+            <div className="mb-4 flex items-center gap-3">
+              {profileAvatarSrc ? (
+                <img src={profileAvatarSrc} alt="Store profile" className="h-12 w-12 rounded-full object-cover" />
+              ) : (
+                <div className="grid h-12 w-12 place-items-center rounded-full bg-sky-200 text-2xl">🏪</div>
+              )}
+              <div className="min-w-0">
+                <div className="truncate font-semibold text-slate-900">{storeDisplayName}</div>
+                <div className="truncate text-xs text-slate-500">{storeEmail}</div>
+                {storeAddrShort ? <div className="truncate text-xs text-slate-400">{storeAddrShort}</div> : null}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={openProfileModal}
+              className="flex w-full items-center justify-between rounded-xl bg-sky-50 px-3 py-2 text-slate-700 hover:bg-sky-100"
+            >
+              <span>แก้ไขโปรไฟล์</span>
+              <span aria-hidden>✏️</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="mt-2 flex w-full items-center justify-between rounded-xl px-3 py-2 text-slate-500 hover:bg-slate-50"
+            >
+              <span>ออกจากระบบ</span>
+              <span aria-hidden>↪️</span>
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  </header>
+
 
         <main className="mx-auto mt-8 max-w-6xl px-4">
           {/* 🟦 กล่องแจ้ง error: ใช้โทนฟ้าแบบโค้ด1 */}

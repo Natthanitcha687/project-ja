@@ -1,11 +1,21 @@
 // backend-sma/src/routes/store.routes.js
 import { Router } from "express";
+import multer from "multer";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
 import {
   getStoreDashboard,
   updateStoreProfile,
   changeStorePassword,
   createWarranty,
+
+  // ✅ เพิ่ม
+  createStoreComplaint,
+  listStoreComplaints,
 } from "../controllers/store.controller.js";
+
 import { requireAuth } from "../middleware/requireAuth.js";
 import { requireStore } from "../middleware/requireStore.js";
 import { requireVerified } from "../middleware/requireVerified.js";
@@ -14,6 +24,58 @@ const router = Router();
 
 // ต้อง login -> ต้องยืนยันอีเมล -> ต้องเป็นร้าน/เจ้าของ storeId
 router.use(requireAuth, requireVerified, requireStore);
+
+/* =========================
+ * ✅ Upload for Complaint Images (เหมือน customer.routes.js)
+ * ========================= */
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// ✅ IMPORTANT (Render Disk):
+// - ถ้ามี UPLOAD_ROOT -> เก็บไฟล์ลง disk ถาวร เช่น /var/data/uploads
+// - ถ้าไม่มี -> fallback ใช้โฟลเดอร์เดิมในโปรเจกต์ (src/uploads)
+const uploadRoot = process.env.UPLOAD_ROOT
+  ? path.resolve(process.env.UPLOAD_ROOT)
+  : path.resolve(__dirname, "../uploads");
+
+// เก็บที่: <uploadRoot>/complaints
+const complaintUploadDir = path.join(uploadRoot, "complaints");
+
+// กัน ENOENT: สร้างโฟลเดอร์ทุกครั้งก่อนเขียน
+function ensureComplaintDir() {
+  try {
+    fs.mkdirSync(complaintUploadDir, { recursive: true });
+  } catch (_) {
+    /* ignore */
+  }
+}
+ensureComplaintDir();
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    ensureComplaintDir();
+    cb(null, complaintUploadDir);
+  },
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname || "").toLowerCase() || "";
+    const safeExt = [".jpg", ".jpeg", ".png", ".webp", ".gif"].includes(ext) ? ext : "";
+    const name = `${Date.now()}-${Math.random().toString(16).slice(2)}${safeExt}`;
+    cb(null, name);
+  },
+});
+
+const uploadComplaintImages = multer({
+  storage,
+  limits: {
+    files: 5,
+    fileSize: 5 * 1024 * 1024, // 5MB/ไฟล์
+  },
+  fileFilter: (_req, file, cb) => {
+    const ok = (file?.mimetype || "").startsWith("image/");
+    cb(ok ? null : new Error("รองรับเฉพาะไฟล์รูปภาพ (JPEG, JPG, PNG, GIF, WebP)"), ok);
+  },
+});
 
 /**
  * @openapi
@@ -137,32 +199,80 @@ router.post("/:storeId/change-password", changeStorePassword);
  *                       minimum: 0
  *                       description: จำนวนเดือนรับประกัน (ใช้คำนวณวันหมดอายุอัตโนมัติ)
  *                     coverageNote: { type: string, description: เงื่อนไข/ส่วนที่ครอบคลุม }
- *           examples:
- *             basic:
- *               summary: ตัวอย่างการสร้างใบรับประกันหลายรายการ
- *               value:
- *                 customer:
- *                   firstName: "Somchai"
- *                   lastName: "Dee"
- *                   email: "somchai@example.com"
- *                   phone: "0812345678"
- *                 items:
- *                   - name: "Air Fryer"
- *                     model: "AF-2024"
- *                     serial: "SN001"
- *                     purchaseDate: "2025-10-01"
- *                     warrantyMonths: 12
- *                     coverageNote: "มอเตอร์ 12 เดือน"
- *                   - name: "Blender"
- *                     model: "BL-100"
- *                     serial: "SN002"
- *                     purchaseDate: "2025-10-01"
- *                     warrantyMonths: 6
  *     responses:
  *       '201': { description: สร้างสำเร็จ }
  *       '400': { description: Bad Request }
  *       '401': { description: Unauthorized }
  */
 router.post("/:storeId/warranties", createWarranty);
+
+/* =========================
+ *  แจ้งปัญหา (Store) - เหมือน customer
+ * ========================= */
+
+/**
+ * @openapi
+ * /store/{storeId}/complaints:
+ *   post:
+ *     tags: [Store]
+ *     summary: ร้านค้าสร้างคำแจ้งปัญหา (รองรับแนบรูป)
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: storeId
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [subject, message]
+ *             properties:
+ *               category: { type: string, nullable: true }
+ *               subject: { type: string }
+ *               message: { type: string }
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [subject, message]
+ *             properties:
+ *               category: { type: string, nullable: true }
+ *               subject: { type: string }
+ *               message: { type: string }
+ *     responses:
+ *       '201': { description: Created }
+ *       '400': { description: Bad Request }
+ *       '401': { description: Unauthorized }
+ */
+router.post(
+  "/:storeId/complaints",
+  uploadComplaintImages.array("images", 5),
+  createStoreComplaint
+);
+
+/**
+ * @openapi
+ * /store/{storeId}/complaints:
+ *   get:
+ *     tags: [Store]
+ *     summary: ร้านค้าดูรายการแจ้งปัญหาของตัวเอง
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: storeId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       '200': { description: OK }
+ *       '401': { description: Unauthorized }
+ */
+router.get("/:storeId/complaints", listStoreComplaints);
 
 export default router;

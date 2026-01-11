@@ -1,5 +1,6 @@
+// frontend-sma/src/components/DashboardHeader.jsx
 import { useRef, useState, useMemo, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../store/auth'
 import AppLogo from './AppLogo'
 import { api } from '../lib/api'
@@ -7,11 +8,12 @@ import { api } from '../lib/api'
 export default function DashboardHeader({ title, subtitle, notifications = [], onFetchNotifications }) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const [notifOpen, setNotifOpen] = useState(false)
   const [isProfileMenuOpen, setProfileMenuOpen] = useState(false)
   const [notifLoading, setNotifLoading] = useState(false)
-  
+
   const notifRef = useRef(null)
   const profileMenuRef = useRef(null)
 
@@ -34,7 +36,8 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
   useEffect(() => {
     if (!isProfileMenuOpen) return
     function onDoc(e) {
-      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target)) setProfileMenuOpen(false)
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target))
+        setProfileMenuOpen(false)
     }
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
@@ -53,7 +56,10 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
   }, [user])
 
   const isAuthenticated = !!user
-  const unreadCount = (notifications || []).filter(n => !n.read).length
+  const unreadCount = (notifications || []).filter((n) => !n.read).length
+
+  // ✅ อยู่หน้าแจ้งปัญหาแล้ว ไม่ต้องโชว์ปุ่มซ้ำ
+  const isOnComplaintsPage = location.pathname.startsWith('/dashboard/complaints')
 
   return (
     <header className="sticky top-0 z-40 border-b border-sky-100 bg-white/80 py-3 backdrop-blur">
@@ -76,10 +82,14 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
                 const next = !notifOpen
                 setNotifOpen(next)
                 if (next) {
-                  try { await api.post('/notifications/mark-all-read') } catch (e) {}
+                  try {
+                    await api.post('/notifications/mark-all-read')
+                  } catch (e) {}
                   if (onFetchNotifications) {
                     setNotifLoading(true)
-                    try { await onFetchNotifications() } catch {}
+                    try {
+                      await onFetchNotifications()
+                    } catch {}
                     setNotifLoading(false)
                   }
                 }
@@ -89,7 +99,9 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
             >
               <span className="text-xl">🔔</span>
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-4 min-w-[14px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] text-white">{unreadCount}</span>
+                <span className="absolute -top-1 -right-1 flex h-4 min-w-[14px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] text-white">
+                  {unreadCount}
+                </span>
               )}
             </button>
 
@@ -97,7 +109,13 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
               <div className="absolute right-0 top-12 w-80 rounded-2xl bg-white p-3 text-sm shadow-xl ring-1 ring-black/5">
                 <div className="mb-2 flex items-center justify-between">
                   <div className="text-sm font-medium text-slate-900">การแจ้งเตือน</div>
-                  <button type="button" onClick={() => setNotifOpen(false)} className="text-xs text-slate-500">ปิด</button>
+                  <button
+                    type="button"
+                    onClick={() => setNotifOpen(false)}
+                    className="text-xs text-slate-500"
+                  >
+                    ปิด
+                  </button>
                 </div>
                 {notifLoading ? (
                   <div className="py-6 text-center text-slate-500">กำลังโหลด...</div>
@@ -118,23 +136,37 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
                               await api.patch(`/notifications/${id}/read`)
                             } catch (e) {}
                             if (onFetchNotifications) {
-                              try { await onFetchNotifications() } catch {}
+                              try {
+                                await onFetchNotifications()
+                              } catch {}
                             }
                           }
                           if (n?.data?.warrantyId) {
-                            try { navigate(`/warranty/${n.data.warrantyId}`) } catch {}
+                            try {
+                              navigate(`/warranty/${n.data.warrantyId}`)
+                            } catch {}
                           }
                           setNotifOpen(false)
                         }}
                       >
                         <div className="flex items-start gap-3">
-                          <div className="h-8 w-8 shrink-0 rounded-full bg-sky-100 grid place-items-center text-xs text-sky-700">🔔</div>
+                          <div className="h-8 w-8 shrink-0 rounded-full bg-sky-100 grid place-items-center text-xs text-sky-700">
+                            🔔
+                          </div>
                           <div className="flex-1">
-                            <div className="text-sm font-medium text-slate-900">{n.title || n.message || 'การแจ้งเตือน'}</div>
-                            { (n.body || n.message) ? (
-                              <div className="text-xs text-slate-600 mt-1 break-words">{n.body || n.message}</div>
-                            ) : null }
-                            <div className="text-[10px] text-slate-400 mt-1">{(n.createdAt || n.time || n.created_at) ? new Date(n.createdAt || n.time || n.created_at).toLocaleString() : ''}</div>
+                            <div className="text-sm font-medium text-slate-900">
+                              {n.title || n.message || 'การแจ้งเตือน'}
+                            </div>
+                            {n.body || n.message ? (
+                              <div className="text-xs text-slate-600 mt-1 break-words">
+                                {n.body || n.message}
+                              </div>
+                            ) : null}
+                            <div className="text-[10px] text-slate-400 mt-1">
+                              {(n.createdAt || n.time || n.created_at)
+                                ? new Date(n.createdAt || n.time || n.created_at).toLocaleString()
+                                : ''}
+                            </div>
                           </div>
                         </div>
                       </li>
@@ -145,28 +177,35 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
             )}
           </div>
 
-          {/* 📝 ปุ่มร้องเรียน/ติดต่อแอดมิน (เหมือนฝั่งลูกค้า) */}
-          {isAuthenticated && (
+          {/* ✅ ไอคอนแจ้งปัญหาแบบกลมข้างกระดิ่ง + ซ่อนเมื่ออยู่หน้าแจ้งปัญหา */}
+          {isAuthenticated && !isOnComplaintsPage && (
             <Link
-              to="/customer/complaints"
-              title="ร้องเรียน/ติดต่อแอดมิน"
-              className="inline-flex items-center gap-2 rounded-full bg-white shadow ring-1 ring-sky-100 px-3 py-2 text-sm font-semibold text-sky-700 hover:bg-sky-50 transition"
-              onClick={() => { setNotifOpen(false); setProfileMenuOpen(false); }}
+              to="/dashboard/complaints"
+              title="แจ้งปัญหา/ติดต่อแอดมิน"
+              aria-label="แจ้งปัญหา/ติดต่อแอดมิน"
+              className="relative grid h-10 w-10 place-items-center rounded-full bg-white shadow ring-1 ring-black/5 hover:bg-gray-50 transition"
+              onClick={() => {
+                setNotifOpen(false)
+                setProfileMenuOpen(false)
+              }}
             >
-              <span className="text-base leading-none">📝</span>
-              <span className="hidden md:inline">ร้องเรียน</span>
+              <span className="text-xl">📝</span>
             </Link>
           )}
 
           <div>
             <button
               type="button"
-              onClick={() => setProfileMenuOpen(p => !p)}
+              onClick={() => setProfileMenuOpen((p) => !p)}
               className="flex items-center gap-3 rounded-full bg-white px-3 py-2 shadow ring-1 ring-black/10 hover:-translate-y-0.5 hover:bg-slate-50 transition"
             >
-              <div className="grid h-8 w-8 place-items-center rounded-full bg-sky-200 text-sm">🏪</div>
+              <div className="grid h-8 w-8 place-items-center rounded-full bg-sky-200 text-sm">
+                🏪
+              </div>
               <div className="hidden text-left text-sm md:block">
-                <div className="font-medium text-slate-900">{user?.storeName || user?.name || 'ร้านของฉัน'}</div>
+                <div className="font-medium text-slate-900">
+                  {user?.storeName || user?.name || 'ร้านของฉัน'}
+                </div>
                 <div className="text-xs text-slate-500">{user?.email || ''}</div>
               </div>
               <span className="hidden text-slate-400 md:inline">▾</span>
@@ -175,9 +214,13 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
             {isProfileMenuOpen && (
               <div className="absolute right-4 top-14 w-64 rounded-2xl bg-white p-4 text-sm shadow-xl ring-1 ring-black/5">
                 <div className="mb-4 flex items-center gap-3">
-                  <div className="grid h-12 w-12 place-items-center rounded-full bg-sky-200 text-2xl">🏪</div>
+                  <div className="grid h-12 w-12 place-items-center rounded-full bg-sky-200 text-2xl">
+                    🏪
+                  </div>
                   <div className="min-w-0">
-                    <div className="truncate font-semibold text-slate-900">{user?.storeName || user?.name || 'ร้านของฉัน'}</div>
+                    <div className="truncate font-semibold text-slate-900">
+                      {user?.storeName || user?.name || 'ร้านของฉัน'}
+                    </div>
                     <div className="truncate text-xs text-slate-500">{user?.email || ''}</div>
                   </div>
                 </div>
@@ -191,7 +234,10 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
                 </button>
                 <button
                   type="button"
-                  onClick={() => { logout?.(); navigate('/signin', { replace: true }) }}
+                  onClick={() => {
+                    logout?.()
+                    navigate('/signin', { replace: true })
+                  }}
                   className="mt-2 flex w-full items-center justify-between rounded-xl px-3 py-2 text-slate-500 hover:bg-slate-50"
                 >
                   <span>ออกจากระบบ</span>
