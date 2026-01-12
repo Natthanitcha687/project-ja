@@ -280,15 +280,36 @@ const baseUrl =
   (process.env.APP_URL && process.env.APP_URL.replace(/\/+$/, '')) ||
   `http://localhost:${port}`;
 
+// ✅ เพิ่ม helper เพื่อให้ job รัน "ทุกเที่ยงคืนเวลาไทย" (UTC+7)
+const TH_TZ_OFFSET_MIN = 420;
+function msUntilNextMidnightTH() {
+  const now = new Date();
+  // shift ไปเป็นเวลาไทย
+  const shifted = new Date(now.getTime() + TH_TZ_OFFSET_MIN * 60 * 1000);
+  // ตั้งเป็นเที่ยงคืนถัดไป (ในเวลาไทย)
+  shifted.setHours(24, 0, 0, 0);
+  // แปลงกลับเป็น timestamp จริง (UTC)
+  const targetUtcMs = shifted.getTime() - TH_TZ_OFFSET_MIN * 60 * 1000;
+  const ms = targetUtcMs - now.getTime();
+  return ms > 0 ? ms : 1000;
+}
+
 app.listen(port, () => {
   console.log(`🚀 API running on ${baseUrl}`);
   console.log(`📚 Swagger UI -> ${baseUrl}/docs`);
   console.log(`✅ Allowed origins: ${allowedOrigins.join(', ')}`);
-  // start expiry notification job: run once at startup and then every 24h
+  // start expiry notification job: run once at startup and then every TH midnight
   try {
     runExpiryScanJob();
-    setInterval(() => runExpiryScanJob(), 24 * 3600 * 1000);
-    console.log('🔔 Expiry scan job scheduled (every 24h)');
+
+    const firstDelay = msUntilNextMidnightTH();
+    setTimeout(() => {
+      runExpiryScanJob();
+      setInterval(() => runExpiryScanJob(), 24 * 3600 * 1000);
+      console.log('🔔 Expiry scan job scheduled (every TH midnight)');
+    }, firstDelay);
+
+    console.log(`🔔 Expiry scan job scheduled (TH midnight) firstDelayMs=${firstDelay}`);
   } catch (e) {
     console.warn('Unable to start expiry scan job', e?.message || e);
   }
