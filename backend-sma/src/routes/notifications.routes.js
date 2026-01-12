@@ -156,9 +156,12 @@ export async function createAndPublish({ prisma, attrs }) {
   )
   await publishNotification({ prisma, notification: n })
 
-  // Only send email if explicitly requested AND is CUSTOMER AND type is allowlisted
+  // Only send email if explicitly requested AND allowlisted by role/type
   try {
-    const allowTypes = new Set([
+    const type = n?.data?.type
+
+    // ✅ CUSTOMER allowlist (คงของเดิม ไม่กระทบฝั่งลูกค้า)
+    const allowTypesCustomer = new Set([
       'nearing_expiration',
       'expired',
       'warranty_created',
@@ -167,21 +170,43 @@ export async function createAndPublish({ prisma, attrs }) {
       'warranty_updated', // เผื่อมีการใช้ชื่อรวมในอนาคต
     ])
 
-    const type = n?.data?.type
+    // ✅ STORE allowlist (เอาเท่าที่ต้องการ: summary รายวัน + (option) complaint_created)
+    const allowTypesStore = new Set([
+      'expiry_daily_summary',
+      'complaint_created',
+    ])
 
-    if (sendEmail === true && n.userId && allowTypes.has(type)) {
-      const u = await prisma.user.findUnique({
-        where: { id: n.userId },
-        select: { email: true, role: true },
-      })
+    if (sendEmail === true) {
+      // ----- CUSTOMER branch -----
+      if (n.userId && allowTypesCustomer.has(type)) {
+        const u = await prisma.user.findUnique({
+          where: { id: n.userId },
+          select: { email: true, role: true },
+        })
 
-      const toEmail = u?.role === 'CUSTOMER' ? u?.email || null : null
+        const toEmail = u?.role === 'CUSTOMER' ? (u?.email || null) : null
+        if (toEmail) {
+          const subject = n.title || 'การแจ้งเตือน'
+          const bodyText = n.body || ''
+          console.log(`createAndPublish: sending CUSTOMER email to ${toEmail} subject=${subject}`)
+          await sendNotificationEmail({ to: toEmail, subject, text: bodyText })
+        }
+      }
 
-      if (toEmail) {
-        const subject = n.title || 'การแจ้งเตือน'
-        const bodyText = n.body || ''
-        console.log(`createAndPublish: sending email to ${toEmail} subject=${subject}`)
-        await sendNotificationEmail({ to: toEmail, subject, text: bodyText })
+      // ----- STORE branch -----
+      if (n.storeId && allowTypesStore.has(type)) {
+        const s = await prisma.user.findUnique({
+          where: { id: n.storeId },
+          select: { email: true, role: true },
+        })
+
+        const toEmail = s?.role === 'STORE' ? (s?.email || null) : null
+        if (toEmail) {
+          const subject = n.title || 'การแจ้งเตือนร้านค้า'
+          const bodyText = n.body || ''
+          console.log(`createAndPublish: sending STORE email to ${toEmail} subject=${subject}`)
+          await sendNotificationEmail({ to: toEmail, subject, text: bodyText })
+        }
       }
     }
   } catch (e) {

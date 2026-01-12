@@ -321,20 +321,10 @@ export async function updateStoreProfile(req, res) {
       },
     });
 
-    // Notify the store user about profile update
-    try {
-      await createNotification({
-        prisma,
-        attrs: {
-          storeId: storeId,
-          title: "อัปเดตโปรไฟล์ร้าน",
-          body: "ข้อมูลโปรไฟล์ร้านของคุณได้รับการอัปเดตแล้ว",
-          data: { type: "store_profile_updated" },
-        },
-      });
-    } catch (e) {
-      console.warn("notify store profile update failed", e?.message || e);
-    }
+    // ✅ ตาม requirement ใหม่: ร้าน "ไม่ต้อง" ได้แจ้งเตือนเรื่องอื่นนอกเหนือจาก
+    // - expiry_daily_summary (job)
+    // - complaint_created (ตอนแจ้งปัญหา)
+    // ดังนั้น "store_profile_updated" ตัดออก
 
     return sendSuccess(res, {
       storeProfile: mapStoreProfile(nextProfile, storeUser.email),
@@ -572,23 +562,15 @@ export async function createWarranty(req, res) {
       throw new Error("Failed to create warranty after retries");
     });
 
-    // create in-app notification for store (and customer if linked)
+    // ✅ ตาม requirement ใหม่: ร้านไม่ต้องได้แจ้งเตือน "warranty_created"
+    // ❌ ตัด notify store ออก แต่ "ลูกค้า" ยังได้เหมือนเดิม (ไม่กระทบลูกค้า)
     try {
       const title = `สร้างใบรับประกัน ${createdHeader.code || ""}`;
       const bodyText = `สร้างใบรับประกัน ${createdHeader.code || ""} จำนวน ${
         createdHeader.items?.length || 0
       } รายการ`;
-      await createNotification({
-        prisma,
-        attrs: {
-          storeId,
-          title,
-          body: bodyText,
-          data: { type: "warranty_created", warrantyId: createdHeader.id },
-        },
-      });
 
-      // notify customer user if linked
+      // notify customer user if linked (✅ keep)
       if (createdHeader.customerUserId) {
         await createNotification({
           prisma,
@@ -709,7 +691,7 @@ export async function createStoreComplaint(req, res) {
       }
     }
 
-    // แจ้งเตือนกลับไปหาร้าน (best-effort)
+    // ✅ คงไว้ตาม requirement: แจ้งเตือนตอนร้านส่งแจ้งปัญหา (complaint_created)
     try {
       await createNotification({
         prisma,

@@ -422,26 +422,30 @@ export default function WarrantyDashboard() {
   }, [user])
 
   async function fetchNotifications() {
-    if (!storeIdResolved) return
-    setNotifLoading(true)
-    try {
-      // try store-scoped notifications first, fallback to /notifications
-      let res
-      try {
-        res = await api.get(`/store/${storeIdResolved}/notifications`)
-      } catch (e) {
-        res = await api.get(`/notifications`)
-      }
-      const data = res?.data?.data || res?.data || []
-      const arr = Array.isArray(data) ? data : []
-      arr.sort((a,b)=> new Date(b.createdAt || b.time || b.created_at || 0) - new Date(a.createdAt || a.time || a.created_at || 0))
-      setNotifications(arr)
-    } catch (e) {
-      setNotifications([])
-    } finally {
-      setNotifLoading(false)
-    }
+  if (!storeIdResolved) return
+  setNotifLoading(true)
+  try {
+    const res = await api.get(`/notifications`)
+    const data = res?.data?.data || res?.data || []
+    let arr = Array.isArray(data) ? data : []
+
+    // ✅ ร้านเห็นเฉพาะ 2 แบบ
+    const allow = new Set(['expiry_daily_summary', 'complaint_created'])
+    arr = arr.filter(n => allow.has(n?.data?.type))
+
+    arr.sort(
+      (a, b) =>
+        new Date(b.createdAt || b.time || b.created_at || 0) -
+        new Date(a.createdAt || a.time || a.created_at || 0)
+    )
+    setNotifications(arr)
+  } catch (e) {
+    setNotifications([])
+  } finally {
+    setNotifLoading(false)
   }
+}
+
 
   async function markAllAsRead() {
     setNotifications(prev => (prev || []).map(n => ({ ...n, read: true })))

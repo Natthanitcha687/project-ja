@@ -191,23 +191,7 @@ export async function addItemImages(req, res) {
       data: { images: [...existed, ...files] },
     });
 
-    // Notify store about new images (customer notifications removed)
-    try {
-      const { createAndPublish } = await import('../routes/notifications.routes.js')
-      const title = `อัปโหลดรูปภาพใหม่ในรายการรับประกัน`
-      const body = `มีการอัปโหลดรูปภาพใหม่ในรายการ "${updated.productName || '-'}" (Serial: ${updated.serial || '-'})`
-      // notify store
-      try {
-        await createAndPublish({ prisma, attrs: {
-          storeId: item.warranty.storeId,
-          title,
-          body,
-          data: { type: 'warranty_item_images_added', warrantyId: updated.warrantyId, warrantyItemId: updated.id }
-        } })
-      } catch (e) { console.warn('notify store images added failed', e?.message || e) }
-    } catch (e) {
-      console.warn('images-added notify error', e?.message || e)
-    }
+    // ✅ ตาม requirement ใหม่: ไม่ส่งแจ้งเตือนฝั่งร้านจาก event ย่อย (คงไว้เฉพาะ daily summary + complaint_created ที่อื่น)
 
     // ✅ AuditLog: ADD_WARRANTY_ITEM_IMAGES (best-effort)
     await auditWarrantyItemBestEffort(req, 'ADD_WARRANTY_ITEM_IMAGES', item, {
@@ -264,22 +248,7 @@ export async function deleteItemImage(req, res) {
       data: { images: current.filter(im => im.id !== imageId) },
     });
 
-    // Notify store about deleted image (customer notifications removed)
-    try {
-      const { createAndPublish } = await import('../routes/notifications.routes.js')
-      const title = `ลบรูปภาพจากรายการรับประกัน`
-      const body = `มีการลบรูปภาพจากรายการ "${updated.productName || '-'}" (Serial: ${updated.serial || '-'})`;
-      try {
-        await createAndPublish({ prisma, attrs: {
-          storeId: item.warranty.storeId,
-          title,
-          body,
-          data: { type: 'warranty_item_image_deleted', warrantyId: updated.warrantyId, warrantyItemId: updated.id, imageId }
-        } })
-      } catch (e) { console.warn('notify store image deleted failed', e?.message || e) }
-    } catch (e) {
-      console.warn('image-deleted notify error', e?.message || e)
-    }
+    // ✅ ตาม requirement ใหม่: ไม่ส่งแจ้งเตือนฝั่งร้านจาก event ย่อย
 
     // ✅ AuditLog: DELETE_WARRANTY_ITEM_IMAGE (best-effort)
     await auditWarrantyItemBestEffort(req, 'DELETE_WARRANTY_ITEM_IMAGE', item, {
@@ -398,7 +367,8 @@ export async function updateItem(req, res) {
       data,
     });
 
-    // Detect status change (active / nearing_expiration / expired) and notify (store only)
+    // Detect status change (active / nearing_expiration / expired)
+    // ✅ ยังต้องคำนวณไว้เพื่อส่งแจ้งเตือนให้ "ลูกค้า" เท่านั้น
     let beforeStatus, afterStatus
     let statusChanged = false
     let otherChanged = false
@@ -406,8 +376,9 @@ export async function updateItem(req, res) {
     try {
       const prevExp = item.expiryDate ? toDateOnly(item.expiryDate) : null
       const newExp = updated.expiryDate ? toDateOnly(updated.expiryDate) : null
-      const store = item.warranty?.store
-      const notifyDays = store?.storeProfile?.notifyDaysInAdvance ?? 14
+
+      // ไม่ดึง storeProfile ในไฟล์นี้ (item.include warranty:true) → ใช้ fallback 14
+      const notifyDays = 14
 
       function deriveStatus(exp) {
         if (!exp) return 'active'
@@ -422,26 +393,12 @@ export async function updateItem(req, res) {
       afterStatus = deriveStatus(newExp)
 
       statusChanged = beforeStatus !== afterStatus
-
-      if (statusChanged) {
-        const { createAndPublish } = await import('../routes/notifications.routes.js')
-        const title = `สถานะรับประกันเปลี่ยน: ${afterStatus}`
-        const body = `สินค้า "${updated.productName}" (Serial: ${updated.serial || '-'}) เปลี่ยนสถานะจาก ${beforeStatus} → ${afterStatus}`
-        // notify store
-        try {
-          await createAndPublish({ prisma, attrs: {
-            storeId: item.warranty.storeId,
-            title,
-            body,
-            data: { type: 'warranty_status_changed', warrantyId: updated.warrantyId, warrantyItemId: updated.id, oldStatus: beforeStatus, newStatus: afterStatus }
-          } })
-        } catch (e) { console.warn('notify store status change failed', e?.message || e) }
-      }
+      // ✅ ตาม requirement ใหม่: ไม่ส่งแจ้งเตือนฝั่งร้านจาก status change ที่นี่
     } catch (e) {
-      console.warn('status-change notify error', e?.message || e)
+      console.warn('status-change compute error', e?.message || e)
     }
 
-    // Detect other significant field changes and notify (store only)
+    // Detect other significant field changes (for deciding customer notify)
     try {
       otherChanged = (
         item.productName !== updated.productName ||
@@ -450,21 +407,9 @@ export async function updateItem(req, res) {
         (item.coverageNote || null) !== (updated.coverageNote || null) ||
         (item.note || null) !== (updated.note || null)
       )
-      if (otherChanged && typeof beforeStatus !== 'undefined' && beforeStatus === afterStatus) {
-        const { createAndPublish } = await import('../routes/notifications.routes.js')
-        const title = `รายการสินค้าถูกแก้ไข`
-        const body = `รายการ "${updated.productName}" ถูกแก้ไข โดยร้านค้า`;
-        try {
-          await createAndPublish({ prisma, attrs: {
-            storeId: item.warranty.storeId,
-            title,
-            body,
-            data: { type: 'warranty_item_updated', warrantyId: updated.warrantyId, warrantyItemId: updated.id }
-          } })
-        } catch (e) { console.warn('notify store item updated failed', e?.message || e) }
-      }
+      // ✅ ตาม requirement ใหม่: ไม่ส่งแจ้งเตือนฝั่งร้านจาก item updated ที่นี่
     } catch (e) {
-      console.warn('item-update notify error', e?.message || e)
+      console.warn('item-change compute error', e?.message || e)
     }
 
     // ✅ Notify customer: single "warranty_updated" notification (+ email)
