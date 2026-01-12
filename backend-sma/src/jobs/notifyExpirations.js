@@ -19,11 +19,25 @@ function ymdUTC(d) {
   return D.toISOString().slice(0, 10)
 }
 
+// ✅ ทำวันที่แบบ "Local offset" สำหรับ label/date ของสรุปร้าน
+// ค่าไทย = 420 นาที (7 ชั่วโมง)
+const APP_TZ_OFFSET_MIN = Number(process.env.APP_TZ_OFFSET_MIN || 420)
+function ymdWithOffset(v, offsetMin) {
+  const d = v instanceof Date ? v : new Date(v)
+  if (isNaN(d)) return ymdUTC(new Date())
+  const shifted = new Date(d.getTime() + Number(offsetMin || 0) * 60 * 1000)
+  return shifted.toISOString().slice(0, 10)
+}
+
 export async function runExpiryScanJob() {
   try {
-    const today = dateOnlyUTC(new Date())
-    const todayStr = ymdUTC(today)
-    const tomorrow = addDaysUTC(today, 1)
+    const now = new Date()
+
+    // ✅ ใช้ UTC date-only สำหรับ logic/customer ตามเดิม (ไม่กระทบลูกค้า)
+    const today = dateOnlyUTC(now)
+
+    // ✅ ใช้วันที่แบบไทยสำหรับสรุปร้าน (แก้ปัญหาวันที่ 12/13)
+    const todayStr = ymdWithOffset(now, APP_TZ_OFFSET_MIN)
 
     // scan items with expiry in the past .. next 90 days (so we catch newly-expired + nearing)
     const maxFuture = addDaysUTC(today, 90)
@@ -133,16 +147,19 @@ export async function runExpiryScanJob() {
       }
     }
 
+    // ใช้ช่วงเวลา “กว้างหน่อย” กันซ้ำ เพื่อไม่พลาดกรณีเที่ยงคืนไทย/UTC
+    const sinceSummary = addDaysUTC(today, -2)
+
     // ---------- ✅ Create DAILY SUMMARY notification for each store (only if counts > 0) ----------
     for (const s of storeSummary.values()) {
       const total = (s.nearingCount || 0) + (s.expiredCount || 0)
       if (total <= 0) continue
 
-      // avoid duplicate: only 1 summary per store per day
+      // ✅ avoid duplicate: 1 summary per store per "todayStr" (ตามเวลาไทย)
       const existsSummary = await prisma.notification.findFirst({
         where: {
           storeId: s.storeId,
-          createdAt: { gte: today, lt: tomorrow },
+          createdAt: { gte: sinceSummary },
           AND: [
             { data: { path: ['type'], equals: 'expiry_daily_summary' } },
             { data: { path: ['date'], equals: todayStr } }
@@ -170,7 +187,7 @@ export async function runExpiryScanJob() {
               nearingCount: s.nearingCount || 0,
               expiredCount: s.expiredCount || 0
             },
-            // ✅ flag ไว้ให้ส่งเมลร้าน (จะไปทำจริงใน notifications.routes.js ต่อ)
+            // ✅ ส่งเมลร้าน
             sendEmail: true
           }
         })
