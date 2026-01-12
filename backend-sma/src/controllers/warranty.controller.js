@@ -320,7 +320,6 @@ export async function downloadWarrantyPdf(req, res) {
     }
 
     function drawBottomBrandArea(left, bottomY, width, company, footerNote) {
-      // ข้อความหมายเหตุ
       doc.font("THAI").fontSize(11).fillColor("#000").text(
         T(footerNote, "โปรดนำใบรับประกันฉบับนี้มาแสดงเป็นหลักฐานทุกครั้งเมื่อใช้บริการ"),
         left,
@@ -384,44 +383,38 @@ export async function downloadWarrantyPdf(req, res) {
 
       headerTitle(left, top, width);
 
-      // ตารางแบบ “รูปที่ 1”
       const tableTop = top + mm(22);
       const tableW = width;
 
       const colL = Math.round(tableW * 0.55);
       const colR = tableW - colL;
 
-      const row1 = mm(22); // เลขที่ / สินค้า
-      const row2 = mm(22); // รุ่น / หมายเลขเครื่อง
-      const row3 = mm(24); // ชื่อ-นามสกุล / โทรศัพท์
-      const row4 = mm(28); // ที่อยู่ (เต็มแถว)
-      const row5 = mm(22); // ผู้จำหน่าย / วันที่ซื้อ
+      const row1 = mm(22);
+      const row2 = mm(22);
+      const row3 = mm(24);
+      const row4 = mm(28);
+      const row5 = mm(22);
       const tableH = row1 + row2 + row3 + row4 + row5;
 
       doc.lineWidth(1).rect(left, tableTop, tableW, tableH).stroke();
 
       let y = tableTop;
 
-      // Row 1
       drawCellBilingual(left, y, colL, row1, "เลขที่:", "Card No.", base.cardNo);
       drawCellBilingual(left + colL, y, colR, row1, "สินค้า:", "Product", item.productName);
       y += row1;
 
-      // Row 2
       drawCellBilingual(left, y, colL, row2, "รุ่น:", "Model", item.model || "-");
       drawCellBilingual(left + colL, y, colR, row2, "หมายเลขเครื่อง:", "Serial No.", item.serialNumber);
       y += row2;
 
-      // Row 3
       drawCellBilingual(left, y, colL, row3, "ชื่อ-นามสกุล", "Customer's Name", base.customerName);
       drawCellBilingual(left + colL, y, colR, row3, "โทรศัพท์", "Tel.", base.customerTel);
       y += row3;
 
-      // Row 4 (Address full row)
       drawCellFullWidth(left, y, tableW, row4, "ที่อยู่", "Address", base.address);
       y += row4;
 
-      // Row 5
       const purchaseTxt = item.purchaseDate
         ? dateOnlyUTC(item.purchaseDate).toLocaleDateString("th-TH", { timeZone: "UTC" })
         : "-";
@@ -437,24 +430,18 @@ export async function downloadWarrantyPdf(req, res) {
       );
       drawCellBilingual(left + colL, y, colR, row5, "วันที่ซื้อ", "Purchase Date", purchaseTxt);
 
-      // ✅ วาง footer ชิดล่างหน้า (สำคัญมากสำหรับ A3 แนวนอน)
-      const footerNoteY = pageH - mm(52); // ปรับได้เล็กน้อยถ้าต้องการ
+      const footerNoteY = pageH - mm(52);
       drawBottomBrandArea(left, footerNoteY, width, base.company, base.footerNote);
     }
 
-    // map header → base & items
     const storeAddressThai = formatThaiAddress(profile?.address || profile?.addressText || profile?.storeAddress);
 
     const base = {
       cardNo: header.code || header.id,
       customerName: header.customerName || "-",
       customerTel: header.customerPhone || "-",
-
-      // ไม่มี customerAddress → ใช้ที่อยู่ร้าน (ภาษาไทย)
       address: storeAddressThai || "-",
-
       dealerName: profile?.storeName || "-",
-
       footerNote: "โปรดนำใบรับประกันฉบับนี้มาแสดงเป็นหลักฐานทุกครั้งเมื่อใช้บริการ",
       company: {
         name: profile?.storeName || "แอปของเรา",
@@ -541,24 +528,54 @@ export async function updateWarrantyHeader(req, res) {
     });
 
     const body = req.body || {};
+
     const normEmail = body.customerEmail ? String(body.customerEmail).trim().toLowerCase() : null;
 
-    let customerUserId = header.customerUserId;
-    let customerName = header.customerName;
-    let customerPhone = header.customerPhone;
+    const inputPhone =
+      body.customerPhone != null && String(body.customerPhone).trim() !== ""
+        ? String(body.customerPhone).trim()
+        : null;
 
-    // เปลี่ยนอีเมล → ผูกกับบัญชีลูกค้าโดยอัตโนมัติถ้ามี
+    let inputName = null;
+    if (body.customerName != null && String(body.customerName).trim() !== "") {
+      inputName = String(body.customerName).trim();
+    } else if (
+      body.customerFirstName != null ||
+      body.customerLastName != null
+    ) {
+      const fn = (body.customerFirstName != null ? String(body.customerFirstName) : "").trim();
+      const ln = (body.customerLastName != null ? String(body.customerLastName) : "").trim();
+      const nm = `${fn} ${ln}`.trim();
+      inputName = nm || null;
+    }
+
+    let customerUserId = header.customerUserId;
+    let customerName = inputName ?? header.customerName;
+    let customerPhone = inputPhone ?? header.customerPhone;
+
+    // เปลี่ยนอีเมล → ผูกกับบัญชีลูกค้าโดยอัตโนมัติถ้ามี (✅ case-insensitive + เฉพาะ CUSTOMER)
     if (normEmail) {
-      const user = await prisma.user.findUnique({ where: { email: normEmail } });
+      const user = await prisma.user.findFirst({
+        where: { email: { equals: normEmail, mode: "insensitive" }, role: "CUSTOMER" },
+        select: { id: true },
+      });
+
       if (user) {
         customerUserId = user.id;
+
+        // ถ้าไม่ได้ส่งชื่อ/เบอร์มาเอง → เติมจาก CustomerProfile (คงเจตนาเดิม)
         const cp = await prisma.customerProfile.findUnique({
           where: { userId: user.id },
           select: { firstName: true, lastName: true, phone: true },
         });
-        const nm = `${(cp?.firstName || "").trim()} ${(cp?.lastName || "").trim()}`.trim();
-        if (nm) customerName = nm;
-        if (cp?.phone) customerPhone = cp.phone;
+
+        if (!inputName) {
+          const nm = `${(cp?.firstName || "").trim()} ${(cp?.lastName || "").trim()}`.trim();
+          if (nm) customerName = nm;
+        }
+        if (!inputPhone && cp?.phone) {
+          customerPhone = cp.phone;
+        }
       } else {
         customerUserId = null;
       }
@@ -575,7 +592,7 @@ export async function updateWarrantyHeader(req, res) {
       include: { items: true },
     });
 
-    // if header fields changed, create in-app notifications for store and customer
+    // if header fields changed, create in-app notifications (✅ keep customer only; remove store notify)
     let changed = false;
     try {
       changed =
@@ -586,24 +603,23 @@ export async function updateWarrantyHeader(req, res) {
 
       if (changed) {
         const title = `มีการแก้ไขข้อมูลใบรับประกัน ${updated.code || ""}`;
-        const body = `ข้อมูลใบรับประกัน ${updated.code || ""} ถูกแก้ไข`;
-        await createNotification({
-          prisma,
-          attrs: {
-            storeId: updated.storeId,
-            title,
-            body,
-            data: { type: "warranty_header_updated", warrantyId: updated.id },
-          },
-        });
+        const bodyText = `ข้อมูลใบรับประกัน ${updated.code || ""} ถูกแก้ไข`;
+
+        // ✅ ตาม requirement ใหม่: "ร้าน" ไม่ต้องได้รับแจ้งเตือนประเภทนี้อีก
+        // (คงไว้เฉพาะ expiry_daily_summary และ complaint_created ที่อื่น)
+        // ❌ remove store notification:
+        // await createNotification({ prisma, attrs: { storeId: updated.storeId, ... } })
+
+        // ✅ ลูกค้ายังต้องได้แจ้งเตือน (ไม่กระทบลูกค้า) + ส่งเมลเหมือนเดิม
         if (updated.customerUserId) {
           await createNotification({
             prisma,
             attrs: {
               userId: updated.customerUserId,
               title,
-              body,
+              body: bodyText,
               data: { type: "warranty_header_updated", warrantyId: updated.id },
+              sendEmail: true,
             },
           });
         }

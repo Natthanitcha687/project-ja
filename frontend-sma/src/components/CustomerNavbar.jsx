@@ -17,7 +17,26 @@ export default function CustomerNavbar() {
   const [notifications, setNotifications] = useState([]);
   const [notifLoading, setNotifLoading] = useState(false);
 
-  // 🟦 นับเฉพาะที่ยังไม่อ่าน
+  // ✅ แสดงเฉพาะ 5 ประเภท (รวม "อัปเดตใบ" รองรับ 2 type)
+  const ALLOWED_TYPES = new Set([
+    "nearing_expiration",
+    "expired",
+    "warranty_created",
+    "complaint_created",
+    // "อัปเดตใบรับประกัน" (หัวใบ / รายการ)
+    "warranty_header_updated",
+    "warranty_updated",
+  ]);
+
+  function getNotifType(n) {
+    return n?.type || (n?.data && n.data.type) || "";
+  }
+
+  function isAllowedNotif(n) {
+    return ALLOWED_TYPES.has(getNotifType(n));
+  }
+
+  // 🟦 นับเฉพาะที่ยังไม่อ่าน (เฉพาะ 5 ประเภท)
   const unreadCount = (notifications || []).filter((n) => !n.read).length;
 
   // ✅ ดึงแจ้งเตือนจาก API
@@ -27,8 +46,16 @@ export default function CustomerNavbar() {
       const res = await api.get("/notifications");
       const data = res?.data?.data || res?.data || [];
       const arr = Array.isArray(data) ? data : [];
-      arr.sort((a,b)=> new Date(b.createdAt || b.time || b.created_at || 0) - new Date(a.createdAt || a.time || a.created_at || 0))
-      setNotifications(arr);
+      arr.sort(
+        (a, b) =>
+          new Date(b.createdAt || b.time || b.created_at || 0) -
+          new Date(a.createdAt || a.time || a.created_at || 0)
+      );
+
+      // ✅ ซ่อนประเภทอื่นใน UI
+      const visible = arr.filter(isAllowedNotif);
+
+      setNotifications(visible);
       return data;
     } catch (e) {
       // ถ้า API ล้ม ไม่ทำให้ navbar พัง (คง state เดิมไว้/หรือจะล้างก็ได้)
@@ -59,7 +86,9 @@ export default function CustomerNavbar() {
     try {
       // optimistically mark local
       setNotifications((prev) =>
-        (prev || []).map((n) => (String(n.id) === String(id) ? { ...n, read: true } : n))
+        (prev || []).map((n) =>
+          String(n.id) === String(id) ? { ...n, read: true } : n
+        )
       );
       await api.patch(`/notifications/${id}/read`);
       await fetchNotifications();
@@ -77,8 +106,16 @@ export default function CustomerNavbar() {
         const res = await api.get("/notifications");
         const data = res?.data?.data || res?.data || [];
         const arr = Array.isArray(data) ? data : [];
-        arr.sort((a,b)=> new Date(b.createdAt || b.time || b.created_at || 0) - new Date(a.createdAt || a.time || a.created_at || 0))
-        if (mounted) setNotifications(arr);
+        arr.sort(
+          (a, b) =>
+            new Date(b.createdAt || b.time || b.created_at || 0) -
+            new Date(a.createdAt || a.time || a.created_at || 0)
+        );
+
+        // ✅ ซ่อนประเภทอื่นใน UI
+        const visible = arr.filter(isAllowedNotif);
+
+        if (mounted) setNotifications(visible);
       } catch (e) {
         // ถ้า fail ก็ไม่บังคับล้าง (กัน UX แปลก ๆ)
         // if (mounted) setNotifications([]);
@@ -99,6 +136,10 @@ export default function CustomerNavbar() {
         es.addEventListener("notification", (ev) => {
           try {
             const payload = JSON.parse(ev.data);
+
+            // ✅ ซ่อนประเภทอื่นใน UI (รับเฉพาะ 5 ประเภท)
+            if (!isAllowedNotif(payload)) return;
+
             // prepend notification ใหม่
             setNotifications((p) => [payload, ...(p || [])]);
           } catch (e) {}
@@ -304,9 +345,13 @@ export default function CustomerNavbar() {
                       notifications.map((n) => {
                         const id = n.id;
                         // รองรับทั้ง format เก่า (message/type) และ format ใหม่ (title/body/createdAt)
-                        const title = n.title || n.message || (n.data && n.data.type) || "การแจ้งเตือน";
+                        const title =
+                          n.title ||
+                          n.message ||
+                          (n.data && n.data.type) ||
+                          "การแจ้งเตือน";
                         const body = n.body || "";
-                        const type = n.type || (n.data && n.data.type) || "";
+                        const type = getNotifType(n);
                         const read = !!n.read;
 
                         return (
@@ -316,17 +361,21 @@ export default function CustomerNavbar() {
                               if (!read && id != null) markOneAsRead(id);
                             }}
                             className={`px-4 py-3 text-sm border-b last:border-0 transition ${
-                              type === "warning"
+                              type === "nearing_expiration"
                                 ? "bg-amber-50 text-amber-800"
                                 : type === "expired"
                                 ? "bg-rose-50 text-rose-700"
                                 : "bg-white text-slate-700"
-                            } ${read ? "opacity-70" : "font-semibold"} ${id != null ? "cursor-pointer" : ""}`}
+                            } ${read ? "opacity-70" : "font-semibold"} ${
+                              id != null ? "cursor-pointer" : ""
+                            }`}
                           >
                             <div className="whitespace-normal break-words">
                               <div className="text-sm font-semibold">{title}</div>
                               {body ? (
-                                <div className="text-xs text-slate-500 mt-1 break-words">{body}</div>
+                                <div className="text-xs text-slate-500 mt-1 break-words">
+                                  {body}
+                                </div>
                               ) : null}
                             </div>
                             {n.createdAt ? (
@@ -434,11 +483,7 @@ export default function CustomerNavbar() {
 
       {/* Render CustomerProfileModal when openModal is true */}
       {openModal && (
-        <CustomerProfileModal
-          open={openModal}
-          onClose={() => setOpenModal(false)}
-          initialTab={tab}
-        />
+        <CustomerProfileModal open={openModal} onClose={() => setOpenModal(false)} initialTab={tab} />
       )}
     </>
   );

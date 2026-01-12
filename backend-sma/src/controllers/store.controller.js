@@ -1,14 +1,20 @@
 // backend-sma/src/controllers/store.controller.js
 import bcrypt from "bcryptjs";
 import { prisma } from "../db/prisma.js";
-import { createAndPublish as createNotification } from '../routes/notifications.routes.js'
-import { sendNotificationEmail } from '../services/email.js'
+import { createAndPublish as createNotification } from "../routes/notifications.routes.js";
 import { sendError, sendSuccess } from "../utils/http.js";
 
 const DEFAULT_NOTIFY_DAYS = 14;
 
 /* ==================== Helpers ==================== */
 const normalizeEmail = (e) => (e ? String(e).trim().toLowerCase() : null);
+
+// ✅ เพิ่ม (ยึดรูปแบบเดียวกับ customer.controller.js)
+function trimOrNull(s) {
+  if (typeof s !== "string") return null;
+  const t = s.trim();
+  return t ? t : null;
+}
 
 function parseStoreId(req, res) {
   const storeId = Number(req.params.storeId);
@@ -103,7 +109,8 @@ async function auditCreateWarrantyBestEffort(req, storeId, createdHeader) {
       req.ip ||
       null;
 
-    const userAgent = (typeof req.get === "function" ? req.get("user-agent") : null) || null;
+    const userAgent =
+      (typeof req.get === "function" ? req.get("user-agent") : null) || null;
 
     await prisma.auditLog.create({
       data: {
@@ -198,7 +205,7 @@ function mapWarrantyHeaderForResponse(header, notifyDays) {
         durationDays: w.durationDays ?? null,
         coverageNote: w.coverageNote ?? null,
         note: w.note ?? null,
-        images: Array.isArray(w.images) ? w.images : (w.images ? w.images : []),
+        images: Array.isArray(w.images) ? w.images : w.images ? w.images : [],
         statusCode,
         statusTag,
         statusColor,
@@ -220,8 +227,7 @@ export async function getStoreDashboard(req, res) {
     if (!store || store.role !== "STORE") {
       return sendError(res, 404, "ไม่พบบัญชีร้านค้า");
     }
-    const notifyDays =
-      store.storeProfile?.notifyDaysInAdvance ?? DEFAULT_NOTIFY_DAYS;
+    const notifyDays = store.storeProfile?.notifyDaysInAdvance ?? DEFAULT_NOTIFY_DAYS;
 
     const headers = await prisma.warranty.findMany({
       where: { storeId },
@@ -229,9 +235,7 @@ export async function getStoreDashboard(req, res) {
       include: { items: { orderBy: { createdAt: "desc" } } },
     });
 
-    const mapped = headers.map((h) =>
-      mapWarrantyHeaderForResponse(h, notifyDays),
-    );
+    const mapped = headers.map((h) => mapWarrantyHeaderForResponse(h, notifyDays));
 
     // สรุปสถานะรวม
     const allItems = headers.flatMap((h) => h.items);
@@ -310,92 +314,17 @@ export async function updateStoreProfile(req, res) {
     const nextProfile = await prisma.storeProfile.upsert({
       where: { userId: storeId },
       update: updatable,
-      create: { ...updatable, userId: storeId, isConsent: existingProfile?.isConsent ?? true },
+      create: {
+        ...updatable,
+        userId: storeId,
+        isConsent: existingProfile?.isConsent ?? true,
+      },
     });
 
-    // Notify the store user about profile update
-    try {
-      await createNotification({ prisma, attrs: {
-        storeId: storeId,
-        title: 'อัปเดตโปรไฟล์ร้าน',
-        body: 'ข้อมูลโปรไฟล์ร้านของคุณได้รับการอัปเดตแล้ว',
-        data: { type: 'store_profile_updated' }
-      } })
-    } catch (e) {
-      console.warn('notify store profile update failed', e?.message || e)
-    }
-
-    // Notify customers who have warranties with this store
-    try {
-      const warrs = await prisma.warranty.findMany({ where: { storeId }, select: { customerUserId: true, customerEmail: true } })
-      const userIds = [...new Set((warrs || []).map(w => w.customerUserId).filter(Boolean))]
-      const emails = [...new Set((warrs || []).filter(w => !w.customerUserId && w.customerEmail).map(w => w.customerEmail))]
-
-      const title = `ข้อมูลร้านค้า ${nextProfile.storeName || 'ร้านค้า'} ถูกอัปเดต`
-      const body = `ร้านค้าได้อัปเดตข้อมูลโปรไฟล์ โปรดตรวจสอบข้อมูลการรับประกันและข้อมูลผู้ติดต่อของคุณ`
-
-      for (const uid of userIds) {
-        try {
-          await createNotification({ prisma, attrs: {
-            userId: uid,
-            title,
-            body,
-            data: { type: 'store_profile_updated', storeId }
-          } })
-        } catch (e) {
-          console.warn('notify customer user failed', uid, e?.message || e)
-        }
-      }
-
-      for (const em of emails) {
-        try {
-          // if there is a user account for this email, notify via in-app
-          const u = await prisma.user.findFirst({ where: { email: em } })
-          if (u) {
-            try {
-              await createNotification({ prisma, attrs: {
-                userId: u.id,
-                title,
-                body,
-                data: { type: 'store_profile_updated', storeId }
-              } })
-            } catch (e) { console.warn('notify customer by userId failed', e?.message || e) }
-          } else {
-            // send as email if no user account
-            try {
-              await sendNotificationEmail({ to: em, subject: title, text: body })
-            } catch (e) { console.warn('send email to customer failed', em, e?.message || e) }
-          }
-        } catch (e) {
-          console.warn('notify customer email handling failed', em, e?.message || e)
-        }
-      }
-    } catch (e) {
-      console.warn('notify customers for store profile update failed', e?.message || e)
-    }
-
-    // Notify customers who have warranties at this store (if any)
-    try {
-      const customers = await prisma.warranty.findMany({
-        where: { storeId, customerUserId: { not: null } },
-        distinct: ['customerUserId'],
-        select: { customerUserId: true },
-        take: 200,
-      })
-      for (const c of customers) {
-        if (!c.customerUserId) continue
-        try {
-          await createNotification({ prisma, attrs: {
-            userId: c.customerUserId,
-            title: 'ข้อมูลร้านค้ามีการอัปเดต',
-            body: `ร้าน "${nextProfile.storeName || 'ร้านค้า'}" ได้ปรับปรุงข้อมูล โปรดตรวจสอบ`,
-            data: { type: 'store_profile_updated', storeId }
-          } })
-        } catch (e) { /* ignore per-user failures */ }
-      }
-    } catch (e) {
-      console.warn('notify customers store profile update failed', e?.message || e)
-    }
+    // ✅ ตาม requirement ใหม่: ร้าน "ไม่ต้อง" ได้แจ้งเตือนเรื่องอื่นนอกเหนือจาก
+    // - expiry_daily_summary (job)
+    // - complaint_created (ตอนแจ้งปัญหา)
+    // ดังนั้น "store_profile_updated" ตัดออก
 
     return sendSuccess(res, {
       storeProfile: mapStoreProfile(nextProfile, storeUser.email),
@@ -419,7 +348,10 @@ export async function changeStorePassword(req, res) {
     if (!valid) return sendError(res, 400, "รหัสผ่านเดิมไม่ถูกต้อง");
 
     const newHash = await bcrypt.hash(body.new_password, 12);
-    await prisma.user.update({ where: { id: storeId }, data: { passwordHash: newHash } });
+    await prisma.user.update({
+      where: { id: storeId },
+      data: { passwordHash: newHash },
+    });
 
     return sendSuccess(res, { message: "เปลี่ยนรหัสผ่านเรียบร้อย" });
   } catch (error) {
@@ -450,7 +382,9 @@ export async function createWarranty(req, res) {
 
   try {
     const body = req.body ?? {};
-    const storeProfile = await prisma.storeProfile.findUnique({ where: { userId: storeId } });
+    const storeProfile = await prisma.storeProfile.findUnique({
+      where: { userId: storeId },
+    });
     const notifyDays = storeProfile?.notifyDaysInAdvance ?? DEFAULT_NOTIFY_DAYS;
 
     const createdHeader = await prisma.$transaction(async (tx) => {
@@ -460,7 +394,12 @@ export async function createWarranty(req, res) {
       async function resolveCustomer(rawEmail, nameFromPayload, phoneFromPayload) {
         const normEmail = normalizeEmail(rawEmail);
         if (!normEmail) {
-          return { email: null, userId: null, name: nameFromPayload ?? null, phone: phoneFromPayload ?? null };
+          return {
+            email: null,
+            userId: null,
+            name: nameFromPayload ?? null,
+            phone: phoneFromPayload ?? null,
+          };
         }
 
         // หา user แบบไม่สน case และต้องเป็น CUSTOMER
@@ -493,7 +432,8 @@ export async function createWarranty(req, res) {
           first.customer_phone ?? first.customerPhone
         );
 
-        const usedSerial = new Set(); let seq = 1;
+        const usedSerial = new Set();
+        let seq = 1;
         const itemsToCreate = body.items.map((it) => {
           const purchase = it.purchase_date ? new Date(it.purchase_date) : new Date();
           let expiry = it.expiry_date ? new Date(it.expiry_date) : null;
@@ -516,7 +456,8 @@ export async function createWarranty(req, res) {
             expiryDate: expiry,
             durationMonths: dm || null,
             durationDays: expiry ? daysBetween(purchase, expiry) : null,
-            coverageNote: String(it.warranty_terms || it.coverageNote || "").trim() || null,
+            coverageNote:
+              String(it.warranty_terms || it.coverageNote || "").trim() || null,
             note: String(it.note || "").trim() || null,
             images: [],
           };
@@ -537,12 +478,18 @@ export async function createWarranty(req, res) {
               include: { items: true },
             });
           } catch (e) {
-            if (e?.code === "P2002" && (e.meta?.target?.includes?.("storeId_code") || e.meta?.target?.includes?.("code"))) {
+            if (
+              e?.code === "P2002" &&
+              (e.meta?.target?.includes?.("storeId_code") ||
+                e.meta?.target?.includes?.("code"))
+            ) {
               code = await allocateWarrantyCode(tx, storeId, { prefix: "WR" });
               continue;
             }
             if (e?.code === "P2002" && e.meta?.target?.includes?.("warrantyId_serial")) {
-              throw Object.assign(new Error("Serial number duplicated within the warranty"), { status: 409 });
+              throw Object.assign(new Error("Serial number duplicated within the warranty"), {
+                status: 409,
+              });
             }
             throw e;
           }
@@ -575,30 +522,39 @@ export async function createWarranty(req, res) {
               customerName: name,
               customerPhone: phone,
               items: {
-                create: [{
-                  productName: String(body.product_name || body.productName || "").trim(),
-                  // ⬇️ เพิ่ม model ใน single-item payload
-                  model: String(body.model || body.product_model || "").trim() || null,
-                  serial: serialOne,
-                  purchaseDate: purchase,
-                  expiryDate: expiry,
-                  durationMonths: dm || null,
-                  durationDays: expiry ? daysBetween(purchase, expiry) : null,
-                  coverageNote: String(body.warranty_terms || body.coverageNote || "").trim() || null,
-                  note: String(body.note || "").trim() || null,
-                  images: [],
-                }],
+                create: [
+                  {
+                    productName: String(body.product_name || body.productName || "").trim(),
+                    // ⬇️ เพิ่ม model ใน single-item payload
+                    model: String(body.model || body.product_model || "").trim() || null,
+                    serial: serialOne,
+                    purchaseDate: purchase,
+                    expiryDate: expiry,
+                    durationMonths: dm || null,
+                    durationDays: expiry ? daysBetween(purchase, expiry) : null,
+                    coverageNote:
+                      String(body.warranty_terms || body.coverageNote || "").trim() || null,
+                    note: String(body.note || "").trim() || null,
+                    images: [],
+                  },
+                ],
               },
             },
             include: { items: true },
           });
         } catch (e) {
-          if (e?.code === "P2002" && (e.meta?.target?.includes?.("storeId_code") || e.meta?.target?.includes?.("code"))) {
+          if (
+            e?.code === "P2002" &&
+            (e.meta?.target?.includes?.("storeId_code") ||
+              e.meta?.target?.includes?.("code"))
+          ) {
             code = await allocateWarrantyCode(tx, storeId, { prefix: "WR" });
             continue;
           }
           if (e?.code === "P2002" && e.meta?.target?.includes?.("warrantyId_serial")) {
-            throw Object.assign(new Error("Serial number duplicated within the warranty"), { status: 409 });
+            throw Object.assign(new Error("Serial number duplicated within the warranty"), {
+              status: 409,
+            });
           }
           throw e;
         }
@@ -606,27 +562,30 @@ export async function createWarranty(req, res) {
       throw new Error("Failed to create warranty after retries");
     });
 
-    // create in-app notification for store (and customer if linked)
+    // ✅ ตาม requirement ใหม่: ร้านไม่ต้องได้แจ้งเตือน "warranty_created"
+    // ❌ ตัด notify store ออก แต่ "ลูกค้า" ยังได้เหมือนเดิม (ไม่กระทบลูกค้า)
     try {
-      const title = `สร้างใบรับประกัน ${createdHeader.code || ''}`
-      const body = `สร้างใบรับประกัน ${createdHeader.code || ''} จำนวน ${createdHeader.items?.length || 0} รายการ`;
-      await createNotification({ prisma, attrs: {
-        storeId,
-        title,
-        body,
-        data: { type: 'warranty_created', warrantyId: createdHeader.id }
-      } })
+      const title = `สร้างใบรับประกัน ${createdHeader.code || ""}`;
+      const bodyText = `สร้างใบรับประกัน ${createdHeader.code || ""} จำนวน ${
+        createdHeader.items?.length || 0
+      } รายการ`;
 
-      // notify customer user if linked
+      // notify customer user if linked (✅ keep)
       if (createdHeader.customerUserId) {
-        await createNotification({ prisma, attrs: {
-          userId: createdHeader.customerUserId,
-          title,
-          body,
-          data: { type: 'warranty_created', warrantyId: createdHeader.id }
-        } })
+        await createNotification({
+          prisma,
+          attrs: {
+            userId: createdHeader.customerUserId,
+            title,
+            body: bodyText,
+            data: { type: "warranty_created", warrantyId: createdHeader.id },
+            sendEmail: true,
+          },
+        });
       }
-    } catch (e) { console.warn('notify warranty created failed', e?.message || e) }
+    } catch (e) {
+      console.warn("notify warranty created failed", e?.message || e);
+    }
 
     // ✅ AuditLog: CREATE_WARRANTY (best-effort)
     await auditCreateWarrantyBestEffort(req, storeId, createdHeader);
@@ -644,10 +603,131 @@ export async function createWarranty(req, res) {
     if (error?.code === "P2002" && error.meta?.target?.includes?.("warrantyId_serial")) {
       return sendError(res, 409, "Serial ซ้ำภายในใบรับประกัน");
     }
-    if (error?.code === "P2002" && (error.meta?.target?.includes?.("storeId_code") || error.meta?.target?.includes?.("code"))) {
+    if (
+      error?.code === "P2002" &&
+      (error.meta?.target?.includes?.("storeId_code") || error.meta?.target?.includes?.("code"))
+    ) {
       return sendError(res, 409, "รหัสใบรับประกันซ้ำ กรุณาลองใหม่");
     }
     console.error("createWarranty error", error);
     return sendError(res, 500, "ไม่สามารถสร้างใบรับประกันได้");
+  }
+}
+
+/* =========================
+ * Complaints (Store) (NEW)
+ * ========================= */
+
+// POST /store/:storeId/complaints
+export async function createStoreComplaint(req, res) {
+  const storeId = parseStoreId(req, res);
+  if (storeId == null) return;
+
+  try {
+    const me = await prisma.user.findUnique({ where: { id: Number(storeId) } });
+    if (!me || me.role !== "STORE") {
+      return sendError(res, 404, "ไม่พบบัญชีร้านค้า");
+    }
+
+    const body = req.body ?? {};
+    const category = trimOrNull(body.category);
+    const subject = trimOrNull(body.subject);
+    const message = trimOrNull(body.message);
+
+    if (!subject) return sendError(res, 400, "กรุณากรอกหัวข้อ (subject)");
+    if (!message) return sendError(res, 400, "กรุณากรอกรายละเอียด (message)");
+
+    if (subject.length > 200) {
+      return sendError(res, 400, "subject ยาวเกินไป (สูงสุด 200 ตัวอักษร)");
+    }
+    if (message.length > 5000) {
+      return sendError(res, 400, "message ยาวเกินไป (สูงสุด 5000 ตัวอักษร)");
+    }
+
+    // ✅ รับไฟล์แนบจาก multer (field: images)
+    const uploaded = [];
+    const files = req.files;
+    if (Array.isArray(files)) {
+      uploaded.push(...files);
+    } else if (files && typeof files === "object") {
+      for (const v of Object.values(files)) {
+        if (Array.isArray(v)) uploaded.push(...v);
+      }
+    }
+
+    const imagePaths = uploaded
+      .filter((f) => f && f.filename)
+      .map((f) => `/uploads/complaints/${f.filename}`);
+
+    let complaint;
+    try {
+      complaint = await prisma.complaint.create({
+        data: {
+          userId: me.id,
+          category,
+          subject,
+          message,
+          images: imagePaths,
+        },
+      });
+    } catch (err) {
+      // Fallback: ถ้า prisma client ยังไม่ได้ generate/migrate field images
+      const msg = String(err?.message || "");
+      if (
+        msg.includes("images") ||
+        msg.includes("Unknown argument") ||
+        msg.includes("Invalid `prisma.complaint.create()` invocation")
+      ) {
+        complaint = await prisma.complaint.create({
+          data: {
+            userId: me.id,
+            category,
+            subject,
+            message,
+          },
+        });
+      } else {
+        throw err;
+      }
+    }
+
+    // ✅ คงไว้ตาม requirement: แจ้งเตือนตอนร้านส่งแจ้งปัญหา (complaint_created)
+    try {
+      await createNotification({
+        prisma,
+        attrs: {
+          storeId: storeId,
+          title: "ส่งคำแจ้งปัญหาแล้ว",
+          body: `เราได้รับเรื่อง: ${complaint.subject}`,
+          data: { type: "complaint_created", complaintId: complaint.id },
+        },
+      });
+    } catch (e) {
+      console.warn("notify complaint_created failed", e?.message || e);
+    }
+
+    return res.status(201).json({ message: "รับแจ้งปัญหาเรียบร้อย", complaint });
+  } catch (error) {
+    console.error("createStoreComplaint error", error);
+    return sendError(res, 500, "ไม่สามารถส่งคำแจ้งปัญหาได้");
+  }
+}
+
+// GET /store/:storeId/complaints
+export async function listStoreComplaints(req, res) {
+  const storeId = parseStoreId(req, res);
+  if (storeId == null) return;
+
+  try {
+    const complaints = await prisma.complaint.findMany({
+      where: { userId: Number(storeId) },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    });
+
+    return res.json({ complaints });
+  } catch (error) {
+    console.error("listStoreComplaints error", error);
+    return sendError(res, 500, "ไม่สามารถโหลดรายการแจ้งปัญหาได้");
   }
 }
