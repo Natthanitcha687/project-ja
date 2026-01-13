@@ -20,6 +20,9 @@ import ResetPassword from './pages/ResetPassword'
 import WarrantyDashboard from './pages/WarrantyDashboard'
 import WarrantyInfo from './pages/WarrantyInfo'
 import About from './pages/About'
+import Docs from './pages/Docs'
+import Faq from './pages/Faq'
+import Support from './pages/Support'
 import StoreDashboard from './pages/StoreDashboard'
 import CustomerWarranty from './pages/CustomerWarranty.jsx'
 import CustomerComplaints from './pages/CustomerComplaints'
@@ -120,6 +123,9 @@ const router = createBrowserRouter([
       { path: '/', element: <Home /> },
       { path: '/warranty', element: <WarrantyInfo /> },
       { path: '/about', element: <About /> },
+      { path: '/docs', element: <Docs /> },
+      { path: '/faq', element: <Faq /> },
+      { path: '/support', element: <Support /> },
       { path: '/signin', element: <SignIn /> },
       { path: '/signup', element: <SignUp /> },
       { path: '/verify-email', element: <VerifyEmail /> },

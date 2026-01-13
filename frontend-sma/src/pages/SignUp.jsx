@@ -1,6 +1,5 @@
 // src/pages/SignUp.jsx
 // เวอร์ชันเต็ม: ฟอร์มสมัครสมาชิก ลูกค้า/ร้านค้า + ตรวจสอบรหัสผ่าน + ส่ง API
-// [อัปเดต] **ตัดโค้ดไอคอนตาออกทั้งหมด 100%** ตามคำขอ
 
 import { useEffect, useRef, useState, forwardRef } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
@@ -487,18 +486,91 @@ export default function Signup() {
             <hr className="my-4" />
 
             <div className="prose max-w-none text-sm text-gray-700">
-              <h4>1. การใช้งาน</h4>
-              <p>ผู้ใช้ต้องปฏิบัติตามกฎหมายและไม่ใช้ระบบเพื่อกิจกรรมที่ผิดกฎหมายหรือเป็นการละเมิดสิทธิของผู้อื่น.</p>
-              <h4>2. ข้อมูลและความรับผิด</h4>
-              <p>ผู้ให้บริการพยายามให้ข้อมูลถูกต้อง แต่ไม่รับประกันความสมบูรณ์ของข้อมูลและไม่รับผิดชอบต่อความเสียหายโดยตรงหรือทางอ้อม.</p>
-              <h4>3. การยกเลิกบัญชี</h4>
-              <p>ผู้ให้บริการสามารถระงับหรือยกเลิกบัญชีที่ละเมิดข้อกำหนดได้ตามความเหมาะสม.</p>
-              <h4>4. ติดต่อ</h4>
-              <p>กรณีข้อสงสัยหรือต้องการข้อมูลเพิ่มเติม กรุณาติดต่อผู้ดูแลระบบ.</p>
+              {tab === 'store' ? (
+                <div>
+                  <p>ร้านค้าที่สมัครและใช้งานแพลตฟอร์ม ถือว่าตกลงยอมรับเงื่อนไขดังต่อไปนี้</p>
+
+                  <p className="mt-4"><strong className="font-semibold">1.</strong> การลงทะเบียนและข้อมูลร้านค้า</p>
+                  <p><strong>1.1</strong> ร้านค้าต้องลงทะเบียนด้วยข้อมูลที่ถูกต้อง ครบถ้วน และเป็นปัจจุบัน</p>
+                  <p><strong>1.2</strong> ร้านค้าต้องรับผิดชอบต่อความถูกต้องของข้อมูลร้านค้าและข้อมูลสินค้า</p>
+                  <p><strong>1.3</strong> ห้ามใช้ข้อมูลเท็จ หรือแอบอ้างร้านค้าหรือบุคคลอื่น</p>
+
+                  <p className="mt-6"><strong className="font-semibold">2.</strong> การจัดการใบรับประกันสินค้า</p>
+                  <p><strong>2.1</strong> ร้านค้าต้องบันทึกข้อมูลใบรับประกันสินค้าให้ตรงกับสินค้าที่จำหน่ายจริง</p>
+                  <p><strong>2.2</strong> ร้านค้าต้องระบุเงื่อนไข ระยะเวลา และขอบเขตการรับประกันอย่างชัดเจน</p>
+                  <p><strong>2.3</strong> ห้ามแก้ไข ลบ หรือเปลี่ยนแปลงข้อมูลใบรับประกันย้อนหลังโดยไม่ได้รับความยินยอมจากลูกค้า</p>
+                  <p><strong>2.4</strong> ร้านค้าเป็นผู้รับผิดชอบต่อเนื้อหาและเงื่อนไขการรับประกันทั้งหมด</p>
+
+                  <p className="mt-6"><strong className="font-semibold">3.</strong> หน้าที่และความรับผิดของร้านค้า</p>
+                  <p><strong>3.1</strong> ร้านค้าต้องปฏิบัติตามพระราชบัญญัติคุ้มครองผู้บริโภค พ.ศ. 2522 และประมวลกฎหมายแพ่งและพาณิชย์ที่เกี่ยวข้องกับการขายและการรับประกัน</p>
+                  <p><strong>3.2</strong> ร้านค้าต้องให้บริการตามเงื่อนไขการรับประกันที่แจ้งไว้</p>
+                  <p><strong>3.3</strong> ร้านค้าต้องไม่ใช้แพลตฟอร์มเพื่อการหลอกลวงหรือทุจริต</p>
+
+                  <p className="mt-6"><strong className="font-semibold">4.</strong> ข้อจำกัดสิทธิ์และการใช้งานที่ต้องห้าม</p>
+                  <p><strong>4.1</strong> ห้ามใช้แพลตฟอร์มเพื่อกระทำการที่ผิดกฎหมาย</p>
+                  <p><strong>4.2</strong> ห้ามเข้าถึงข้อมูลลูกค้าที่ไม่เกี่ยวข้องกับธุรกรรมของตน</p>
+                  <p><strong>4.3</strong> ห้ามพยายามเจาะระบบ ดัดแปลง หรือรบกวนการทำงานของแพลตฟอร์ม</p>
+
+                  <p className="mt-6"><strong className="font-semibold">5.</strong> บทลงโทษสำหรับร้านค้า</p>
+                  <p>หากร้านค้าฝ่าฝืนเงื่อนไข ผู้ให้บริการมีสิทธิ์ดำเนินการดังต่อไปนี้ โดยไม่ต้องแจ้งให้ทราบล่วงหน้า:</p>
+                  <ul>
+                    <li>ระงับการใช้งานบัญชีชั่วคราว</li>
+                    <li>ยกเลิกบัญชีร้านค้า</li>
+                    <li>ลบข้อมูลที่เกี่ยวข้อง</li>
+                  </ul>
+                </div>
+              ) : (
+                <div>
+                  <p className="mt-4"><strong className="font-semibold">1.</strong> การลงทะเบียนและบัญชีผู้ใช้</p>
+                  <p><strong>1.1</strong> ลูกค้าต้องให้ข้อมูลส่วนบุคคลที่ถูกต้องและเป็นปัจจุบัน</p>
+                  <p><strong>1.2</strong> ลูกค้าต้องรักษาความลับของชื่อผู้ใช้และรหัสผ่าน</p>
+                  <p><strong>1.3</strong> ห้ามให้บุคคลอื่นใช้บัญชีของตน</p>
+
+                  <p className="mt-6"><strong className="font-semibold">2.</strong> การใช้งานใบรับประกันสินค้า</p>
+                  <p><strong>2.1</strong> ลูกค้าสามารถใช้แพลตฟอร์มเพื่อตรวจสอบ:</p>
+                  <ul className="list-disc list-inside text-sm text-gray-700">
+                    <li>รายละเอียดใบรับประกันสินค้า</li>
+                    <li>ระยะเวลาการรับประกัน</li>
+                    <li>สถานะการรับประกัน</li>
+                  </ul>
+                  <p className="mt-2"><strong>2.2</strong> ใบรับประกันที่แสดงในระบบเป็นข้อมูลอ้างอิง โดยเงื่อนไขการรับประกันเป็นไปตามที่ร้านค้าหรือผู้ผลิตกำหนด</p>
+                  <p><strong>2.3</strong> ลูกค้าต้องใช้ข้อมูลในระบบเพื่อประโยชน์ของตนเองเท่านั้น</p>
+
+                  <p className="mt-6"><strong className="font-semibold">3.</strong> หน้าที่ของลูกค้า</p>
+                  <p><strong>3.1</strong> ลูกค้าต้องไม่ปลอมแปลง แก้ไข หรือใช้ข้อมูลใบรับประกันของผู้อื่น</p>
+                  <p><strong>3.2</strong> ลูกค้าต้องแจ้งผู้ให้บริการเมื่อพบการใช้งานบัญชีที่ผิดปกติ</p>
+                  <p><strong>3.3</strong> ลูกค้าต้องปฏิบัติตามกฎหมายที่เกี่ยวข้อง</p>
+
+                  <p className="mt-6"><strong className="font-semibold">4.</strong> ข้อจำกัดการใช้งาน</p>
+                  <p><strong>4.1</strong> ห้ามใช้แพลตฟอร์มเพื่อการกระทำที่ผิดกฎหมาย</p>
+                  <p><strong>4.2</strong> ห้ามพยายามเข้าถึงข้อมูลของร้านค้าหรือผู้ใช้รายอื่น</p>
+                  <p><strong>4.3</strong> ห้ามรบกวนหรือทำให้ระบบเกิดความเสียหาย</p>
+
+                  <p className="mt-6"><strong className="font-semibold">5.</strong> สิทธิ์ของลูกค้า</p>
+                  <p><strong>5.1</strong> ลูกค้ามีสิทธิ์เข้าถึงข้อมูลใบรับประกันของตนเอง</p>
+                  <p><strong>5.2</strong> ลูกค้าสามารถดาวน์โหลดหรือใช้ข้อมูลใบรับประกันเป็นหลักฐานได้</p>
+                  <p><strong>5.3</strong> ลูกค้าสามารถยกเลิกการใช้งานบัญชีได้ตามขั้นตอนที่ระบบกำหนด</p>
+
+                  <p className="mt-6"><strong className="font-semibold">6.</strong> บทลงโทษสำหรับลูกค้า</p>
+                  <p>หากลูกค้าฝ่าฝืนเงื่อนไข ผู้ให้บริการมีสิทธิ์ดำเนินการดังต่อไปนี้ โดยไม่ต้องแจ้งให้ทราบล่วงหน้า:</p>
+                  <ul className="list-disc list-inside text-sm text-gray-700">
+                    <li>ระงับการใช้งานบัญชี</li>
+                    <li>ยกเลิกบัญชีผู้ใช้</li>
+                  </ul>
+                </div>
+              )}
             </div>
 
             <div className="mt-4 flex justify-end">
-              <button onClick={() => setShowTerms(false)} className="rounded-xl bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">ปิด / ยอมรับ</button>
+              <button
+                onClick={() => {
+                  setConsent(true);
+                  setShowTerms(false);
+                }}
+                className="rounded-xl bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+              >
+                ยอมรับ
+              </button>
             </div>
           </div>
         </div>
@@ -732,7 +804,7 @@ export default function Signup() {
                           className="appearance-none mt-1 w-full h-9 rounded-xl border border-gray-300 bg-white pl-3 pr-8 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           required
                         >
-                          <option value="" disabled>{districtOptions.length ? 'เลือกอำเภอ/เขต' : 'เลือกจังหวัดก่อน'}</option>
+                          <option value="" disabled>{districtOptions.length ? 'เลือกอำเภอ/เขต' : 'เลือกอำเภอ/เขต'}</option>
                           {districtOptions.map((d) => (
                             <option key={d.code || d.name} value={d.code}>{d.name}</option>
                           ))}
@@ -742,7 +814,7 @@ export default function Signup() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">แขวง/ตำบล</label>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">ตำบล/แขวง</label>
                       <div className="relative">
                         <select
                           name="addr_subdistrict"
@@ -756,7 +828,7 @@ export default function Signup() {
                           className="appearance-none mt-1 w-full h-9 rounded-xl border border-gray-300 bg-white pl-3 pr-8 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           required
                         >
-                          <option value="" disabled>{subdistrictOptions.length ? 'เลือกแขวง/ตำบล' : 'เลือกอำเภอก่อน'}</option>
+                          <option value="" disabled>{subdistrictOptions.length ? 'เลือกตำบล/แขวง' : 'เลือกตำบล/แขวง'}</option>
                           {subdistrictOptions.map((s) => (
                             <option key={s.code || s.name} value={s.code}>{s.name}</option>
                           ))}
@@ -826,8 +898,8 @@ export default function Signup() {
                       ['sat','ส.' ],
                       ['sun','อา.']
                     ].map(([key,label]) => (
-                      <div key={key} className="flex items-center justify-between gap-4 px-2 py-2 rounded-md hover:bg-slate-50">
-                        <div className="flex items-center gap-3 w-36">
+                      <div key={key} className="flex flex-col md:flex-row items-center justify-between gap-4 px-2 py-2 rounded-md hover:bg-slate-50">
+                        <div className="flex items-center gap-3 md:w-36 w-full">
                           <input
                             type="checkbox"
                             checked={!!schedule[key].on}
@@ -840,12 +912,12 @@ export default function Signup() {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 w-full md:w-auto justify-end">
                           <input
                             type="time"
                             value={schedule[key].start}
                             onChange={(e) => setSchedule(s => ({ ...s, [key]: { ...s[key], start: e.target.value } }))}
-                            className="h-9 w-32 rounded border border-gray-300 bg-white px-2 text-sm"
+                            className="h-9 w-24 md:w-32 rounded border border-gray-300 bg-white px-2 text-sm"
                             disabled={!schedule[key].on}
                           />
                           <span className="text-xs text-gray-400">—</span>
@@ -853,7 +925,7 @@ export default function Signup() {
                             type="time"
                             value={schedule[key].end}
                             onChange={(e) => setSchedule(s => ({ ...s, [key]: { ...s[key], end: e.target.value } }))}
-                            className="h-9 w-32 rounded border border-gray-300 bg-white px-2 text-sm"
+                            className="h-9 w-24 md:w-32 rounded border border-gray-300 bg-white px-2 text-sm"
                             disabled={!schedule[key].on}
                           />
                         </div>

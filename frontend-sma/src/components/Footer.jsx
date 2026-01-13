@@ -52,10 +52,18 @@ export default function Footer() {
           <div>
             <h3 className="font-semibold text-white mb-4">บริการ</h3>
             <ul className="space-y-2 text-gray-300 text-sm">
-              <li>จัดการใบรับประกัน</li>
-              <li>จัดการลูกค้า</li>
-              <li>รายงานและสถิติ</li>
-              <li>การแจ้งเตือน</li>
+              <li>
+                <Link to="/warranty" className="text-gray-300 hover:text-white transition-colors">จัดการใบรับประกัน</Link>
+              </li>
+              <li>
+                <Link to="/customer" className="text-gray-300 hover:text-white transition-colors">จัดการลูกค้า</Link>
+              </li>
+              <li>
+                <Link to="/dashboard/store" className="text-gray-300 hover:text-white transition-colors">รายงานและสถิติ</Link>
+              </li>
+              <li>
+                <Link to="/docs#notifications" className="text-gray-300 hover:text-white transition-colors">การแจ้งเตือน</Link>
+              </li>
             </ul>
           </div>
 
@@ -63,10 +71,18 @@ export default function Footer() {
           <div>
             <h3 className="font-semibold text-white mb-4">ช่วยเหลือ</h3>
             <ul className="space-y-2 text-gray-300 text-sm">
-              <li>วิธีใช้งาน</li>
-              <li>เกี่ยวกับเรา</li>
-              <li>คำถามที่พบบ่อย</li>
-              <li>สนับสนุน</li>
+              <li>
+                <Link to="/docs" className="text-gray-300 hover:text-white transition-colors">วิธีใช้งาน</Link>
+              </li>
+              <li>
+                <Link to="/about" className="text-gray-300 hover:text-white transition-colors">เกี่ยวกับเรา</Link>
+              </li>
+              <li>
+                <Link to="/faq" className="text-gray-300 hover:text-white transition-colors">คำถามที่พบบ่อย</Link>
+              </li>
+              <li>
+                <Link to="/support" className="text-gray-300 hover:text-white transition-colors">สนับสนุน</Link>
+              </li>
             </ul>
           </div>
         </div>
