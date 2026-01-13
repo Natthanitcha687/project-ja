@@ -239,7 +239,7 @@ export default function Complaints() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           className="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-slate-900 shadow-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
-          placeholder="ค้นหา ผู้ส่ง / subject / category / message..."
+          placeholder="ค้นหา ผู้ส่ง / หมวดหมู่ /หัวข้อ"
         />
 
         <button
