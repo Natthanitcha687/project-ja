@@ -79,40 +79,44 @@ function pad3(n) {
 }
 function nextSerialFromList(list) {
   // legacy simple incrementer (kept for fallback)
-  let max = 0
-  for (const w of list || []) {
-    const m = String(w?.serial || '').match(/^SN(\d+)$/i)
-    if (m) max = Math.max(max, Number(m[1] || 0))
-  }
-  return `SN${pad3(max + 1 || 1)}`
-}
-
-// random alphanumeric suffix
-function randAlnum(len = 4) {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-  let out = ''
-  for (let i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)]
-  return out
-}
-
-// Derive a small 1-2 char batch/branch code from store id (stable)
-function batchCodeFromStore(storeId) {
-  if (!storeId) return '00'
-  const v = Number(storeId) || 0
-  const a = String(v % 100).padStart(2, '0')
-  return a
-}
-
-function collectAllSerials(headers = [], creating = []) {
-  const set = new Set()
-  for (const h of headers || []) {
-    for (const it of h.items || []) {
-      if (it && it.serial) set.add(String(it.serial).trim())
-    }
-  }
-  for (const it of creating || []) {
-    if (it && it.serial) set.add(String(it.serial).trim())
-  }
+                              {[
+                                ['mon','จ.'],
+                                ['tue','อ.'],
+                                ['wed','พ.'],
+                                ['thu','พฤ.'],
+                                ['fri','ศ.'],
+                                ['sat','ส.'],
+                                ['sun','อา.'],
+                              ].map(([d, lbl]) => (
+                                  <div key={d} className="flex flex-col sm:flex-row items-start sm:items-center gap-2 text-xs md:text-sm">
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        type="checkbox"
+                                        checked={!!businessSchedule[d]?.on}
+                                        onChange={() => setBusinessSchedule((s) => ({ ...s, [d]: { ...s[d], on: !s[d].on } }))}
+                                        className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                                      />
+                                      <div className="w-8 text-xs text-gray-700">{lbl}</div>
+                                    </div>
+                                    <div className="flex items-center gap-2 ml-0 sm:ml-2">
+                                      <input
+                                        type="time"
+                                        value={businessSchedule[d]?.start || '09:00'}
+                                        onChange={(e) => setBusinessSchedule((s) => ({ ...s, [d]: { ...s[d], start: e.target.value } }))}
+                                        className="h-8 w-16 sm:w-20 rounded border border-gray-200 px-2 text-xs"
+                                        disabled={!businessSchedule[d]?.on}
+                                      />
+                                      <span className="text-xs text-gray-400">—</span>
+                                      <input
+                                        type="time"
+                                        value={businessSchedule[d]?.end || '18:00'}
+                                        onChange={(e) => setBusinessSchedule((s) => ({ ...s, [d]: { ...s[d], end: e.target.value } }))}
+                                        className="h-8 w-16 sm:w-20 rounded border border-gray-200 px-2 text-xs"
+                                        disabled={!businessSchedule[d]?.on}
+                                      />
+                                    </div>
+                                  </div>
+                                ))}
   return set
 }
 
@@ -228,6 +232,132 @@ export default function WarrantyDashboard() {
   const [storeProfile, setStoreProfile] = useState(initialStoreProfile)
   const [addressParts, setAddressParts] = useState({ street: '', subdistrict: '', district: '', province: '', postcode: '' })
   const [profileImage, setProfileImage] = useState({ file: null, preview: '' })
+  // Dynamic province/district/subdistrict lists (reuse same data as SignUp)
+  const PROVINCES_JSON_LOCAL = '/data/api_province.json'
+  const DISTRICTS_JSON_LOCAL = '/data/api_district.json'
+  const SUBDISTRICTS_JSON_LOCAL = '/data/api_subdistrict.json'
+  const PROVINCES_JSON_FALLBACK = 'https://raw.githubusercontent.com/kongvut/thai-province-data/refs/heads/master/api/latest/province.json'
+  const DISTRICTS_JSON_FALLBACK = 'https://raw.githubusercontent.com/kongvut/thai-province-data/refs/heads/master/api/latest/district.json'
+  const SUBDISTRICTS_JSON_FALLBACK = 'https://raw.githubusercontent.com/kongvut/thai-province-data/refs/heads/master/api/latest/sub_district.json'
+
+  const [provincesList, setProvincesList] = useState([])
+  const [districtOptions, setDistrictOptions] = useState([])
+  const [subdistrictOptions, setSubdistrictOptions] = useState([])
+  const [districtsCache, setDistrictsCache] = useState(null)
+  const [subdistrictsCache, setSubdistrictsCache] = useState(null)
+  const [districtsMap, setDistrictsMap] = useState(null)
+  const [subdistrictsMap, setSubdistrictsMap] = useState(null)
+
+  // load provinces/districts/subdistricts and build lookup maps
+  useEffect(() => {
+    let mounted = true
+    async function loadAll() {
+      try {
+        const fetchOrFallback = async (localUrl, fallbackUrl) => {
+          let r = await fetch(localUrl)
+          if (!r.ok) r = await fetch(fallbackUrl)
+          return await r.json()
+        }
+
+        const [provData, districtData, subData] = await Promise.all([
+          fetchOrFallback(PROVINCES_JSON_LOCAL, PROVINCES_JSON_FALLBACK),
+          fetchOrFallback(DISTRICTS_JSON_LOCAL, DISTRICTS_JSON_FALLBACK),
+          fetchOrFallback(SUBDISTRICTS_JSON_LOCAL, SUBDISTRICTS_JSON_FALLBACK),
+        ])
+
+        if (!mounted) return
+        setProvincesList(provData.map((p) => ({ name: p.name_th || p.name, code: p.id ?? p.code })))
+        setDistrictsCache(districtData)
+        setSubdistrictsCache(subData)
+
+        const dmap = {}
+        for (const d of districtData || []) {
+          const pid = String(d.province_id ?? d.province_code ?? d.provinceId ?? d.province)
+          if (!dmap[pid]) dmap[pid] = []
+          dmap[pid].push(d)
+        }
+        setDistrictsMap(dmap)
+
+        const smap = {}
+        for (const s of subData || []) {
+          const did = String(s.district_id ?? s.district_code ?? s.amphure_id ?? s.district)
+          if (!smap[did]) smap[did] = []
+          smap[did].push(s)
+        }
+        setSubdistrictsMap(smap)
+      } catch (err) {
+        console.error('loadAll location data failed', err)
+        setProvincesList(TH_PROVINCES.map((p, i) => ({ name: p, code: String(i) })))
+        setDistrictsCache(null)
+        setSubdistrictsCache(null)
+        setDistrictsMap(null)
+        setSubdistrictsMap(null)
+      }
+    }
+    loadAll()
+    return () => { mounted = false }
+  }, [])
+
+  async function loadDistrictsForProvince(provinceNameOrCode) {
+    try {
+      if (!provinceNameOrCode) {
+        setDistrictOptions([])
+        return
+      }
+      let provinceCode = provinceNameOrCode
+      if (isNaN(Number(provinceNameOrCode))) {
+        const p = provincesList.find((x) => x.name === provinceNameOrCode)
+        provinceCode = p?.code
+      }
+      const pid = String(provinceCode)
+      if (districtsMap) {
+        const list = districtsMap[pid] || []
+        setDistrictOptions(list.map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code })))
+        return
+      }
+
+      let districtsData = districtsCache
+      if (!districtsData) {
+        let res = await fetch(DISTRICTS_JSON_LOCAL)
+        if (!res.ok) res = await fetch(DISTRICTS_JSON_FALLBACK)
+        districtsData = await res.json()
+        setDistrictsCache(districtsData)
+      }
+      const filtered = districtsData.filter((d) => String(d.province_id ?? d.province_code) === pid)
+      setDistrictOptions(filtered.map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code })))
+    } catch (err) {
+      console.error('loadDistrictsForProvince error', err)
+      setDistrictOptions([])
+    }
+  }
+
+  async function loadSubdistrictsForDistrict(districtCode) {
+    try {
+      if (!districtCode) {
+        setSubdistrictOptions([])
+        return
+      }
+      const did = String(districtCode)
+      if (subdistrictsMap) {
+        const list = subdistrictsMap[did] || []
+        setSubdistrictOptions(list.map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip })))
+        return
+      }
+
+      let subs = subdistrictsCache
+      if (!subs) {
+        let res = await fetch(SUBDISTRICTS_JSON_LOCAL)
+        if (!res.ok) res = await fetch(SUBDISTRICTS_JSON_FALLBACK)
+        subs = await res.json()
+        setSubdistrictsCache(subs)
+      }
+      const filtered = subs.filter((s) => String(s.district_id ?? s.district_code) === did)
+      setSubdistrictOptions(filtered.map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip })))
+    } catch (err) {
+      console.error('loadSubdistrictsForDistrict error', err)
+      setSubdistrictOptions([])
+    }
+  }
 
   // compact business hours state for profile modal (small responsive control)
   const defaultBusinessSchedule = {
@@ -271,11 +401,7 @@ export default function WarrantyDashboard() {
   // แสดง/ซ่อนรายละเอียดต่อ “ใบ”
   const [expandedByHeader, setExpandedByHeader] = useState({})
 
-  // Notifications state (for bell)
-  const [notifOpen, setNotifOpen] = useState(false)
-  const [notifications, setNotifications] = useState([])
-  const [notifLoading, setNotifLoading] = useState(false)
-  const unreadCount = (notifications || []).filter(n => !n.read).length
+  // Notifications and header are handled by the shared DashboardLayout
 
   const [warrantySubmitting, setWarrantySubmitting] = useState(false)
   const [warrantyModalError, setWarrantyModalError] = useState('')
@@ -399,15 +525,7 @@ export default function WarrantyDashboard() {
   // ------------------------------------------
 
   // click outside handler for notifications dropdown
-  const notifRef = useRef(null)
-  useEffect(() => {
-    if (!notifOpen) return
-    function onDoc(e) {
-      if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false)
-    }
-    document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
-  }, [notifOpen])
+  // notifications dropdown is handled by the shared DashboardLayout
 
   // helper: determine if account is new (show welcome message)
   const isNewAccount = useMemo(() => {
@@ -452,7 +570,7 @@ export default function WarrantyDashboard() {
     try {
       setNotifLoading(true)
       await api.post('/notifications/mark-all-read')
-      await fetchNotifications()
+      // do not re-fetch here; rely on optimistic update and SSE
     } catch (e) {}
     finally { setNotifLoading(false) }
   }
@@ -534,7 +652,7 @@ export default function WarrantyDashboard() {
   }
   const pages = pageNumbers(totalPages, currentPage, 5)
 
-  const openProfileModal = () => {
+  const openProfileModal = async () => {
     // initialize compact business hours from current store profile when opening
     setBusinessSchedule(parseBusinessSchedule(storeProfile.businessHours))
     // initialize address parts from current store profile
@@ -546,17 +664,30 @@ export default function WarrantyDashboard() {
           street: parsed.street || '',
           subdistrict: parsed.subdistrict || '',
           district: parsed.district || '',
-          province: parsed.province || '',
+          province: parsed.province?.id ?? parsed.province ?? '',
           postcode: parsed.postcode || '',
         })
+        // populate district/subdistrict options based on parsed province/district
+        try {
+          const prov = parsed.province?.id ?? parsed.province ?? ''
+          if (prov) await loadDistrictsForProvince(prov)
+          const dist = parsed.district?.id ?? parsed.district ?? ''
+          if (dist) await loadSubdistrictsForDistrict(dist)
+        } catch (e) {}
       } else if (raw && typeof raw === 'object') {
         setAddressParts({
           street: raw.street || '',
           subdistrict: raw.subdistrict || '',
           district: raw.district || '',
-          province: raw.province || '',
+          province: raw.province?.id ?? raw.province ?? '',
           postcode: raw.postcode || '',
         })
+        try {
+          const prov = raw.province?.id ?? raw.province ?? ''
+          if (prov) await loadDistrictsForProvince(prov)
+          const dist = raw.district?.id ?? raw.district ?? ''
+          if (dist) await loadSubdistrictsForDistrict(dist)
+        } catch (e) {}
       } else {
         setAddressParts({ street: String(storeProfile.address || '') || '', subdistrict: '', district: '', province: '', postcode: '' })
       }
@@ -1018,168 +1149,11 @@ export default function WarrantyDashboard() {
   return (
     <>
       {/* 🟦 BG: ปรับให้เหมือนโค้ด1 */}
-<div className="min-h-screen bg-gradient-to-b from-sky-50 to-sky-100/60 pb-16">
-  {/* 🟦 Header: ใช้สไตล์และโลโก้มุมซ้ายบนแบบโค้ด1 */}
-  <header className="sticky top-0 z-30 border-b border-sky-100 bg-white/80 py-3 backdrop-blur">
-    <div className="mx-auto flex max-w-6xl items-center justify-between px-4">
-      {/* โลโก้มุมซ้ายบนจากโค้ด1 */}
-      <div className="flex items-center gap-3">
-        <Link
-          to="/"
-          aria-label="หน้าแรก"
-          className="relative grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-sky-50 to-white ring-1 ring-black/5 shadow-sm"
-        >
-          <AppLogo className="h-7 w-7" />
-          <div className="absolute -inset-px rounded-2xl pointer-events-none [mask-image:radial-gradient(18px_18px_at_16px_16px,white,transparent)]"></div>
-        </Link>
-        <div>
-          <div className="text-lg font-semibold text-slate-900">Warranty</div>
-          <div className="text-xs text-slate-500">จัดการการรับประกันของคุณได้ในที่เดียว</div>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-3" ref={profileMenuRef}>
-        {/* Notifications bell */}
-        <div className="relative" ref={notifRef}>
-          <button
-            type="button"
-            onClick={async () => {
-              const next = !notifOpen
-              setNotifOpen((p) => !p)
-              if (next) {
-                await markAllAsRead()
-              }
-            }}
-            aria-label="การแจ้งเตือน"
-            className="relative grid h-10 w-10 place-items-center rounded-full bg-white shadow ring-1 ring-black/5 hover:bg-gray-50 transition"
-          >
-            <span className="text-xl">🔔</span>
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-4 min-w-[14px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] text-white">
-                {unreadCount}
-              </span>
-            )}
-          </button>
-
-          {notifOpen && (
-            <div className="absolute right-0 top-12 w-80 rounded-2xl bg-white p-3 text-sm shadow-xl ring-1 ring-black/5">
-              <div className="mb-2 flex items-center justify-between">
-                <div className="text-sm font-medium text-slate-900">การแจ้งเตือน</div>
-                <button
-                  type="button"
-                  onClick={() => setNotifOpen(false)}
-                  className="text-xs text-slate-500"
-                >
-                  ปิด
-                </button>
-              </div>
-              {notifLoading ? (
-                <div className="py-6 text-center text-slate-500">กำลังโหลด...</div>
-              ) : (notifications || []).length === 0 ? (
-                <div className="py-4 text-slate-600">
-                  <div className="text-center">ไม่มีการแจ้งเตือน</div>
-                </div>
-              ) : (
-                <ul className="space-y-2 max-h-64 overflow-y-auto">
-                  {(notifications || []).map((n, i) => (
-                    <li key={n.id || i} className="rounded-lg p-3 hover:bg-sky-50">
-                      <div className="flex items-start gap-3">
-                        <div className="h-8 w-8 shrink-0 rounded-full bg-sky-100 grid place-items-center text-xs text-sky-700">
-                          🔔
-                        </div>
-                        <div className="flex-1">
-                          <div className="text-sm font-medium text-slate-900">
-                            {n.title || n.message || 'การแจ้งเตือน'}
-                          </div>
-                          {(n.body || n.message) ? (
-                            <div className="text-xs text-slate-600 mt-1 break-words">
-                              {n.body || n.message}
-                            </div>
-                          ) : null}
-                          <div className="text-[10px] text-slate-400 mt-1">
-                            {(n.createdAt || n.time || n.created_at)
-                              ? new Date(n.createdAt || n.time || n.created_at).toLocaleString()
-                              : ''}
-                          </div>
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* ✅ เพิ่ม: ปุ่มแจ้งปัญหา (ไอคอนกลมข้างกระดิ่ง) */}
-        <Link
-          to="/dashboard/complaints"
-          title="แจ้งปัญหา/ติดต่อแอดมิน"
-          aria-label="แจ้งปัญหา/ติดต่อแอดมิน"
-          className="relative grid h-10 w-10 place-items-center rounded-full bg-white shadow ring-1 ring-black/5 hover:bg-gray-50 transition"
-          onClick={() => {
-            setNotifOpen(false)
-            setProfileMenuOpen(false)
-          }}
-        >
-          <span className="text-xl">📝</span>
-        </Link>
-
-        <button
-          type="button"
-          onClick={() => setProfileMenuOpen((prev) => !prev)}
-          className="flex items-center gap-3 rounded-full bg-white px-3 py-2 shadow ring-1 ring-black/10 hover:-translate-y-0.5 hover:bg-slate-50 transition"
-        >
-          {profileAvatarSrc ? (
-            <img src={profileAvatarSrc} alt="Store profile" className="h-10 w-10 rounded-full object-cover" />
-          ) : (
-            <div className="grid h-10 w-10 place-items-center rounded-full bg-sky-200 text-xl">🏪</div>
-          )}
-          <div className="hidden text-left text-sm md:block">
-            <div className="font-medium text-slate-900">{storeDisplayName}</div>
-            <div className="text-xs text-slate-500">{storeEmail}</div>
-          </div>
-          <span className="hidden text-slate-400 md:inline">▾</span>
-        </button>
-
-        {isProfileMenuOpen && (
-          <div className="absolute right-4 top-14 w-64 rounded-2xl bg-white p-4 text-sm shadow-xl ring-1 ring-black/5">
-            <div className="mb-4 flex items-center gap-3">
-              {profileAvatarSrc ? (
-                <img src={profileAvatarSrc} alt="Store profile" className="h-12 w-12 rounded-full object-cover" />
-              ) : (
-                <div className="grid h-12 w-12 place-items-center rounded-full bg-sky-200 text-2xl">🏪</div>
-              )}
-              <div className="min-w-0">
-                <div className="truncate font-semibold text-slate-900">{storeDisplayName}</div>
-                <div className="truncate text-xs text-slate-500">{storeEmail}</div>
-                {storeAddrShort ? <div className="truncate text-xs text-slate-400">{storeAddrShort}</div> : null}
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={openProfileModal}
-              className="flex w-full items-center justify-between rounded-xl bg-sky-50 px-3 py-2 text-slate-700 hover:bg-sky-100"
-            >
-              <span>แก้ไขโปรไฟล์</span>
-              <span aria-hidden>✏️</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="mt-2 flex w-full items-center justify-between rounded-xl px-3 py-2 text-slate-500 hover:bg-slate-50"
-            >
-              <span>ออกจากระบบ</span>
-              <span aria-hidden>↪️</span>
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  </header>
+<div className="min-h-screen bg-gradient-to-b from-sky-50 to-sky-100/60 pb-16 overflow-x-hidden">
+  {/* Header provided by shared `/dashboard` layout */}
 
 
-        <main className="mx-auto mt-8 max-w-6xl px-4">
+        <main className="mx-auto mt-8 max-w-6xl px-2 sm:px-6 lg:px-8">
           {/* 🟦 กล่องแจ้ง error: ใช้โทนฟ้าแบบโค้ด1 */}
           {dashboardError && (
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-700">
@@ -1212,7 +1186,7 @@ export default function WarrantyDashboard() {
             
           </div>
 
-          <div className="rounded-3xl border border-sky-100 bg-gradient-to-b from-white to-sky-50 p-6 shadow-xl">
+          <div className="rounded-3xl border border-sky-100 bg-gradient-to-b from-white to-sky-50 p-4 sm:p-6 shadow-xl min-w-0">
             {dashboardLoading ? (
               <div className="grid min-h-[320px] place-items-center text-sm text-slate-500">กำลังโหลดข้อมูล...</div>
             ) : !storeIdResolved ? (
@@ -1240,13 +1214,13 @@ export default function WarrantyDashboard() {
 
                 
 
-                <div className="mb-6 flex flex-wrap items-center gap-3">
-                  <div className="flex flex-1 items-center rounded-2xl bg-white px-4 py-2 shadow ring-1 ring-black/5">
+                <div className="mb-6 flex flex-wrap items-center gap-2 sm:gap-3">
+                  <div className="flex flex-1 min-w-0 items-center rounded-2xl bg-white px-3 py-2 sm:px-4 shadow ring-1 ring-black/5">
                     <span className="text-slate-400">🔍</span>
                     <input
                       value={searchTerm}
                       onChange={(event) => setSearchTerm(event.target.value)}
-                      className="w-full bg-transparent px-3 py-2 text-sm focus:outline-none"
+                      className="w-full bg-transparent px-2 py-2 text-sm focus:outline-none"
                       placeholder="ค้นหาด้วยรหัสใบรับประกัน, ชื่อลูกค้า, อีเมลลูกค้า, ชื่อสินค้า"
                     />
                   </div>
@@ -1276,7 +1250,7 @@ export default function WarrantyDashboard() {
                           key={f.value}
                           type="button"
                           onClick={() => setActiveFilter(f.value)}
-                          className={`px-4 h-10 rounded-full text-sm border font-medium hover:-translate-y-0.5 transition ${colors}`}
+                          className={`px-2 sm:px-4 h-8 sm:h-10 rounded-full text-xs sm:text-sm border font-medium hover:-translate-y-0.5 transition ${colors}`}
                         >
                           {f.label}
                         </button>
@@ -1296,9 +1270,9 @@ export default function WarrantyDashboard() {
                       const expanded = !!expandedByHeader[header.id]
                       return (
                         // 🟦 การ์ดใบรับประกัน: โทนสเลทแบบโค้ด1
-                        <div key={header.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-5 shadow-md transition hover:shadow-lg">
+                        <div key={header.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-5 shadow-md transition hover:shadow-lg min-w-0">
                           <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1">
+                            <div className="flex-1 min-w-0">
                               <div className="text-lg font-semibold text-slate-900">Warranty Card</div>
                               <div className="mt-2 grid gap-1 text-sm text-slate-700 md:grid-cols-2">
                                 <div>รหัสใบรับประกัน: <span className="font-medium text-slate-900">{header.code || '-'}</span></div>
@@ -1313,7 +1287,7 @@ export default function WarrantyDashboard() {
                                 type="button"
                                 onClick={() => header && handleDownloadPdf(header.id)}
                                 disabled={!header || downloadingPdfId === header.id}
-                                className={`h-10 min-w-[96px] rounded-full border border-sky-300 px-4 py-2 text-sm font-semibold text-sky-700 bg-white transition ${
+                                className={`h-10 min-w-0 sm:min-w-[96px] rounded-full border border-sky-300 px-4 py-2 text-sm font-semibold text-sky-700 bg-white transition ${
                                   !header || downloadingPdfId === header.id ? 'cursor-not-allowed opacity-70' : 'hover:-translate-y-0.5 hover:bg-sky-50'
                                 }`}
                               >
@@ -1339,7 +1313,7 @@ export default function WarrantyDashboard() {
                             <div className="mt-4 grid gap-4">
                               {(header._filteredItems || []).map((it) => (
                                 <div key={it.id} className="flex flex-col justify-between gap-6 rounded-2xl bg-white p-4 shadow ring-1 ring-black/5 md:flex-row">
-                                  <div className="flex-1 space-y-3">
+                                  <div className="flex-1 min-w-0 space-y-3">
                                     <div className="flex flex-wrap items-center gap-3">
                                       <div className="text-base font-semibold text-slate-900">{it.productName}</div>
                                       <StatusBadge label={it.statusTag} className={it.statusColor} />
@@ -1481,9 +1455,9 @@ export default function WarrantyDashboard() {
         </main>
 
         {isProfileModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-auto bg-black/30 px-4 py-8">
-            {/* Constrain modal height to viewport and allow internal scrolling */}
-              <div className="w-full max-w-lg rounded-3xl border border-sky-200 bg-white shadow-2xl max-h-[90vh] overflow-hidden">
+          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/30 px-4 py-4 sm:py-6">
+            {/* Constrain modal height to viewport and allow internal vertical scrolling; hide horizontal overflow */}
+              <div className="w-full max-w-full sm:max-w-lg mx-auto rounded-3xl border border-sky-200 bg-white shadow-2xl max-h-[94vh] overflow-x-hidden overflow-y-auto box-border">
                 <div className="sticky top-0 z-30 flex items-center justify-between border-b border-sky-100 px-6 py-4 bg-white">
                 <div className="flex items-center gap-3">
                   {profileAvatarSrc ? (
@@ -1510,30 +1484,49 @@ export default function WarrantyDashboard() {
                 </button>
               </div>
 
-              <div className="px-6 pt-4 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 160px)' }}>
-                <div className="mb-4 flex gap-2">
+              <div className="px-4 sm:px-6 pt-2 overflow-y-auto pb-20" style={{ maxHeight: 'calc(94vh - 160px)' }}>
+                <div className="mb-2 flex gap-2">
                   <button
                     type="button"
                     onClick={() => { setProfileTab('info'); setModalError('') }}
-                    className={`flex-1 rounded-2xl px-4 py-2 text-sm font-medium ${profileTab === 'info' ? 'bg-sky-100 text-sky-700' : 'bg-sky-50 text-gray-500'}`}
+                    className={`flex-1 min-w-0 rounded-2xl px-4 py-2 text-sm font-medium ${profileTab === 'info' ? 'bg-sky-100 text-sky-700' : 'bg-sky-50 text-gray-500'}`}
                   >
                     ข้อมูลร้านค้า
                   </button>
                   <button
                     type="button"
                     onClick={() => { setProfileTab('password'); setModalError('') }}
-                    className={`flex-1 rounded-2xl px-4 py-2 text-sm font-medium ${profileTab === 'password' ? 'bg-sky-100 text-sky-700' : 'bg-sky-50 text-gray-500'}`}
+                    className={`flex-1 min-w-0 rounded-2xl px-4 py-2 text-sm font-medium ${profileTab === 'password' ? 'bg-sky-100 text-sky-700' : 'bg-sky-50 text-gray-500'}`}
                   >
                     เปลี่ยนรหัสผ่าน
                   </button>
                 </div>
-              </div>
 
               {profileTab === 'info' ? (
                 <form id="profileForm" onSubmit={handleProfileSubmit} className="px-6 pb-6">
-                  <input ref={profileImageInputRef} accept="image/*" className="hidden" onChange={handleProfileAvatarSelect} type="file" />
+                  <input ref={profileImageInputRef} accept="image/*" className="sr-only" onChange={handleProfileAvatarSelect} type="file" />
                   {/* hidden combined fields for compatibility with signup-style submission */}
-                  <input type="hidden" name="address" value={JSON.stringify({ street: addressParts.street, subdistrict: addressParts.subdistrict, district: addressParts.district, province: addressParts.province, postcode: addressParts.postcode })} />
+                  <input
+                    type="hidden"
+                    name="address"
+                    value={JSON.stringify({
+                      street: addressParts.street,
+                      province: {
+                        id: addressParts.province,
+                        name: (provincesList.find((p) => String(p.code) === String(addressParts.province))?.name) || addressParts.province || '',
+                      },
+                      district: {
+                        id: addressParts.district,
+                        name: (districtOptions.find((d) => String(d.code) === String(addressParts.district))?.name) || addressParts.district || '',
+                      },
+                      subdistrict: {
+                        id: addressParts.subdistrict,
+                        name: (subdistrictOptions.find((s) => String(s.code) === String(addressParts.subdistrict))?.name) || addressParts.subdistrict || '',
+                        zipcode: addressParts.postcode || (subdistrictOptions.find((s) => String(s.code) === String(addressParts.subdistrict))?.zipcode || ''),
+                      },
+                      postcode: addressParts.postcode,
+                    })}
+                  />
                   <input type="hidden" name="businessHours" value={JSON.stringify(businessSchedule)} />
                   <div className="mb-4 flex items-center gap-4">
                     {profileAvatarSrc ? (
@@ -1568,40 +1561,75 @@ export default function WarrantyDashboard() {
                           {label}
                           {key === 'address' ? (
                             <div className="mt-2 grid gap-2">
-                              <input
-                                placeholder="บ้าน/เลขที่ ถนน"
+                              <textarea
+                                placeholder="เลขที่ ซอย ถนน"
                                 value={addressParts.street}
                                 onChange={(e) => setAddressParts((p) => ({ ...p, street: e.target.value }))}
+                                rows={2}
                                 className="mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none bg-sky-50/60"
                                 type="text"
                               />
-                              <div className="grid gap-2 sm:grid-cols-2">
-                                <input
-                                  placeholder="ตำบล/แขวง"
-                                  value={addressParts.subdistrict}
-                                  onChange={(e) => setAddressParts((p) => ({ ...p, subdistrict: e.target.value }))}
-                                  className="mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none bg-sky-50/60"
-                                  type="text"
-                                />
-                                <input
-                                  placeholder="อำเภอ/เขต"
-                                  value={addressParts.district}
-                                  onChange={(e) => setAddressParts((p) => ({ ...p, district: e.target.value }))}
-                                  className="mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none bg-sky-50/60"
-                                  type="text"
-                                />
+
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <div>
+                                  <label className="sr-only">จังหวัด</label>
+                                  <select
+                                    value={addressParts.province}
+                                    onChange={async (e) => {
+                                      const code = e.target.value
+                                      setAddressParts((p) => ({ ...p, province: code, district: '', subdistrict: '', postcode: '' }))
+                                      await loadDistrictsForProvince(code)
+                                      setSubdistrictOptions([])
+                                    }}
+                                    className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                                  >
+                                    <option value="">เลือกจังหวัด</option>
+                                    {provincesList.length > 0 ? provincesList.map((p) => (
+                                      <option key={p.code} value={p.code}>{p.name}</option>
+                                    )) : TH_PROVINCES.map((pv) => (
+                                      <option key={pv} value={pv}>{pv}</option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                <div>
+                                  <label className="sr-only">อำเภอ/เขต</label>
+                                  <select
+                                    value={addressParts.district}
+                                    onChange={async (e) => {
+                                      const code = e.target.value
+                                      setAddressParts((p) => ({ ...p, district: code, subdistrict: '', postcode: '' }))
+                                      await loadSubdistrictsForDistrict(code)
+                                    }}
+                                    className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                                  >
+                                    <option value="" disabled>{districtOptions.length ? 'เลือกอำเภอ/เขต' : 'เลือกอำเภอ/เขต'}</option>
+                                    {districtOptions.map((d) => (
+                                      <option key={d.code} value={d.code}>{d.name}</option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                <div>
+                                  <label className="sr-only">ตำบล/แขวง</label>
+                                  <select
+                                    value={addressParts.subdistrict}
+                                    onChange={(e) => {
+                                      const code = e.target.value
+                                      const found = subdistrictOptions.find((s) => String(s.code) === String(code))
+                                      setAddressParts((p) => ({ ...p, subdistrict: code, postcode: found?.zipcode || '' }))
+                                    }}
+                                    className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                                  >
+                                    <option value="" disabled>{subdistrictOptions.length ? 'เลือกตำบล/แขวง' : 'เลือกตำบล/แขวง'}</option>
+                                    {subdistrictOptions.map((s) => (
+                                      <option key={s.code} value={s.code}>{s.name}</option>
+                                    ))}
+                                  </select>
+                                </div>
                               </div>
+
                               <div className="grid gap-2 sm:grid-cols-2">
-                                <select
-                                  value={addressParts.province}
-                                  onChange={(e) => setAddressParts((p) => ({ ...p, province: e.target.value }))}
-                                  className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
-                                >
-                                  <option value="">เลือกจังหวัด</option>
-                                  {TH_PROVINCES.map((pv) => (
-                                    <option key={pv} value={pv}>{pv}</option>
-                                  ))}
-                                </select>
                                 <input
                                   placeholder="รหัสไปรษณีย์"
                                   value={addressParts.postcode}
@@ -1609,6 +1637,7 @@ export default function WarrantyDashboard() {
                                   className="mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none bg-sky-50/60"
                                   type="text"
                                 />
+                                <div className="text-xs text-gray-400 flex items-center">ตัวอย่าง: เลขที่/ซอย/ถนน, ตำบล, อำเภอ, จังหวัด</div>
                               </div>
                             </div>
                           ) : key !== 'businessHours' ? (
@@ -1632,29 +1661,33 @@ export default function WarrantyDashboard() {
                                   ['sat', 'ส.'],
                                   ['sun', 'อา.'],
                                 ].map(([d, lbl]) => (
-                                  <div key={d} className="flex items-center gap-2 text-xs md:text-sm">
-                                    <input
-                                      type="checkbox"
-                                      checked={!!businessSchedule[d]?.on}
-                                      onChange={() => setBusinessSchedule((s) => ({ ...s, [d]: { ...s[d], on: !s[d].on } }))}
-                                      className="h-4 w-4 rounded border-gray-300 text-blue-600"
-                                    />
-                                    <div className="w-8 text-xs text-gray-700">{lbl}</div>
-                                    <input
-                                      type="time"
-                                      value={businessSchedule[d]?.start || '09:00'}
-                                      onChange={(e) => setBusinessSchedule((s) => ({ ...s, [d]: { ...s[d], start: e.target.value } }))}
-                                      className="h-8 w-20 rounded border border-gray-200 px-2 text-xs"
-                                      disabled={!businessSchedule[d]?.on}
-                                    />
-                                    <span className="text-xs text-gray-400">—</span>
-                                    <input
-                                      type="time"
-                                      value={businessSchedule[d]?.end || '18:00'}
-                                      onChange={(e) => setBusinessSchedule((s) => ({ ...s, [d]: { ...s[d], end: e.target.value } }))}
-                                      className="h-8 w-20 rounded border border-gray-200 px-2 text-xs"
-                                      disabled={!businessSchedule[d]?.on}
-                                    />
+                                  <div key={d} className="flex flex-col sm:flex-row items-start sm:items-center gap-2 text-xs md:text-sm">
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        type="checkbox"
+                                        checked={!!businessSchedule[d]?.on}
+                                        onChange={() => setBusinessSchedule((s) => ({ ...s, [d]: { ...s[d], on: !s[d].on } }))}
+                                        className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                                      />
+                                      <div className="w-8 text-xs text-gray-700">{lbl}</div>
+                                    </div>
+                                    <div className="flex items-center gap-2 ml-0 sm:ml-2 flex-wrap min-w-0">
+                                      <input
+                                        type="time"
+                                        value={businessSchedule[d]?.start || '09:00'}
+                                        onChange={(e) => setBusinessSchedule((s) => ({ ...s, [d]: { ...s[d], start: e.target.value } }))}
+                                        className="h-8 w-16 sm:w-20 rounded border border-gray-200 px-2 text-xs min-w-0"
+                                        disabled={!businessSchedule[d]?.on}
+                                      />
+                                      <span className="text-xs text-gray-400">—</span>
+                                      <input
+                                        type="time"
+                                        value={businessSchedule[d]?.end || '18:00'}
+                                        onChange={(e) => setBusinessSchedule((s) => ({ ...s, [d]: { ...s[d], end: e.target.value } }))}
+                                        className="h-8 w-16 sm:w-20 rounded border border-gray-200 px-2 text-xs min-w-0"
+                                        disabled={!businessSchedule[d]?.on}
+                                      />
+                                    </div>
                                   </div>
                                 ))}
                               </div>
@@ -1692,6 +1725,8 @@ export default function WarrantyDashboard() {
                   {/* button moved to sticky footer */}
                 </form>
               )}
+              </div>
+
               {/* Sticky footer always visible with submit button for the active tab */}
               <div className="border-t border-slate-100 px-6 py-3 bg-white sticky bottom-0 z-40">
                 <div className="flex justify-end gap-3">

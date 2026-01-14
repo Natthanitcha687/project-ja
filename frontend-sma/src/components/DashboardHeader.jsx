@@ -5,7 +5,7 @@ import { useAuth } from '../store/auth'
 import AppLogo from './AppLogo'
 import { api } from '../lib/api'
 
-export default function DashboardHeader({ title, subtitle, notifications = [], onFetchNotifications }) {
+export default function DashboardHeader({ title, subtitle, notifications = [], onFetchNotifications, onEditProfile, notificationsLoading, onMarkAllRead }) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -13,6 +13,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
   const [notifOpen, setNotifOpen] = useState(false)
   const [isProfileMenuOpen, setProfileMenuOpen] = useState(false)
   const [notifLoading, setNotifLoading] = useState(false)
+  const [suppressEmptyOnOpen, setSuppressEmptyOnOpen] = useState(false)
 
   const notifRef = useRef(null)
   const profileMenuRef = useRef(null)
@@ -43,7 +44,24 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
     return () => document.removeEventListener('mousedown', onDoc)
   }, [isProfileMenuOpen])
 
+  // suppress showing "no notifications" immediately when dropdown opens
+  useEffect(() => {
+    if (!notifOpen) return
+    setSuppressEmptyOnOpen(true)
+    const t = setTimeout(() => setSuppressEmptyOnOpen(false), 300)
+    return () => clearTimeout(t)
+  }, [notifOpen])
+
   // notification helpers
+  // allow parent to control loading state to avoid dropdown flicker
+  const effectiveNotifLoading = typeof notificationsLoading === 'undefined' ? notifLoading : notificationsLoading
+  // debounce displayed notifications to avoid rapid loading/content flicker
+  const [displayedNotifications, setDisplayedNotifications] = useState(notifications || [])
+  useEffect(() => {
+    if (effectiveNotifLoading) return
+    const t = setTimeout(() => setDisplayedNotifications(notifications || []), 200)
+    return () => clearTimeout(t)
+  }, [notifications, effectiveNotifLoading])
   const isNewAccount = useMemo(() => {
     if (!user) return false
     if (user.isNew) return true
@@ -78,20 +96,23 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
           <div className="relative" ref={notifRef}>
             <button
               type="button"
-              onClick={async () => {
+              onClick={() => {
                 const next = !notifOpen
                 setNotifOpen(next)
-                if (next) {
-                  try {
-                    await api.post('/notifications/mark-all-read')
-                  } catch (e) {}
-                  if (onFetchNotifications) {
-                    setNotifLoading(true)
-                    try {
-                      await onFetchNotifications()
-                    } catch {}
-                    setNotifLoading(false)
+                if (!next) return
+                // when opening, trigger mark-all-read in background (parent may control loading)
+                try {
+                  if (onMarkAllRead) {
+                    // fire-and-forget to avoid blocking UI updates
+                    void onMarkAllRead()
+                  } else {
+                    void (async () => {
+                      try { await api.post('/notifications/mark-all-read') } catch (e) {}
+                      // don't force a fetch here; parent will sync via SSE or periodic fetch
+                    })()
                   }
+                } catch (e) {
+                  // ignore
                 }
               }}
               className="relative grid h-10 w-10 place-items-center rounded-full bg-white shadow ring-1 ring-black/5 hover:bg-gray-50 transition"
@@ -106,7 +127,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
             </button>
 
             {notifOpen && (
-              <div className="absolute right-0 top-12 w-80 rounded-2xl bg-white p-3 text-sm shadow-xl ring-1 ring-black/5">
+              <div className="absolute top-12 w-64 sm:w-80 max-w-[calc(100vw-1rem)] rounded-2xl bg-white p-3 text-sm shadow-xl ring-1 ring-black/5 notif-dropdown sm:right-4 sm:left-auto sm:translate-x-0">
                 <div className="mb-2 flex items-center justify-between">
                   <div className="text-sm font-medium text-slate-900">การแจ้งเตือน</div>
                   <button
@@ -117,30 +138,28 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
                     ปิด
                   </button>
                 </div>
-                {notifLoading ? (
+                {(effectiveNotifLoading || suppressEmptyOnOpen) ? (
                   <div className="py-6 text-center text-slate-500">กำลังโหลด...</div>
-                ) : notifications.length === 0 ? (
+                ) : (displayedNotifications || []).length === 0 ? (
                   <div className="py-4 text-slate-600">
                     <div className="text-center">ไม่มีการแจ้งเตือน</div>
                   </div>
                 ) : (
                   <ul className="space-y-2 max-h-64 overflow-y-auto">
-                    {notifications.map((n, i) => (
+                    {(displayedNotifications || []).map((n, i) => (
                       <li
                         key={n.id || i}
                         className="rounded-lg p-3 hover:bg-sky-50"
                         onClick={async () => {
                           const id = n.id
-                          if (id != null && !n.read) {
-                            try {
-                              await api.patch(`/notifications/${id}/read`)
-                            } catch (e) {}
-                            if (onFetchNotifications) {
-                              try {
-                                await onFetchNotifications()
-                              } catch {}
-                            }
-                          }
+                              if (id != null && !n.read) {
+                                // optimistic update: mark locally and send request in background
+                                setDisplayedNotifications((prev) => (prev || []).map((m) => (String(m.id) === String(id) ? { ...m, read: true } : m)))
+                                void (async () => {
+                                  try { await api.patch(`/notifications/${id}/read`) } catch (e) {}
+                                  // do not call onFetchNotifications here to avoid toggling loading state
+                                })()
+                              }
                           if (n?.data?.warrantyId) {
                             try {
                               navigate(`/warranty/${n.data.warrantyId}`)
@@ -212,7 +231,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
             </button>
 
             {isProfileMenuOpen && (
-              <div className="absolute right-4 top-14 w-64 rounded-2xl bg-white p-4 text-sm shadow-xl ring-1 ring-black/5">
+              <div className="absolute right-3 sm:right-4 top-14 w-56 sm:w-64 rounded-2xl bg-white p-4 text-sm shadow-xl ring-1 ring-black/5">
                 <div className="mb-4 flex items-center gap-3">
                   <div className="grid h-12 w-12 place-items-center rounded-full bg-sky-200 text-2xl">
                     🏪
@@ -226,7 +245,14 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
                 </div>
                 <button
                   type="button"
-                  onClick={() => navigate('/dashboard/warranty')}
+                  onClick={() => {
+                    if (onEditProfile) {
+                      try { onEditProfile() } catch (e) {}
+                      setProfileMenuOpen(false)
+                    } else {
+                      navigate('/dashboard/warranty?openProfile=1')
+                    }
+                  }}
                   className="flex w-full items-center justify-between rounded-xl bg-sky-50 px-3 py-2 text-slate-700 hover:bg-sky-100"
                 >
                   <span>แก้ไขโปรไฟล์</span>

@@ -218,6 +218,10 @@ export default function CustomerNavbar() {
     return (email?.[0] || "U").toUpperCase();
   }
 
+  function initialFromString(s) {
+    return (s?.trim()?.[0] || "U").toUpperCase();
+  }
+
   async function onSaveProfile() {
     setSaving(true);
     setMsg("");
@@ -274,6 +278,10 @@ export default function CustomerNavbar() {
   }
 
   const displayEmail = user?.email || profile.email;
+  const displayName =
+    user?.storeProfile?.storeName || user?.store?.name || user?.storeName ||
+    (user?.firstName ? `${user.firstName} ${user.lastName || ""}` : "บัญชีของฉัน");
+  const displaySub = user?.storeProfile?.email || displayEmail;
   const isAuthenticated = !!user;
 
   return (
@@ -416,15 +424,11 @@ export default function CustomerNavbar() {
                 className="flex cursor-pointer items-center gap-3 rounded-full bg-sky-100 px-3 py-1.5 shadow ring-1 ring-slate-100 hover:bg-sky-200 transition"
               >
                 <div className="grid h-10 w-10 place-items-center rounded-full bg-sky-500 text-white text-lg font-semibold shadow">
-                  {initialFromEmail(displayEmail)}
+                  {initialFromString(displayName || displayEmail)}
                 </div>
                 <div className="hidden sm:block text-left">
-                  <div className="text-sm font-semibold text-slate-800">
-                    {user?.firstName
-                      ? `${user.firstName} ${user.lastName || ""}`
-                      : "บัญชีของฉัน"}
-                  </div>
-                  <div className="text-xs text-slate-500">{displayEmail}</div>
+                  <div className="text-sm font-semibold text-slate-800">{displayName}</div>
+                  <div className="text-xs text-slate-500">{displaySub}</div>
                 </div>
                 <svg
                   className="h-4 w-4 text-slate-500"

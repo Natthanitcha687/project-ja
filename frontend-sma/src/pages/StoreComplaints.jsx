@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, API_URL, getToken } from "../lib/api";
 import { useAuth } from "../store/auth";
-import DashboardHeader from "../components/DashboardHeader";
+// Header is provided by the shared DashboardLayout for /dashboard routes
 import StoreTabs from "../components/StoreTabs";
 
 const CATEGORY_OPTIONS = [
@@ -56,6 +56,7 @@ export default function StoreComplaints() {
 
   // ===== notifications (ให้ DashboardHeader ใช้งานได้เหมือนหน้า StoreDashboard) =====
   const [notifications, setNotifications] = useState([]);
+  const [notifLoading, setNotifLoading] = useState(false);
 
   const fetchNotifications = useCallback(async () => {
     if (!storeIdResolved) return [];
@@ -101,6 +102,19 @@ export default function StoreComplaints() {
   useEffect(() => {
     fetchNotifications().catch(() => {});
   }, [fetchNotifications]);
+
+  async function markAllAsRead() {
+    setNotifications((prev) => (prev || []).map((n) => ({ ...n, read: true })));
+    try {
+      setNotifLoading(true);
+      await api.post('/notifications/mark-all-read');
+      // do not re-fetch here; rely on optimistic update and SSE
+    } catch (e) {
+      // ignore
+    } finally {
+      setNotifLoading(false);
+    }
+  }
 
   // ===== form =====
   const [category, setCategory] = useState(CATEGORY_OPTIONS[0]);
@@ -240,6 +254,8 @@ export default function StoreComplaints() {
         subtitle="ติดต่อแอดมิน/ผู้ดูแลระบบ"
         notifications={notifications}
         onFetchNotifications={fetchNotifications}
+        notificationsLoading={notifLoading}
+        onMarkAllRead={markAllAsRead}
       />
 
       <main className="mx-auto max-w-6xl px-4 pt-6">
