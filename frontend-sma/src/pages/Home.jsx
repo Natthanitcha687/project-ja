@@ -15,18 +15,29 @@ export default function Home() {
       <section className="relative bg-gradient-to-b from-[#e7f2ff] to-[#f5faff] pb-16 overflow-hidden">
         {/* ==== Floating Bubbles ==== */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {[...Array(12)].map((_, i) => (
-            <div
-              key={i}
-              className={`bubble`}
-              style={{
-                left: `${Math.random() * 100}%`,
-                animationDelay: `${i * 1.5}s`,
-                width: `${20 + Math.random() * 40}px`,
-                height: `${20 + Math.random() * 40}px`,
-              }}
-            ></div>
-          ))}
+          {[...Array(12)].map((_, i) => {
+            const size = 20 + Math.random() * 40;
+            const dur = 6 + Math.random() * 6; // 6s - 12s (faster)
+            const delay = Math.random() * 6; // random start delay
+            const drift = (Math.random() - 0.5) * 40; // horizontal drift px
+            const bottomOffset = 80 + Math.random() * 120; // place bubble start above bottom (align with wave)
+            return (
+              <div
+                key={i}
+                className={`bubble`}
+                style={{
+                  left: `${Math.random() * 100}%`,
+                  animationDelay: `${delay}s`,
+                  width: `${size}px`,
+                  height: `${size}px`,
+                  // css vars for per-bubble control
+                  ['--dur']: `${dur}s`,
+                  ['--drift']: `${drift}px`,
+                  ['--bubble-bottom']: `${bottomOffset}px`,
+                }}
+              ></div>
+            );
+          })}
         </div>
 
         {/* ==== HERO CONTENT ==== */}

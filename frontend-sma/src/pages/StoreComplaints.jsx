@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, API_URL, getToken } from "../lib/api";
 import { useAuth } from "../store/auth";
-import DashboardHeader from "../components/DashboardHeader";
+// Header is provided by the shared DashboardLayout for /dashboard routes
 import StoreTabs from "../components/StoreTabs";
 
 const CATEGORY_OPTIONS = [
@@ -55,52 +55,7 @@ export default function StoreComplaints() {
   }, [user]);
 
   // ===== notifications (ให้ DashboardHeader ใช้งานได้เหมือนหน้า StoreDashboard) =====
-  const [notifications, setNotifications] = useState([]);
-
-  const fetchNotifications = useCallback(async () => {
-    if (!storeIdResolved) return [];
-    try {
-      let res;
-      try {
-        res = await api.get(`/store/${storeIdResolved}/notifications`);
-      } catch {
-        res = await api.get("/notifications");
-      }
-
-      const data = res?.data?.data || res?.data || [];
-      const arr = Array.isArray(data) ? data : [];
-      arr.sort(
-        (a, b) =>
-          new Date(b.createdAt || b.time || b.created_at || 0) -
-          new Date(a.createdAt || a.time || a.created_at || 0)
-      );
-      setNotifications(arr);
-      return arr;
-    } catch {
-      setNotifications([]);
-      return [];
-    }
-  }, [storeIdResolved]);
-
-  // SSE realtime notifications
-  useEffect(() => {
-    const token = getToken();
-    if (!token) return;
-    const base = String(API_URL || "").replace(/\/+$/, "");
-    const es = new EventSource(`${base}/notifications/stream?token=${token}`);
-    es.addEventListener("notification", (ev) => {
-      try {
-        const payload = JSON.parse(ev.data);
-        setNotifications((p) => [payload, ...(p || [])]);
-      } catch {}
-    });
-    es.onerror = () => {};
-    return () => es.close();
-  }, []);
-
-  useEffect(() => {
-    fetchNotifications().catch(() => {});
-  }, [fetchNotifications]);
+  // Notifications are handled by DashboardLayout; no local header needed here.
 
   // ===== form =====
   const [category, setCategory] = useState(CATEGORY_OPTIONS[0]);
@@ -235,12 +190,7 @@ export default function StoreComplaints() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-sky-50 to-sky-100/60 pb-12">
-      <DashboardHeader
-        title="แจ้งปัญหา"
-        subtitle="ติดต่อแอดมิน/ผู้ดูแลระบบ"
-        notifications={notifications}
-        onFetchNotifications={fetchNotifications}
-      />
+
 
       <main className="mx-auto max-w-6xl px-4 pt-6">
         <div className="mb-6">

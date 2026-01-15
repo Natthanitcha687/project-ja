@@ -615,12 +615,21 @@ export async function listAuditLogs(_req, res) {
 
   let complaintUserMap = new Map(); // key = complaintId, value = {id,email,role} | null
   if (complaintIds.length) {
+    // Explicitly select fields (exclude `images`) and include user info
     const complaints = await prisma.complaint.findMany({
       where: { id: { in: complaintIds } },
-      include: {
+      take: 200,
+      select: {
+        id: true,
+        userId: true,
+        category: true,
+        subject: true,
+        message: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
         user: { select: { id: true, email: true, role: true } },
       },
-      take: 200,
     });
     complaintUserMap = new Map(
       (complaints || []).map((c) => [String(c.id), c.user || null])
@@ -652,11 +661,20 @@ export async function listAuditLogs(_req, res) {
 export async function listComplaints(req, res) {
   const status = (req.query.status || "").toString().trim();
 
+  // Select complaint scalar fields explicitly (exclude `images`) and include user/profile info
   const complaints = await prisma.complaint.findMany({
     where: status ? { status } : {},
     orderBy: { createdAt: "desc" },
     take: 200,
-    include: {
+    select: {
+      id: true,
+      userId: true,
+      category: true,
+      subject: true,
+      message: true,
+      status: true,
+      createdAt: true,
+      updatedAt: true,
       user: {
         select: {
           id: true,
@@ -682,16 +700,26 @@ export async function setComplaintStatus(req, res) {
   if (!["OPEN", "IN_PROGRESS", "RESOLVED", "REJECTED"].includes(status))
     return res.status(400).json({ message: "สถานะไม่ถูกต้อง" });
 
-  const beforeRow = await prisma.complaint.findUnique({ where: { id } });
+  // Only fetch minimal fields to avoid selecting `images` column when missing
+  const beforeRow = await prisma.complaint.findUnique({ where: { id }, select: { id: true, status: true } });
   if (!beforeRow) return res.status(404).json({ message: "ไม่พบข้อมูลการแจ้งปัญหา" });
 
   const before = { status: beforeRow.status };
 
   try {
+    // Explicit select to avoid returning `images` column if DB not migrated
     const updated = await prisma.complaint.update({
       where: { id },
       data: { status },
-      include: {
+      select: {
+        id: true,
+        userId: true,
+        category: true,
+        subject: true,
+        message: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
         user: {
           select: {
             id: true,

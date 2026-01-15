@@ -23,33 +23,43 @@
 /* ===== Bubble Motion (ฟองอากาศกลมแน่นอน) ===== */
 .bubble {
   position: absolute;
-  bottom: -80px;
+  /* start position above bottom; can be overridden per-bubble via --bubble-bottom */
+  bottom: var(--bubble-bottom, 140px);
 
-  /* ✅ ฟองอากาศกลมแน่นอน */
+  /* รอบและขนาดถูกกำหนดจาก inline style */
   aspect-ratio: 1 / 1;
-  width: 40px;
-  height: auto;
-  border-radius: 50%;
+  border-radius: 9999px;
+  will-change: transform, opacity;
 
   /* ✅ สีและแสงนุ่ม */
   background: radial-gradient(circle at 30% 30%, #e3f4ff, #9ed0ff 70%);
   box-shadow: 0 0 10px rgba(150, 200, 255, 0.3);
-  opacity: 0.7;
+  opacity: 0.8;
 
-  animation: bubbleFloat 12s linear infinite;
+  /* ให้ความเร็วและพฤติกรรมต่างกันต่อฟองโดยใช้ CSS variable */
+  animation: bubbleFloat var(--dur, 8s) ease-in-out infinite;
 }
 
 /* ✅ ไม่มี rotate — จะไม่รีอีกเลย */
 @keyframes bubbleFloat {
   0% {
-    transform: translateY(0) scale(1);
-    opacity: 0.4;
+    transform: translate3d(0,0,0) scale(0.95);
+    opacity: 0.35;
   }
-  40% {
+  25% {
+    transform: translate3d(calc(var(--drift, 0px) * 0.2), -10vh, 0) scale(0.98);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translate3d(calc(var(--drift, 0px) * -0.2), -45vh, 0) scale(1.05);
     opacity: 0.9;
   }
+  75% {
+    transform: translate3d(calc(var(--drift, 0px) * 0.5), -80vh, 0) scale(1.1);
+    opacity: 0.6;
+  }
   100% {
-    transform: translateY(-900px) scale(1.2);
+    transform: translate3d(calc(var(--drift, 0px) * 1.0), -120vh, 0) scale(1.2);
     opacity: 0;
   }
 }

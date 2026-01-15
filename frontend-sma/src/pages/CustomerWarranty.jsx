@@ -265,7 +265,7 @@ export default function CustomerWarranty() {
         </div>
 
         {/* Search + Filters */}
-        <div className="mt-6 flex flex-col items-stretch gap-3 md:flex-row md:items-center">
+          <div className="mt-6 flex flex-col items-stretch gap-3 md:flex-row md:items-center">
           <div className="flex-1">
             <div className="flex items-center rounded-2xl bg-white px-4 py-2 shadow ring-1 ring-black/5">
               <span className="text-slate-400">🔍</span>
@@ -300,7 +300,7 @@ export default function CustomerWarranty() {
                 <button
                   key={f.value}
                   onClick={() => setFilter(f.value)}
-                  className={`px-4 h-10 rounded-full text-sm border font-medium shadow-sm hover:-translate-y-0.5 transition ${colors}`}
+                  className={`px-2 sm:px-4 h-8 sm:h-10 rounded-full text-xs sm:text-sm border font-medium shadow-sm hover:-translate-y-0.5 transition ${colors}`}
                 >
                   {f.label}
                 </button>

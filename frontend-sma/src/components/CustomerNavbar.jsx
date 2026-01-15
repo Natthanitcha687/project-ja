@@ -218,6 +218,10 @@ export default function CustomerNavbar() {
     return (email?.[0] || "U").toUpperCase();
   }
 
+  function initialFromString(s) {
+    return (s?.trim()?.[0] || "U").toUpperCase();
+  }
+
   async function onSaveProfile() {
     setSaving(true);
     setMsg("");
@@ -274,6 +278,10 @@ export default function CustomerNavbar() {
   }
 
   const displayEmail = user?.email || profile.email;
+  const displayName =
+    user?.storeProfile?.storeName || user?.store?.name || user?.storeName ||
+    (user?.firstName ? `${user.firstName} ${user.lastName || ""}` : "บัญชีของฉัน");
+  const displaySub = user?.storeProfile?.email || displayEmail;
   const isAuthenticated = !!user;
 
   return (
@@ -322,7 +330,7 @@ export default function CustomerNavbar() {
 
               {/* Dropdown แจ้งเตือน */}
               {openNotif && (
-                <div className="absolute right-0 top-12 w-72 rounded-2xl border border-sky-100 bg-white shadow-xl overflow-hidden z-[1200]">
+                <div className="absolute top-12 left-1/2 -translate-x-1/2 sm:left-auto sm:translate-x-0 sm:right-4 w-72 max-w-[calc(100vw-1rem)] rounded-2xl border border-sky-100 bg-white shadow-xl overflow-hidden z-[1200]">
                   <div className="flex items-center justify-between border-b border-sky-50 bg-sky-50/60 px-4 py-2 text-sm font-semibold text-sky-800">
                     <span>การแจ้งเตือน</span>
                     <button
@@ -416,15 +424,11 @@ export default function CustomerNavbar() {
                 className="flex cursor-pointer items-center gap-3 rounded-full bg-sky-100 px-3 py-1.5 shadow ring-1 ring-slate-100 hover:bg-sky-200 transition"
               >
                 <div className="grid h-10 w-10 place-items-center rounded-full bg-sky-500 text-white text-lg font-semibold shadow">
-                  {initialFromEmail(displayEmail)}
+                  {initialFromString(displayName || displayEmail)}
                 </div>
                 <div className="hidden sm:block text-left">
-                  <div className="text-sm font-semibold text-slate-800">
-                    {user?.firstName
-                      ? `${user.firstName} ${user.lastName || ""}`
-                      : "บัญชีของฉัน"}
-                  </div>
-                  <div className="text-xs text-slate-500">{displayEmail}</div>
+                  <div className="text-sm font-semibold text-slate-800">{displayName}</div>
+                  <div className="text-xs text-slate-500">{displaySub}</div>
                 </div>
                 <svg
                   className="h-4 w-4 text-slate-500"

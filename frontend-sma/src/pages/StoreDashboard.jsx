@@ -8,7 +8,6 @@ import StoreTabs from '../components/StoreTabs'
 import SimpleDonut from '../components/SimpleDonut'
 import LineChart from '../components/LineChart'
 import AppLogo from '../components/AppLogo' // ✅ ใช้หัวเดียวกับหน้า Warranty
-import DashboardHeader from '../components/DashboardHeader'
 import * as XLSX from 'xlsx'
 
 export default function StoreDashboard() {
@@ -24,6 +23,193 @@ export default function StoreDashboard() {
   const [error, setError] = useState('')
   const [profile, setProfile] = useState(null)
   const [warranties, setWarranties] = useState([])
+  // Profile modal states (copied from WarrantyDashboard to allow inline editing)
+  const [isProfileModalOpen, setProfileModalOpen] = useState(false)
+  const [profileTab, setProfileTab] = useState('info')
+  const profileMenuRef = useRef(null)
+  const profileImageInputRef = useRef(null)
+  const [profileImage, setProfileImage] = useState({ file: null, preview: '' })
+  const [addressParts, setAddressParts] = useState({ street: '', subdistrict: '', district: '', province: '', postcode: '' })
+  const [businessSchedule, setBusinessSchedule] = useState({
+    mon: { on: true, start: '09:00', end: '18:00' },
+    tue: { on: true, start: '09:00', end: '18:00' },
+    wed: { on: true, start: '09:00', end: '18:00' },
+    thu: { on: true, start: '09:00', end: '18:00' },
+    fri: { on: true, start: '09:00', end: '18:00' },
+    sat: { on: false, start: '09:00', end: '12:00' },
+    sun: { on: false, start: '09:00', end: '12:00' },
+  })
+  const [profilePasswords, setProfilePasswords] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
+  const [modalError, setModalError] = useState('')
+  const [profileSubmitting, setProfileSubmitting] = useState(false)
+  const [passwordSubmitting, setPasswordSubmitting] = useState(false)
+
+  // Dynamic province/district/subdistrict lists
+  const PROVINCES_JSON_LOCAL = '/data/api_province.json'
+  const DISTRICTS_JSON_LOCAL = '/data/api_district.json'
+  const SUBDISTRICTS_JSON_LOCAL = '/data/api_subdistrict.json'
+  const PROVINCES_JSON_FALLBACK = 'https://raw.githubusercontent.com/kongvut/thai-province-data/refs/heads/master/api/latest/province.json'
+  const DISTRICTS_JSON_FALLBACK = 'https://raw.githubusercontent.com/kongvut/thai-province-data/refs/heads/master/api/latest/district.json'
+  const SUBDISTRICTS_JSON_FALLBACK = 'https://raw.githubusercontent.com/kongvut/thai-province-data/refs/heads/master/api/latest/sub_district.json'
+  const [provincesList, setProvincesList] = useState([])
+  const [districtOptions, setDistrictOptions] = useState([])
+  const [subdistrictOptions, setSubdistrictOptions] = useState([])
+  const [districtsCache, setDistrictsCache] = useState(null)
+  const [subdistrictsCache, setSubdistrictsCache] = useState(null)
+  const [districtsMap, setDistrictsMap] = useState(null)
+  const [subdistrictsMap, setSubdistrictsMap] = useState(null)
+
+  useEffect(() => {
+    let mounted = true
+    async function loadAll() {
+      try {
+        const fetchOrFallback = async (localUrl, fallbackUrl) => {
+          let r = await fetch(localUrl)
+          if (!r.ok) r = await fetch(fallbackUrl)
+          return await r.json()
+        }
+        const [provData, districtData, subData] = await Promise.all([
+          fetchOrFallback(PROVINCES_JSON_LOCAL, PROVINCES_JSON_FALLBACK),
+          fetchOrFallback(DISTRICTS_JSON_LOCAL, DISTRICTS_JSON_FALLBACK),
+          fetchOrFallback(SUBDISTRICTS_JSON_LOCAL, SUBDISTRICTS_JSON_FALLBACK),
+        ])
+        if (!mounted) return
+        setProvincesList(provData.map((p) => ({ name: p.name_th || p.name, code: p.id ?? p.code })))
+        setDistrictsCache(districtData)
+        setSubdistrictsCache(subData)
+        const dmap = {}
+        for (const d of districtData || []) {
+          const pid = String(d.province_id ?? d.province_code ?? d.provinceId ?? d.province)
+          if (!dmap[pid]) dmap[pid] = []
+          dmap[pid].push(d)
+        }
+        setDistrictsMap(dmap)
+        const smap = {}
+        for (const s of subData || []) {
+          const did = String(s.district_id ?? s.district_code ?? s.amphure_id ?? s.district)
+          if (!smap[did]) smap[did] = []
+          smap[did].push(s)
+        }
+        setSubdistrictsMap(smap)
+      } catch (err) {
+        console.error('loadAll location data failed', err)
+        setProvincesList([])
+        setDistrictsCache(null)
+        setSubdistrictsCache(null)
+        setDistrictsMap(null)
+        setSubdistrictsMap(null)
+      }
+    }
+    loadAll()
+    return () => { mounted = false }
+  }, [])
+
+  async function loadDistrictsForProvince(provinceNameOrCode) {
+    try {
+      if (!provinceNameOrCode) { setDistrictOptions([]); return }
+      let provinceCode = provinceNameOrCode
+      if (isNaN(Number(provinceNameOrCode))) {
+        const p = provincesList.find((x) => x.name === provinceNameOrCode)
+        provinceCode = p?.code
+      }
+      const pid = String(provinceCode)
+      if (districtsMap) { const list = districtsMap[pid] || []; setDistrictOptions(list.map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code }))); return }
+      let districtsData = districtsCache
+      if (!districtsData) { let res = await fetch(DISTRICTS_JSON_LOCAL); if (!res.ok) res = await fetch(DISTRICTS_JSON_FALLBACK); districtsData = await res.json(); setDistrictsCache(districtsData) }
+      const filtered = districtsData.filter((d) => String(d.province_id ?? d.province_code) === pid)
+      setDistrictOptions(filtered.map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code })))
+    } catch (err) { console.error('loadDistrictsForProvince error', err); setDistrictOptions([]) }
+  }
+
+  async function loadSubdistrictsForDistrict(districtCode) {
+    try {
+      if (!districtCode) { setSubdistrictOptions([]); return }
+      const did = String(districtCode)
+      if (subdistrictsMap) { const list = subdistrictsMap[did] || []; setSubdistrictOptions(list.map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip }))); return }
+      let subs = subdistrictsCache
+      if (!subs) { let res = await fetch(SUBDISTRICTS_JSON_LOCAL); if (!res.ok) res = await fetch(SUBDISTRICTS_JSON_FALLBACK); subs = await res.json(); setSubdistrictsCache(subs) }
+      const filtered = subs.filter((s) => String(s.district_id ?? s.district_code) === did)
+      setSubdistrictOptions(filtered.map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip })))
+    } catch (err) { console.error('loadSubdistrictsForDistrict error', err); setSubdistrictOptions([]) }
+  }
+
+  function parseBusinessSchedule(raw) {
+    if (!raw) return businessSchedule
+    try { return typeof raw === 'string' ? JSON.parse(raw) : raw } catch (e) { return businessSchedule }
+  }
+
+  const handleProfileAvatarSelect = (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onloadend = () => { if (typeof reader.result === 'string') { setProfileImage({ file, preview: reader.result }); setProfile((p) => ({ ...p, avatarUrl: reader.result })) } }
+    reader.readAsDataURL(file)
+  }
+
+  const openProfileModal = async () => {
+    // initialize from current profile
+    setBusinessSchedule(parseBusinessSchedule(profile?.businessHours))
+    try {
+      const raw = profile?.address
+      if (raw && typeof raw === 'string') {
+        const parsed = JSON.parse(raw)
+        setAddressParts({
+          street: parsed.street || '',
+          subdistrict: parsed.subdistrict?.id ?? parsed.subdistrict ?? '',
+          district: parsed.district?.id ?? parsed.district ?? '',
+          province: parsed.province?.id ?? parsed.province ?? '',
+          postcode: parsed.postcode || parsed.subdistrict?.zipcode || '',
+        })
+        try { const prov = parsed.province?.id ?? parsed.province ?? ''; if (prov) await loadDistrictsForProvince(prov); const dist = parsed.district?.id ?? parsed.district ?? ''; if (dist) await loadSubdistrictsForDistrict(dist) } catch (e) {}
+      } else if (raw && typeof raw === 'object') {
+        setAddressParts({ street: raw.street || '', subdistrict: raw.subdistrict?.id ?? raw.subdistrict ?? '', district: raw.district?.id ?? raw.district ?? '', province: raw.province?.id ?? raw.province ?? '', postcode: raw.postcode || '' })
+        try { const prov = raw.province?.id ?? raw.province ?? ''; if (prov) await loadDistrictsForProvince(prov); const dist = raw.district?.id ?? raw.district ?? ''; if (dist) await loadSubdistrictsForDistrict(dist) } catch (e) {}
+      } else {
+        setAddressParts({ street: String(profile?.address || '') || '', subdistrict: '', district: '', province: '', postcode: '' })
+      }
+    } catch (e) { setAddressParts({ street: String(profile?.address || '') || '', subdistrict: '', district: '', province: '', postcode: '' }) }
+    setProfileImage({ file: null, preview: profile?.avatarUrl || '' })
+    setProfileModalOpen(true)
+    setProfileTab('info')
+    setModalError('')
+    setProfileSubmitting(false)
+    setPasswordSubmitting(false)
+  }
+
+  const handleProfileSubmit = async (event) => {
+    event.preventDefault()
+    if (!storeIdResolved) return
+    setProfileSubmitting(true)
+    setModalError('')
+    try {
+      const payload = {
+        storeName: profile?.storeName,
+        contactName: profile?.contactName,
+        email: profile?.email,
+        phone: profile?.phone,
+        address: JSON.stringify({ street: addressParts.street || '', subdistrict: addressParts.subdistrict || '', district: addressParts.district || '', province: addressParts.province || '', postcode: addressParts.postcode || '' }),
+        businessHours: JSON.stringify(businessSchedule),
+        avatarUrl: profile?.avatarUrl,
+      }
+      const response = await api.patch(`/store/${storeIdResolved}/profile`, payload)
+      const updatedProfile = response.data?.data?.storeProfile ?? payload
+      setProfile((prev) => ({ ...prev, ...updatedProfile }))
+      try { const rawAddr = updatedProfile.address; if (rawAddr) { const parsedAddr = typeof rawAddr === 'string' ? JSON.parse(rawAddr) : rawAddr; setAddressParts({ street: parsedAddr.street || '', subdistrict: parsedAddr.subdistrict?.id ?? parsedAddr.subdistrict ?? '', district: parsedAddr.district?.id ?? parsedAddr.district ?? '', province: parsedAddr.province?.id ?? parsedAddr.province ?? '', postcode: parsedAddr.postcode || '' }) } } catch (e) {}
+      try { setBusinessSchedule(parseBusinessSchedule(updatedProfile.businessHours)) } catch (e) {}
+      setProfileImage({ file: null, preview: '' })
+      setModalError('')
+      setProfileModalOpen(false)
+    } catch (error) {
+      setModalError(error?.response?.data?.error?.message || 'บันทึกข้อมูลร้านไม่สำเร็จ')
+    } finally { setProfileSubmitting(false) }
+  }
+
+  const handlePasswordSubmit = async (event) => {
+    event.preventDefault(); if (!storeIdResolved) return
+    if (profilePasswords.newPassword !== profilePasswords.confirmPassword) { setModalError('รหัสผ่านใหม่และการยืนยันไม่ตรงกัน'); return }
+    setPasswordSubmitting(true); setModalError('')
+    try { await api.post(`/store/${storeIdResolved}/change-password`, { old_password: profilePasswords.currentPassword, new_password: profilePasswords.newPassword }); setModalError('เปลี่ยนรหัสผ่านสำเร็จ'); setProfileModalOpen(false) } catch (e) { setModalError(e?.response?.data?.error?.message || 'เปลี่ยนรหัสผ่านไม่สำเร็จ') } finally { setPasswordSubmitting(false) }
+  }
   // Export options
   const [exportAggregateBy, setExportAggregateBy] = useState('overview') // 'overview' | 'byCustomer' | 'byProduct'
   const [exportStatusFilter, setExportStatusFilter] = useState('all') // 'all' | 'active' | 'nearing' | 'expired'
@@ -60,28 +246,11 @@ export default function StoreDashboard() {
     return 'active'
   }
 
-  // ---------- แจ้งเตือน (ให้พฤติกรรมเหมือนหน้า Warranty) ----------
-  const [notifications, setNotifications] = useState([])
-  const [notifOpen, setNotifOpen] = useState(false)
-  const [notifLoading, setNotifLoading] = useState(false)
-  const notifRef = useRef(null)
-  const unreadCount = (notifications || []).filter((n) => !n.read).length
-
-  // open SSE for real-time notifications
-  useEffect(() => {
-    const token = getToken()
-    if (!token) return
-    const es = new EventSource(`${API_URL.replace(/\/+$/,'')}/notifications/stream?token=${token}`)
-    es.addEventListener('notification', (ev) => {
-      try { const payload = JSON.parse(ev.data); setNotifications((p)=>[payload, ...(p||[])]); } catch (e) {}
-    })
-    es.onerror = () => {}
-    return () => es.close()
-  }, [])
+// Dashboard header is provided by DashboardLayout (shared), so notification
+// state and SSE are handled there. Removed duplicate header/notification logic.
 
   // ---------- โปรไฟล์เมนูเหมือนหน้า Warranty ----------
   const [isProfileMenuOpen, setProfileMenuOpen] = useState(false)
-  const profileMenuRef = useRef(null)
 
   // ---------- ดึงสรุป ----------
   const fetchSummary = useCallback(async () => {
@@ -130,7 +299,8 @@ export default function StoreDashboard() {
     try {
       setNotifLoading(true)
       await api.post('/notifications/mark-all-read')
-      await fetchNotifications()
+      // do not re-fetch here to avoid rapid loading state toggles;
+      // rely on optimistic update and SSE / periodic fetch on mount
     } catch (e) {
       // ignore
     } finally {
@@ -156,12 +326,11 @@ export default function StoreDashboard() {
   // ---------- ปิดเมนูเมื่อคลิกนอกกรอบ (เหมือนหน้า Warranty) ----------
   useEffect(() => {
     function onDoc(e) {
-      if (notifOpen && notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false)
       if (isProfileMenuOpen && profileMenuRef.current && !profileMenuRef.current.contains(e.target)) setProfileMenuOpen(false)
     }
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
-  }, [notifOpen, isProfileMenuOpen])
+  }, [isProfileMenuOpen])
 
   // ---------- ชื่อ-อีเมล-อวตารโชว์บนหัว (เหมือนหน้า Warranty) ----------
   const profileAvatarSrc = profile?.avatarUrl || ''
@@ -185,6 +354,15 @@ export default function StoreDashboard() {
     }
   }
   const profileAddrShort = formatAddress(profile?.address)
+
+  // responsive donut size
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024)
+  useEffect(() => {
+    function onResize() { setWindowWidth(window.innerWidth) }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+  const donutSize = windowWidth < 420 ? 140 : 200
 
   // ---------- isNewAccount (ใช้ในกล่องแจ้งเตือน เหมือนอีกหน้า) ----------
   const isNewAccount = useMemo(() => {
@@ -344,16 +522,10 @@ export default function StoreDashboard() {
   const pct = (n) => (totals.totalItems ? Math.round((n / totals.totalItems) * 100) : 0)
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-sky-50 to-sky-100/60 pb-12">
-      {/* ====================== HEADER (DashboardHeader component) ====================== */}
-      <DashboardHeader
-        title="Warranty"
-        subtitle="จัดการการรับประกันของคุณได้ในที่เดียว"
-        notifications={notifications}
-        onFetchNotifications={fetchNotifications}
-      />
+    <div className="min-h-screen bg-gradient-to-b from-sky-50 to-sky-100/60 pb-12 px-2 sm:px-6 md:px-8 overflow-x-hidden">
+      {/* Header provided by shared `/dashboard` layout */}
 
-      <main className="mx-auto max-w-6xl px-4 py-8">
+      <main className="mx-auto max-w-6xl px-0 py-8">
         <div className="mb-6">
           <StoreTabs />
         </div>
@@ -361,21 +533,21 @@ export default function StoreDashboard() {
         {/* การ์ดหลักแบบหน้าการจัดการ */}
         <section className="rounded-3xl bg-white/90 backdrop-blur-sm border border-slate-200 shadow-sm">
           {/* หัวการ์ด */}
-          <div className="flex items-center justify-between px-6 py-5">
+          <div className="flex items-center justify-between px-3 sm:px-6 py-4">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">ภาพรวม & การรับประกัน</h2>
               <p className="text-sm text-slate-500">สรุปภาพรวมการรับประกันและสินค้าของร้าน</p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
               <label className="text-xs text-slate-500">สรุปตาม</label>
-              <select value={exportAggregateBy} onChange={(e) => setExportAggregateBy(e.target.value)} className="rounded-md border px-2 py-1 text-sm">
+              <select value={exportAggregateBy} onChange={(e) => setExportAggregateBy(e.target.value)} className="rounded-md border px-2 py-1 text-sm max-w-[140px] sm:max-w-[190px]">
                 <option value="overview">ภาพรวม</option>
                 <option value="byCustomer">สรุปตามลูกค้า</option>
                 <option value="byProduct">สรุปตามสินค้า</option>
               </select>
 
               <label className="text-xs text-slate-500">สถานะ</label>
-              <select value={exportStatusFilter} onChange={(e) => setExportStatusFilter(e.target.value)} className="rounded-md border px-2 py-1 text-sm">
+              <select value={exportStatusFilter} onChange={(e) => setExportStatusFilter(e.target.value)} className="rounded-md border px-2 py-1 text-sm max-w-[120px] sm:max-w-[160px]">
                 <option value="all">ทั้งหมด</option>
                 <option value="active">กำลังใช้งาน</option>
                 <option value="nearing">ใกล้หมดอายุ</option>
@@ -390,7 +562,7 @@ export default function StoreDashboard() {
               <button
                 type="button"
                 onClick={exportOverviewToExcel}
-                className={`h-10 min-w-[120px] rounded-full border border-sky-300 px-4 py-2 text-sm font-semibold text-sky-700 bg-white hover:-translate-y-0.5 hover:bg-sky-50 transition`}
+                className={`h-10 min-w-0 sm:min-w-[96px] rounded-full border border-sky-300 px-4 py-2 text-sm font-semibold text-sky-700 bg-white hover:-translate-y-0.5 hover:bg-sky-50 transition self-center`}
                 aria-label="ส่งออกเป็น Excel"
               >
                 ส่งออก Excel
@@ -401,9 +573,9 @@ export default function StoreDashboard() {
           <div className="border-t border-slate-100" />
 
           {/* KPI Overview */}
-          <div className="px-6 py-6">
+          <div className="px-3 sm:px-6 py-6">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="flex items-center gap-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/3">
+              <div className="flex items-center gap-4 rounded-2xl bg-white p-3 sm:p-4 shadow-sm ring-1 ring-black/3 min-w-0">
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-sky-50 text-sky-600 text-lg font-semibold">📄</div>
                 <div>
                   <div className="text-xs text-slate-500">ใบรับประกัน</div>
@@ -411,7 +583,7 @@ export default function StoreDashboard() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/3">
+              <div className="flex items-center gap-4 rounded-2xl bg-white p-3 sm:p-4 shadow-sm ring-1 ring-black/3 min-w-0">
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 text-lg font-semibold">✅</div>
                 <div>
                   <div className="text-xs text-slate-500">กำลังใช้งาน</div>
@@ -419,7 +591,7 @@ export default function StoreDashboard() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/3">
+              <div className="flex items-center gap-4 rounded-2xl bg-white p-3 sm:p-4 shadow-sm ring-1 ring-black/3 min-w-0">
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-50 text-amber-600 text-lg font-semibold">⚠️</div>
                 <div>
                   <div className="text-xs text-slate-500">ใกล้หมดอายุ</div>
@@ -427,7 +599,7 @@ export default function StoreDashboard() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/3">
+              <div className="flex items-center gap-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/3 min-w-0">
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-50 text-rose-600 text-lg font-semibold">⛔️</div>
                 <div>
                   <div className="text-xs text-slate-500">หมดอายุ</div>
@@ -440,7 +612,7 @@ export default function StoreDashboard() {
           <div className="border-t border-slate-100" />
 
           {/* Status + Donut */}
-          <div className="px-6 py-6">
+          <div className="px-3 sm:px-6 py-6">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-base font-semibold text-slate-900">สถานะการรับประกัน</h3>
@@ -462,9 +634,9 @@ export default function StoreDashboard() {
               </div>
             </div>
 
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <div className="grid grid-cols-3 gap-4">
+            <div className="flex flex-col md:flex-row items-center md:justify-between">
+              <div className="flex-1 min-w-0 flex justify-center">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-xl w-full">
                   <div className="rounded-xl bg-emerald-50/50 p-4">
                     <div className="text-sm font-medium text-emerald-900">กำลังใช้งาน</div>
                     <div className="mt-1 text-3xl font-bold text-emerald-600">{totals.active}</div>
@@ -482,8 +654,8 @@ export default function StoreDashboard() {
                   </div>
                 </div>
               </div>
-              <div className="ml-8 flex items-center justify-center">
-                <SimpleDonut counts={totals} size={200} thickness={30} />
+              <div className="md:ml-8 mt-4 md:mt-0 flex items-center justify-center min-w-0">
+                <SimpleDonut counts={totals} size={donutSize} thickness={30} />
               </div>
             </div>
           </div>
@@ -492,7 +664,7 @@ export default function StoreDashboard() {
 
           {/* Aggregate view when user selected byCustomer / byProduct */}
           {exportAggregateBy === 'byCustomer' && (
-            <div className="px-6 py-6">
+            <div className="px-3 sm:px-6 py-6">
               <h3 className="text-base font-semibold text-slate-900">สรุปตามลูกค้า</h3>
               <p className="text-sm text-slate-500">แสดงจำนวนใบรับประกันและสถานะแบบรวมต่อแต่ละลูกค้า</p>
               <div className="mt-4 overflow-x-auto">
@@ -545,7 +717,7 @@ export default function StoreDashboard() {
           )}
 
           {exportAggregateBy === 'byProduct' && (
-            <div className="px-6 py-6">
+            <div className="px-4 sm:px-6 py-6">
               <h3 className="text-base font-semibold text-slate-900">สรุปตามสินค้า</h3>
               <p className="text-sm text-slate-500">สรุปจำนวนรายการตามชื่อสินค้า</p>
               <div className="mt-4 overflow-x-auto">
@@ -594,6 +766,309 @@ export default function StoreDashboard() {
           {/* (พื้นที่กราฟหรือส่วนอื่น ๆ ของคุณยังคงเพิ่มต่อได้) */}
         </section>
       </main>
+
+      {isProfileModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/30 px-4 py-4 sm:py-6">
+          <div className="w-full max-w-full sm:max-w-lg mx-auto rounded-3xl border border-sky-200 bg-white shadow-2xl max-h-[94vh] overflow-x-hidden overflow-y-auto box-border">
+            <div className="sticky top-0 z-30 flex items-center justify-between border-b border-sky-100 px-3 sm:px-6 py-3 sm:py-4 bg-white">
+              <div className="flex items-center gap-3">
+                {profileAvatarSrc ? (
+                  <img src={profileAvatarSrc} alt="Store profile" className="h-12 w-12 rounded-full object-cover" />
+                ) : (
+                  <div className="grid h-12 w-12 place-items-center rounded-full bg-sky-200 text-2xl">🏪</div>
+                )}
+                <div>
+                  <div className="text-base font-semibold text-gray-900">แก้ไขข้อมูลโปรไฟล์</div>
+                  <div className="text-xs text-sky-600">ข้อมูลจะใช้โชว์ในหัวหน้า dashboard</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setProfileModalOpen(false)
+                  setModalError('')
+                  setProfileSubmitting(false)
+                  setPasswordSubmitting(false)
+                }}
+                className="text-2xl text-gray-400 hover:text-gray-600"
+              >
+                ×
+              </button>
+            </div>
+
+              <div className="px-4 sm:px-6 pt-2 overflow-y-auto pb-20" style={{ maxHeight: 'calc(94vh - 140px)' }}>
+                <div className="mb-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setProfileTab('info'); setModalError('') }}
+                  className={`flex-1 min-w-0 rounded-2xl px-4 py-2 text-sm font-medium ${profileTab === 'info' ? 'bg-sky-100 text-sky-700' : 'bg-sky-50 text-gray-500'}`}
+                >
+                  ข้อมูลร้านค้า
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setProfileTab('password'); setModalError('') }}
+                  className={`flex-1 min-w-0 rounded-2xl px-4 py-2 text-sm font-medium ${profileTab === 'password' ? 'bg-sky-100 text-sky-700' : 'bg-sky-50 text-gray-500'}`}
+                >
+                  เปลี่ยนรหัสผ่าน
+                </button>
+              </div>
+
+            {profileTab === 'info' ? (
+              <form id="profileForm" onSubmit={handleProfileSubmit} className="px-4 sm:px-6 pb-6">
+                <input ref={profileImageInputRef} accept="image/*" className="sr-only" onChange={handleProfileAvatarSelect} type="file" />
+                <input
+                  type="hidden"
+                  name="address"
+                  value={JSON.stringify({
+                    street: addressParts.street,
+                    province: {
+                      id: addressParts.province,
+                      name: (provincesList.find((p) => String(p.code) === String(addressParts.province))?.name) || addressParts.province || '',
+                    },
+                    district: {
+                      id: addressParts.district,
+                      name: (districtOptions.find((d) => String(d.code) === String(addressParts.district))?.name) || addressParts.district || '',
+                    },
+                    subdistrict: {
+                      id: addressParts.subdistrict,
+                      name: (subdistrictOptions.find((s) => String(s.code) === String(addressParts.subdistrict))?.name) || addressParts.subdistrict || '',
+                      zipcode: addressParts.postcode || (subdistrictOptions.find((s) => String(s.code) === String(addressParts.subdistrict))?.zipcode || ''),
+                    },
+                    postcode: addressParts.postcode,
+                  })}
+                />
+                <input type="hidden" name="businessHours" value={JSON.stringify(businessSchedule)} />
+                <div className="mb-4 flex items-center gap-4">
+                  {profileAvatarSrc ? (
+                    <img src={profileAvatarSrc} alt="Store profile" className="h-16 w-16 rounded-full object-cover" />
+                  ) : (
+                    <div className="grid h-16 w-16 place-items-center rounded-full bg-sky-200 text-3xl">🏪</div>
+                  )}
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => profileImageInputRef.current?.click()}
+                      className="rounded-full bg-sky-500 px-4 py-2 text-xs font-semibold text-white shadow hover:bg-sky-400"
+                    >
+                      อัปโหลดรูปใหม่
+                    </button>
+                    <div className="mt-1 text-xs text-gray-400">รองรับไฟล์ .jpg, .png ขนาดไม่เกิน 2 MB</div>
+                  </div>
+                </div>
+                {modalError && profileTab === 'info' && (
+                  <div className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600">{modalError}</div>
+                )}
+                <div className="grid gap-3">
+                  {[
+                    ['storeName', 'ชื่อร้าน'],
+                    ['contactName', 'ชื่อผู้ติดต่อ'],
+                    ['email', 'อีเมล'],
+                    ['phone', 'เบอร์ติดต่อ'],
+                    ['address', 'ที่อยู่'],
+                    ['businessHours', 'เวลาทำการ'],
+                  ].map(([key, label]) => (
+                      <label key={key} className="text-sm text-gray-600">
+                        {label}
+                        {key === 'address' ? (
+                          <div className="mt-2 grid gap-2">
+                            <textarea
+                              placeholder="เลขที่ ซอย ถนน"
+                              value={addressParts.street}
+                              onChange={(e) => setAddressParts((p) => ({ ...p, street: e.target.value }))}
+                              rows={2}
+                              className="mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none bg-sky-50/60"
+                              type="text"
+                            />
+
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                              <div>
+                                <label className="sr-only">จังหวัด</label>
+                                <select
+                                  value={addressParts.province}
+                                  onChange={async (e) => {
+                                    const code = e.target.value
+                                    setAddressParts((p) => ({ ...p, province: code, district: '', subdistrict: '', postcode: '' }))
+                                    await loadDistrictsForProvince(code)
+                                    setSubdistrictOptions([])
+                                  }}
+                                  className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                                >
+                                  <option value="">เลือกจังหวัด</option>
+                                  {provincesList.length > 0 ? provincesList.map((p) => (
+                                    <option key={p.code} value={p.code}>{p.name}</option>
+                                  )) : null}
+                                </select>
+                              </div>
+
+                              <div>
+                                <label className="sr-only">อำเภอ/เขต</label>
+                                <select
+                                  value={addressParts.district}
+                                  onChange={async (e) => {
+                                    const code = e.target.value
+                                    setAddressParts((p) => ({ ...p, district: code, subdistrict: '', postcode: '' }))
+                                    await loadSubdistrictsForDistrict(code)
+                                  }}
+                                  className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                                >
+                                  <option value="" disabled>{districtOptions.length ? 'เลือกอำเภอ/เขต' : 'เลือกอำเภอ/เขต'}</option>
+                                  {districtOptions.map((d) => (
+                                    <option key={d.code} value={d.code}>{d.name}</option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div>
+                                <label className="sr-only">ตำบล/แขวง</label>
+                                <select
+                                  value={addressParts.subdistrict}
+                                  onChange={(e) => {
+                                    const code = e.target.value
+                                    const found = subdistrictOptions.find((s) => String(s.code) === String(code))
+                                    setAddressParts((p) => ({ ...p, subdistrict: code, postcode: found?.zipcode || '' }))
+                                  }}
+                                  className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                                >
+                                  <option value="" disabled>{subdistrictOptions.length ? 'เลือกตำบล/แขวง' : 'เลือกตำบล/แขวง'}</option>
+                                  {subdistrictOptions.map((s) => (
+                                    <option key={s.code} value={s.code}>{s.name}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              <input
+                                placeholder="รหัสไปรษณีย์"
+                                value={addressParts.postcode}
+                                onChange={(e) => setAddressParts((p) => ({ ...p, postcode: e.target.value }))}
+                                className="mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none bg-sky-50/60"
+                                type="text"
+                              />
+                              <div className="text-xs text-gray-400 flex items-center">ตัวอย่าง: เลขที่/ซอย/ถนน, ตำบล, อำเภอ, จังหวัด</div>
+                            </div>
+                          </div>
+                        ) : key !== 'businessHours' ? (
+                          <input
+                            required
+                            value={profile?.[key] ?? ''}
+                            onChange={(e) => setProfile((prev) => ({ ...prev, [key]: e.target.value }))}
+                            readOnly={key === 'email'}
+                            className={`mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none ${key === 'email' ? 'bg-slate-100' : 'bg-sky-50/60'}`}
+                            type="text"
+                          />
+                        ) : (
+                          <div className="mt-2 rounded-lg border border-sky-100 bg-white p-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {[
+                                ['mon', 'จ.'],
+                                ['tue', 'อ.'],
+                                ['wed', 'พ.'],
+                                ['thu', 'พฤ.'],
+                                ['fri', 'ศ.'],
+                                ['sat', 'ส.'],
+                                ['sun', 'อา.'],
+                                ].map(([d, lbl]) => (
+                                <div key={d} className="flex flex-col sm:flex-row items-start sm:items-center gap-2 text-xs md:text-sm">
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="checkbox"
+                                      checked={!!businessSchedule[d]?.on}
+                                      onChange={() => setBusinessSchedule((s) => ({ ...s, [d]: { ...s[d], on: !s[d].on } }))}
+                                      className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                                    />
+                                    <div className="w-8 text-xs text-gray-700">{lbl}</div>
+                                  </div>
+                                  <div className="flex items-center gap-2 ml-0 sm:ml-2 flex-wrap min-w-0">
+                                    <input
+                                      type="time"
+                                      value={businessSchedule[d]?.start || '09:00'}
+                                      onChange={(e) => setBusinessSchedule((s) => ({ ...s, [d]: { ...s[d], start: e.target.value } }))}
+                                      className="h-8 w-16 sm:w-20 rounded border border-gray-200 px-2 text-xs min-w-0"
+                                      disabled={!businessSchedule[d]?.on}
+                                    />
+                                    <span className="text-xs text-gray-400">—</span>
+                                    <input
+                                      type="time"
+                                      value={businessSchedule[d]?.end || '18:00'}
+                                      onChange={(e) => setBusinessSchedule((s) => ({ ...s, [d]: { ...s[d], end: e.target.value } }))}
+                                      className="h-8 w-16 sm:w-20 rounded border border-gray-200 px-2 text-xs min-w-0"
+                                      disabled={!businessSchedule[d]?.on}
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="mt-2 text-xs text-slate-400">ขนาดกะทัดรัดสำหรับการแก้ไข (responsive)</div>
+                          </div>
+                        )}
+                      </label>
+                  ))}
+                </div>
+              </form>
+            ) : (
+              <form id="passwordForm" onSubmit={handlePasswordSubmit} className="px-4 sm:px-6 pb-6">
+                {modalError && profileTab === 'password' && (
+                  <div className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600">{modalError}</div>
+                )}
+                <div className="grid gap-3">
+                  {[
+                    ['currentPassword', 'รหัสผ่านเก่า'],
+                    ['newPassword', 'รหัสผ่านใหม่'],
+                    ['confirmPassword', 'ยืนยันรหัสผ่านใหม่'],
+                  ].map(([key, label]) => (
+                    <label key={key} className="text-sm text-gray-600">
+                      {label}
+                      <input
+                        required
+                        value={profilePasswords[key]}
+                        onChange={(e) => setProfilePasswords((prev) => ({ ...prev, [key]: e.target.value }))}
+                        className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                        type="password"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </form>
+            )}
+
+            </div>
+
+            <div className="border-t border-slate-100 px-4 sm:px-6 py-3 bg-white sticky bottom-0 z-40">
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setProfileModalOpen(false); setModalError(''); }}
+                  className="rounded-full px-4 py-2 text-sm font-medium bg-white border border-slate-200 hover:bg-slate-50"
+                >
+                  ยกเลิก
+                </button>
+                {profileTab === 'info' ? (
+                  <button
+                    type="submit"
+                    form="profileForm"
+                    disabled={profileSubmitting}
+                    className={`rounded-full bg-sky-600 px-5 py-2 text-sm font-semibold text-white shadow transition ${profileSubmitting ? 'cursor-not-allowed opacity-70' : 'hover:bg-sky-500'}`}
+                  >
+                    {profileSubmitting ? 'กำลังบันทึก...' : 'บันทึก'}
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    form="passwordForm"
+                    disabled={passwordSubmitting}
+                    className={`rounded-full bg-sky-500 px-5 py-2 text-sm font-semibold text-white shadow transition ${passwordSubmitting ? 'cursor-not-allowed opacity-70' : 'hover:bg-sky-400'}`}
+                  >
+                    {passwordSubmitting ? 'กำลังบันทึก...' : 'ยืนยัน'}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }

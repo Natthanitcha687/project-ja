@@ -232,6 +232,7 @@ export async function downloadWarrantyPdf(req, res) {
     const logoCandidates = [
       process.env.PDF_APP_LOGO,
       path.resolve(process.cwd(), "src/assets/logo.png"),
+      path.resolve(process.cwd(), "../frontend-sma/public/home-assets/logo.png"),
       path.resolve(process.cwd(), "src/assets/app-logo.png"),
       path.resolve(process.cwd(), "src/assets/images/logo.png"),
       path.resolve(process.cwd(), "src/assets/logo/logo.png"),

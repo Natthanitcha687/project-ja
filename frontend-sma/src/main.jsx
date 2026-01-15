@@ -20,7 +20,11 @@ import ResetPassword from './pages/ResetPassword'
 import WarrantyDashboard from './pages/WarrantyDashboard'
 import WarrantyInfo from './pages/WarrantyInfo'
 import About from './pages/About'
+import Docs from './pages/Docs'
+import Faq from './pages/Faq'
+import Support from './pages/Support'
 import StoreDashboard from './pages/StoreDashboard'
+import DashboardLayout from './layouts/DashboardLayout'
 import CustomerWarranty from './pages/CustomerWarranty.jsx'
 import CustomerComplaints from './pages/CustomerComplaints'
 import StoreComplaints from './pages/StoreComplaints' // ✅ เพิ่ม
@@ -120,6 +124,9 @@ const router = createBrowserRouter([
       { path: '/', element: <Home /> },
       { path: '/warranty', element: <WarrantyInfo /> },
       { path: '/about', element: <About /> },
+      { path: '/docs', element: <Docs /> },
+      { path: '/faq', element: <Faq /> },
+      { path: '/support', element: <Support /> },
       { path: '/signin', element: <SignIn /> },
       { path: '/signup', element: <SignUp /> },
       { path: '/verify-email', element: <VerifyEmail /> },
@@ -127,31 +134,17 @@ const router = createBrowserRouter([
       { path: '/reset-password', element: <ResetPassword /> },
 
       {
-        path: '/dashboard/warranty',
+        path: '/dashboard',
         element: (
           <ProtectedStoreRoute>
-            <WarrantyDashboard />
+            <DashboardLayout />
           </ProtectedStoreRoute>
         ),
-      },
-
-      {
-        path: '/dashboard/store',
-        element: (
-          <ProtectedStoreRoute>
-            <StoreDashboard />
-          </ProtectedStoreRoute>
-        ),
-      },
-
-      // ✅ เพิ่ม: แจ้งปัญหาฝั่งร้าน
-      {
-        path: '/dashboard/complaints',
-        element: (
-          <ProtectedStoreRoute>
-            <StoreComplaints />
-          </ProtectedStoreRoute>
-        ),
+        children: [
+          { path: 'warranty', element: <WarrantyDashboard /> },
+          { path: 'store', element: <StoreDashboard /> },
+          { path: 'complaints', element: <StoreComplaints /> },
+        ],
       },
     ],
   },

@@ -13,6 +13,11 @@ body {
   box-sizing: border-box;
 }
 
+/* Prevent horizontal page scrolling caused by positioned elements */
+html, body {
+  overflow-x: hidden;
+}
+
 #root {
   min-height: 100vh;
   display: flex;
@@ -30,4 +35,12 @@ a[href],
 button[disabled],
 [aria-disabled="true"] {
   cursor: not-allowed;
+}
+
+/* Center notification dropdown slightly left on small screens to avoid edge crowding */
+@media (max-width: 639px) {
+  .notif-dropdown {
+    left: 50% !important;
+    transform: translateX(-40%) !important;
+  }
 }
