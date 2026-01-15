@@ -20,6 +20,9 @@ import {
 
   // ✅ NEW: ลบบัญชีลูกค้า (ถาวร) + ส่งเมล + AuditLog
   deleteCustomerAccount,
+  
+  // Admin create warranty on behalf of a store
+  createStoreWarranty,
 } from "../controllers/admin.controller.js";
 
 const router = Router();
@@ -155,6 +158,11 @@ router.get("/stores", requireAuth, requireAdmin, listStores);
  *         description: Store not found
  */
 router.get("/stores/:id/portal", requireAuth, requireAdmin, getStorePortal);
+
+/**
+ * Admin: สร้างใบรับประกันให้ร้าน (POST /admin/stores/:id/warranties)
+ */
+router.post("/stores/:id/warranties", requireAuth, requireAdmin, createStoreWarranty);
 
 /**
  * @swagger

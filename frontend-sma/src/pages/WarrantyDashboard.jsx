@@ -136,6 +136,43 @@ function generateUniqueSerial(headers = [], creating = [], storeId = null, attem
   // fallback: timestamp + random
   return `TS${Date.now().toString().slice(-8)}${randAlnum(3)}`
 }
+
+// Collect existing serials from fetched headers and the in-memory creating list
+function collectAllSerials(headers = [], creating = []) {
+  const set = new Set()
+  try {
+    for (const h of headers || []) {
+      if (!h || !Array.isArray(h.items)) continue
+      for (const it of h.items) {
+        if (it && it.serial) set.add(String(it.serial))
+      }
+    }
+    for (const c of creating || []) {
+      if (c && c.serial) set.add(String(c.serial))
+    }
+  } catch (e) {
+    // ignore
+  }
+  return set
+}
+
+// Simple 2-digit batch code derived from storeId (fallback '00')
+function batchCodeFromStore(storeId) {
+  try {
+    const id = Number(storeId) || 0
+    return String(id % 100).padStart(2, '0')
+  } catch {
+    return '00'
+  }
+}
+
+// Random uppercase alphanumeric string of length n
+function randAlnum(n = 4) {
+  const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  let out = ''
+  for (let i = 0; i < n; i++) out += chars[Math.floor(Math.random() * chars.length)]
+  return out
+}
 function toISODate(d) {
   if (!d || isNaN(d.getTime())) return ''
   return d.toISOString().slice(0, 10)
@@ -820,6 +857,7 @@ export default function WarrantyDashboard() {
   }, [])
 
   const openWarrantyModal = (mode, item = null) => {
+    console.log('openWarrantyModal', mode, item)
     setModalMode(mode)
     setSelectedItem(item)
     setWarrantyModalError('')
@@ -967,6 +1005,7 @@ export default function WarrantyDashboard() {
   /* ========== บันทึกใบรับประกัน ========== */
   const handleWarrantySubmit = async (event) => {
     event.preventDefault()
+    console.log('handleWarrantySubmit start', { modalMode, selectedItem })
     if (!storeIdResolved) return
     setWarrantySubmitting(true)
     setWarrantyModalError('')
@@ -1067,6 +1106,7 @@ export default function WarrantyDashboard() {
         }),
       }
 
+      console.log('POST /store/' + storeIdResolved + '/warranties payload', payload)
       const res = await api.post(`/store/${storeIdResolved}/warranties`, payload)
       const createdHeader = res.data?.data?.warranty
 
@@ -1765,8 +1805,11 @@ export default function WarrantyDashboard() {
         )}
 
         {isWarrantyModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">
-            <div className="w-full max-w-2xl rounded-3xl bg-white shadow-2xl">
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
+            style={{ padding: '1rem', paddingBottom: `calc(1rem + env(safe-area-inset-bottom))` }}
+          >
+            <div className="w-full max-w-lg sm:max-w-2xl rounded-2xl sm:rounded-3xl bg-white shadow-2xl mx-auto overflow-hidden" style={{ maxHeight: 'calc(100vh - 2rem)' }}>
               {/* header */}
               <div className="flex items-center justify-between rounded-t-3xl bg-sky-600 px-6 py-4 text-white">
                 <div>
@@ -1783,7 +1826,7 @@ export default function WarrantyDashboard() {
               </div>
 
               <form className="grid" onSubmit={handleWarrantySubmit}>
-                <div className="max-h-[85vh] overflow-y-auto px-6 pt-5 pb-3">
+                <div className="overflow-y-auto px-5 sm:px-6 pt-5 pb-3" style={{ maxHeight: '72vh' }}>
                   {warrantyModalError && (
                     <div className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600">{warrantyModalError}</div>
                   )}

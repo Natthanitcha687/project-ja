@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { prisma } from "../db/prisma.js";
 import { sendMail } from "../config/mail.js"; // มีอยู่แล้วในโปรกต์ (ส่งแบบ best-effort)
+import { createAndPublish as createNotification } from "../routes/notifications.routes.js";
 
 function sign(user) {
   const payload = { sub: user.id, role: user.role, email: user.email };
@@ -338,6 +339,252 @@ export async function getStorePortal(req, res) {
     stats: { warrantyCount, customerCount, successRatePct, avgResponseHours: null },
     activities,
   });
+}
+
+/* =========================
+ * Admin: create warranty for a store
+ * ========================= */
+
+function normalizeEmail(e) {
+  return e ? String(e).trim().toLowerCase() : null;
+}
+
+function pad3(n) {
+  const s = String(n);
+  return s.length >= 3 ? s : "0".repeat(3 - s.length) + s;
+}
+
+function addMonths(date, m) {
+  const d = new Date(date);
+  d.setMonth(d.getMonth() + m);
+  return d;
+}
+
+function daysBetween(a, b) {
+  const A = new Date(a);
+  const B = new Date(b);
+  return Math.ceil((B.getTime() - A.getTime()) / (24 * 3600 * 1000));
+}
+
+async function nextWarrantyCodeForStore(tx, storeId, { prefix = "WR" } = {}) {
+  const last = await tx.warranty.findFirst({
+    where: { storeId, code: { startsWith: prefix } },
+    orderBy: { code: "desc" },
+    select: { code: true },
+  });
+  let lastNum = 0;
+  if (last?.code) {
+    const m = last.code.match(/\d+$/);
+    if (m) lastNum = Number(m[0]);
+  }
+  return `${prefix}${pad3(lastNum + 1)}`;
+}
+
+async function allocateWarrantyCode(tx, storeId, opts) {
+  for (let i = 0; i < 5; i++) {
+    const code = await nextWarrantyCodeForStore(tx, storeId, opts);
+    const exists = await tx.warranty.findUnique({ where: { storeId_code: { storeId, code } } });
+    if (!exists) return code;
+  }
+  throw new Error("Unable to allocate warranty code");
+}
+
+function mapWarrantyHeaderForResponse(header, notifyDays) {
+  return {
+    id: header.id,
+    code: header.code,
+    customerEmail: header.customerEmail ?? null,
+    customerName: header.customerName ?? null,
+    customerPhone: header.customerPhone ?? null,
+    createdAt: header.createdAt,
+    updatedAt: header.updatedAt,
+    items: (header.items || []).map((w) => {
+      const today = new Date();
+      const exp = w.expiryDate ? new Date(w.expiryDate) : null;
+      let statusCode = "active",
+        statusTag = "ใช้งานได้",
+        statusColor = "text-emerald-600 bg-emerald-50";
+      if (exp) {
+        const remain = daysBetween(today, exp);
+        if (remain < 0) {
+          statusCode = "expired";
+          statusTag = "หมดอายุ";
+          statusColor = "text-rose-600 bg-rose-50";
+        } else if (remain <= (notifyDays ?? 14)) {
+          statusCode = "nearing_expiration";
+          statusTag = "ใกล้หมดอายุ";
+          statusColor = "text-amber-700 bg-amber-50";
+        }
+      }
+      return {
+        id: w.id,
+        productName: w.productName,
+        model: w.model ?? null,
+        serial: w.serial,
+        purchaseDate: w.purchaseDate ? new Date(w.purchaseDate).toISOString().slice(0, 10) : null,
+        expiryDate: w.expiryDate ? new Date(w.expiryDate).toISOString().slice(0, 10) : null,
+        durationMonths: w.durationMonths ?? null,
+        durationDays: w.durationDays ?? null,
+        coverageNote: w.coverageNote ?? null,
+        note: w.note ?? null,
+        images: Array.isArray(w.images) ? w.images : w.images ? w.images : [],
+        statusCode,
+        statusTag,
+        statusColor,
+        daysLeft: exp ? daysBetween(today, exp) : null,
+      };
+    }),
+  };
+}
+
+export async function createStoreWarranty(req, res) {
+  const storeId = Number(req.params.id);
+  if (!storeId) return res.status(400).json({ message: "store id ไม่ถูกต้อง" });
+
+  const storeUser = await prisma.user.findUnique({ where: { id: storeId } });
+  if (!storeUser || storeUser.role !== "STORE") {
+    return res.status(404).json({ message: "ไม่พบบัญชีร้านค้า" });
+  }
+
+  try {
+    const storeProfile = await prisma.storeProfile.findUnique({ where: { userId: storeId } });
+    const notifyDays = storeProfile?.notifyDaysInAdvance ?? 14;
+
+    const createdHeader = await prisma.$transaction(async (tx) => {
+      let code = await allocateWarrantyCode(tx, storeId, { prefix: "WR" });
+
+      const fullNameFromCP = (cp) => {
+        if (!cp) return null;
+        const fn = (cp.firstName || "").trim();
+        const ln = (cp.lastName || "").trim();
+        const nm = `${fn} ${ln}`.trim();
+        return nm || null;
+      };
+
+      async function resolveCustomer(rawEmail, nameFromPayload, phoneFromPayload) {
+        const normEmail = normalizeEmail(rawEmail);
+        if (!normEmail) {
+          return { email: null, userId: null, name: nameFromPayload ?? null, phone: phoneFromPayload ?? null };
+        }
+        const user = await tx.user.findFirst({ where: { email: { equals: normEmail, mode: "insensitive" }, role: "CUSTOMER" }, select: { id: true } });
+        let name = nameFromPayload ?? null;
+        let phone = phoneFromPayload ?? null;
+        if (user) {
+          const cp = await tx.customerProfile.findUnique({ where: { userId: user.id }, select: { firstName: true, lastName: true, phone: true } });
+          if (!name) name = fullNameFromCP(cp);
+          if (!phone && cp?.phone) phone = cp.phone;
+        }
+        return { email: normEmail, userId: user?.id ?? null, name, phone };
+      }
+
+      const body = req.body ?? {};
+
+      if (Array.isArray(body.items) && body.items.length > 0) {
+        const first = body.items[0] || {};
+        const { email, userId, name, phone } = await resolveCustomer(first.customer_email ?? first.customerEmail, first.customer_name ?? first.customerName, first.customer_phone ?? first.customerPhone);
+
+        const usedSerial = new Set();
+        let seq = 1;
+        const itemsToCreate = body.items.map((it) => {
+          const purchase = it.purchase_date ? new Date(it.purchase_date) : new Date();
+          let expiry = it.expiry_date ? new Date(it.expiry_date) : null;
+          const dm = Number(it.duration_months ?? it.durationMonths ?? 0);
+          if (!expiry && dm > 0) expiry = addMonths(purchase, dm);
+
+          let serial = String(it.serial || "").trim();
+          if (!serial || usedSerial.has(serial)) {
+            while (usedSerial.has(`SN${pad3(seq)}`)) seq++;
+            serial = `SN${pad3(seq++)}`;
+          }
+          usedSerial.add(serial);
+
+          return {
+            productName: String(it.product_name || it.productName || "").trim(),
+            model: (it.model || it.product_model || "").trim() || null,
+            serial,
+            purchaseDate: purchase,
+            expiryDate: expiry,
+            durationMonths: dm || null,
+            durationDays: expiry ? daysBetween(purchase, expiry) : null,
+            coverageNote: String(it.warranty_terms || it.coverageNote || "").trim() || null,
+            note: String(it.note || "").trim() || null,
+            images: [],
+          };
+        });
+
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            return await tx.warranty.create({ data: { storeId, code, customerEmail: email, customerUserId: userId, customerName: name, customerPhone: phone, items: { create: itemsToCreate } }, include: { items: true } });
+          } catch (e) {
+            if (e?.code === "P2002" && (e.meta?.target?.includes?.("storeId_code") || e.meta?.target?.includes?.("code"))) {
+              code = await allocateWarrantyCode(tx, storeId, { prefix: "WR" });
+              continue;
+            }
+            if (e?.code === "P2002" && e.meta?.target?.includes?.("warrantyId_serial")) {
+              throw Object.assign(new Error("Serial number duplicated within the warranty"), { status: 409 });
+            }
+            throw e;
+          }
+        }
+        throw new Error("Failed to create warranty after retries");
+      }
+
+      // single item payload
+      const { email, userId, name, phone } = await resolveCustomer(body.customer_email ?? body.customerEmail, body.customer_name ?? body.customerName, body.customer_phone ?? body.customerPhone);
+
+      const purchase = body.purchase_date ? new Date(body.purchase_date) : new Date();
+      let expiry = body.expiry_date ? new Date(body.expiry_date) : null;
+      const dm = Number(body.duration_months ?? body.durationMonths ?? 0);
+      if (!expiry && dm > 0) expiry = addMonths(purchase, dm);
+      const serialOne = String(body.serial || "").trim() || `SN${pad3(1)}`;
+
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          return await tx.warranty.create({ data: { storeId, code, customerEmail: email, customerUserId: userId, customerName: name, customerPhone: phone, items: { create: [ { productName: String(body.product_name || body.productName || "").trim(), model: String(body.model || body.product_model || "").trim() || null, serial: serialOne, purchaseDate: purchase, expiryDate: expiry, durationMonths: dm || null, durationDays: expiry ? daysBetween(purchase, expiry) : null, coverageNote: String(body.warranty_terms || body.coverageNote || "").trim() || null, note: String(body.note || "").trim() || null, images: [], }, ], }, }, include: { items: true } });
+        } catch (e) {
+          if (e?.code === "P2002" && (e.meta?.target?.includes?.("storeId_code") || e.meta?.target?.includes?.("code"))) {
+            code = await allocateWarrantyCode(tx, storeId, { prefix: "WR" });
+            continue;
+          }
+          if (e?.code === "P2002" && e.meta?.target?.includes?.("warrantyId_serial")) {
+            throw Object.assign(new Error("Serial number duplicated within the warranty"), { status: 409 });
+          }
+          throw e;
+        }
+      }
+      throw new Error("Failed to create warranty after retries");
+    });
+
+    // notify customer user if linked
+    try {
+      const title = `สร้างใบรับประกัน ${createdHeader.code || ""}`;
+      const bodyText = `สร้างใบรับประกัน ${createdHeader.code || ""} จำนวน ${createdHeader.items?.length || 0} รายการ`;
+      if (createdHeader.customerUserId) {
+        await createNotification({ prisma, attrs: { userId: createdHeader.customerUserId, title, body: bodyText, data: { type: "warranty_created", warrantyId: createdHeader.id }, sendEmail: true } });
+      }
+    } catch (e) {
+      console.warn("notify warranty created failed (admin)", e?.message || e);
+    }
+
+    // audit
+    try {
+      await prisma.auditLog.create({ data: { actorUserId: Number(req.user?.id ?? req.user?.sub) || null, action: "CREATE_WARRANTY", targetType: "Store", targetId: String(storeId), ip: req.ip || null, userAgent: req.get ? req.get("user-agent") : null, meta: { result: "SUCCESS", storeId, warrantyId: createdHeader.id, warrantyCode: createdHeader.code, after: createdHeader } } });
+    } catch (e) {
+      console.warn("audit CREATE_WARRANTY failed (ignored):", e?.message || e);
+    }
+
+    return res.status(201).json({ message: "สร้างใบรับประกันเรียบร้อย", data: { warranty: mapWarrantyHeaderForResponse(createdHeader, notifyDays) } });
+  } catch (error) {
+    if (error?.status) return res.status(error.status).json({ message: error.message });
+    if (error?.code === "P2002" && error.meta?.target?.includes?.("warrantyId_serial")) {
+      return res.status(409).json({ message: "Serial ซ้ำภายในใบรับประกัน" });
+    }
+    if (error?.code === "P2002" && (error.meta?.target?.includes?.("storeId_code") || error.meta?.target?.includes?.("code"))) {
+      return res.status(409).json({ message: "รหัสใบรับประกันซ้ำ กรุณาลองใหม่" });
+    }
+    console.error("createStoreWarranty error", error);
+    return res.status(500).json({ message: "ไม่สามารถสร้างใบรับประกันได้" });
+  }
 }
 
 // ✅ Delete store
