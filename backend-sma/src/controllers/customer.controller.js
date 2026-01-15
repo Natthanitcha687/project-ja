@@ -437,10 +437,22 @@ export async function listMyComplaints(req, res, next) {
   try {
     const meId = Number(req.user.id)
 
+    // Explicitly select scalar fields (exclude `images`) to avoid DB errors
+    // in environments where the `images` column hasn't been migrated yet.
     const complaints = await prisma.complaint.findMany({
       where: { userId: meId },
       orderBy: { createdAt: 'desc' },
       take: 200,
+      select: {
+        id: true,
+        userId: true,
+        category: true,
+        subject: true,
+        message: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     })
 
     return res.json({ complaints })

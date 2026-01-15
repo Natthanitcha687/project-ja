@@ -540,14 +540,14 @@ export default function StoreDashboard() {
             </div>
             <div className="flex flex-wrap items-center gap-2 min-w-0">
               <label className="text-xs text-slate-500">สรุปตาม</label>
-              <select value={exportAggregateBy} onChange={(e) => setExportAggregateBy(e.target.value)} className="rounded-md border px-2 py-1 text-sm max-w-[140px] sm:max-w-[190px] w-full">
+              <select value={exportAggregateBy} onChange={(e) => setExportAggregateBy(e.target.value)} className="rounded-md border px-2 py-1 text-sm max-w-[140px] sm:max-w-[190px]">
                 <option value="overview">ภาพรวม</option>
                 <option value="byCustomer">สรุปตามลูกค้า</option>
                 <option value="byProduct">สรุปตามสินค้า</option>
               </select>
 
               <label className="text-xs text-slate-500">สถานะ</label>
-              <select value={exportStatusFilter} onChange={(e) => setExportStatusFilter(e.target.value)} className="rounded-md border px-2 py-1 text-sm max-w-[120px] sm:max-w-[160px] w-full">
+              <select value={exportStatusFilter} onChange={(e) => setExportStatusFilter(e.target.value)} className="rounded-md border px-2 py-1 text-sm max-w-[120px] sm:max-w-[160px]">
                 <option value="all">ทั้งหมด</option>
                 <option value="active">กำลังใช้งาน</option>
                 <option value="nearing">ใกล้หมดอายุ</option>
@@ -562,7 +562,7 @@ export default function StoreDashboard() {
               <button
                 type="button"
                 onClick={exportOverviewToExcel}
-                className={`h-10 min-w-0 sm:min-w-[96px] rounded-full border border-sky-300 px-4 py-2 text-sm font-semibold text-sky-700 bg-white hover:-translate-y-0.5 hover:bg-sky-50 transition`}
+                className={`h-10 min-w-0 sm:min-w-[96px] rounded-full border border-sky-300 px-4 py-2 text-sm font-semibold text-sky-700 bg-white hover:-translate-y-0.5 hover:bg-sky-50 transition self-center`}
                 aria-label="ส่งออกเป็น Excel"
               >
                 ส่งออก Excel
@@ -634,9 +634,9 @@ export default function StoreDashboard() {
               </div>
             </div>
 
-            <div className="flex flex-col md:flex-row items-start md:justify-between">
-              <div className="flex-1 min-w-0">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="flex flex-col md:flex-row items-center md:justify-between">
+              <div className="flex-1 min-w-0 flex justify-center">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-xl w-full">
                   <div className="rounded-xl bg-emerald-50/50 p-4">
                     <div className="text-sm font-medium text-emerald-900">กำลังใช้งาน</div>
                     <div className="mt-1 text-3xl font-bold text-emerald-600">{totals.active}</div>

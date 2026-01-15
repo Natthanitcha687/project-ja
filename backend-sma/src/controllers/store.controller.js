@@ -719,10 +719,22 @@ export async function listStoreComplaints(req, res) {
   if (storeId == null) return;
 
   try {
+    // Explicitly select scalar fields (exclude `images`) to avoid DB errors
+    // when the DB hasn't been migrated to include the `images` column.
     const complaints = await prisma.complaint.findMany({
       where: { userId: Number(storeId) },
       orderBy: { createdAt: "desc" },
       take: 200,
+      select: {
+        id: true,
+        userId: true,
+        category: true,
+        subject: true,
+        message: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
 
     return res.json({ complaints });

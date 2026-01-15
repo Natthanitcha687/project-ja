@@ -1484,7 +1484,7 @@ export default function WarrantyDashboard() {
                 </button>
               </div>
 
-              <div className="px-4 sm:px-6 pt-2 overflow-y-auto pb-20" style={{ maxHeight: 'calc(94vh - 160px)' }}>
+              <div className="px-4 sm:px-6 pt-2 overflow-y-auto pb-6" style={{ maxHeight: 'calc(94vh - 160px)' }}>
                 <div className="mb-2 flex gap-2">
                   <button
                     type="button"
@@ -1548,7 +1548,7 @@ export default function WarrantyDashboard() {
                   {modalError && profileTab === 'info' && (
                     <div className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600">{modalError}</div>
                   )}
-                  <div className="grid gap-3">
+                  <div className="grid gap-3 max-w-2xl mx-auto">
                     {[
                       ['storeName', 'ชื่อร้าน'],
                       ['contactName', 'ชื่อผู้ติดต่อ'],
@@ -1650,8 +1650,9 @@ export default function WarrantyDashboard() {
                               type="text"
                             />
                           ) : (
-                            <div className="mt-2 rounded-lg border border-sky-100 bg-white p-2">
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div className="flex justify-center">
+                              <div className="mt-2 rounded-lg border border-sky-100 bg-white p-2 mx-auto max-w-sm">
+                                <div className="grid grid-cols-1 gap-2">
                                 {[
                                   ['mon', 'จ.'],
                                   ['tue', 'อ.'],
@@ -1691,8 +1692,9 @@ export default function WarrantyDashboard() {
                                   </div>
                                 ))}
                               </div>
-                              <div className="mt-2 text-xs text-slate-400">ขนาดกะทัดรัดสำหรับการแก้ไข (responsive)</div>
+                             
                             </div>
+                          </div>
                           )}
                         </label>
                     ))}

@@ -330,7 +330,7 @@ export default function CustomerNavbar() {
 
               {/* Dropdown แจ้งเตือน */}
               {openNotif && (
-                <div className="absolute right-0 top-12 w-72 rounded-2xl border border-sky-100 bg-white shadow-xl overflow-hidden z-[1200]">
+                <div className="absolute top-12 left-1/2 -translate-x-1/2 sm:left-auto sm:translate-x-0 sm:right-4 w-72 max-w-[calc(100vw-1rem)] rounded-2xl border border-sky-100 bg-white shadow-xl overflow-hidden z-[1200]">
                   <div className="flex items-center justify-between border-b border-sky-50 bg-sky-50/60 px-4 py-2 text-sm font-semibold text-sky-800">
                     <span>การแจ้งเตือน</span>
                     <button
