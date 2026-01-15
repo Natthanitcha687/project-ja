@@ -220,7 +220,7 @@ export default function StoreDashboard() {
   const [pivotByProduct, setPivotByProduct] = useState(false)
   const [pivotByStatus, setPivotByStatus] = useState(false)
   const [pivotByMonth, setPivotByMonth] = useState(false)
-  const [pivotAggType, setPivotAggType] = useState('count') // 'count' currently supported
+  const [pivotFields, setPivotFields] = useState({ customer: true, customerEmail: false, product: true, serial: false, expiryDate: true, createdAt: true })
 
   // helpers: ensure date-only UTC handling and status derivation (matches CustomerWarranty)
   function dateOnlyUTC(v) {
@@ -459,30 +459,57 @@ export default function StoreDashboard() {
 
       // If user requested pivot mode, build raw data sheet + pivot summary sheet
       if (exportMode === 'pivot') {
-        // Flatten items
+        // Flatten items and prepare status-specific sheets
         const flat = []
+        const perStatus = { active: [], nearing: [], expired: [] }
         for (const h of (filteredWarranties || [])) {
           for (const it of (h.items || [])) {
             const status = it.status || it._status || deriveItemStatusCode(it, profile?.notifyDaysInAdvance ?? 14)
+            const normalizedStatus = (status === 'nearing_expiration' || status === 'nearing') ? 'nearing' : (status === 'expired' ? 'expired' : 'active')
             const created = h.createdAt || h.created_at || ''
             const createdMonth = created ? (new Date(created)).toISOString().slice(0,7) : ''
-            flat.push({
+            const row = {
               headerId: h.id || h.headerId || '',
               customer: h.customerName || h.customer_name || '',
               customerEmail: h.customerEmail || h.customer_email || '',
               product: it.productName || it.product_name || '',
               serial: it.serial || it.serialNumber || '',
-              status,
+              status: normalizedStatus,
               createdAt: created,
               createdMonth,
               expiryDate: it.expiryDate || it.expiry_date || ''
-            })
+            }
+            flat.push(row)
+            if (normalizedStatus === 'active') perStatus.active.push(row)
+            else if (normalizedStatus === 'nearing') perStatus.nearing.push(row)
+            else if (normalizedStatus === 'expired') perStatus.expired.push(row)
           }
         }
-        const dataSheet = XLSX.utils.json_to_sheet(flat)
+
+        // Build Data sheet using selected pivotFields
+        const dataForSheet = flat.map(r => {
+          const out = {}
+          if (pivotFields.customer) out.customer = r.customer
+          if (pivotFields.customerEmail) out.customerEmail = r.customerEmail
+          if (pivotFields.product) out.product = r.product
+          if (pivotFields.serial) out.serial = r.serial
+          if (pivotFields.expiryDate) out.expiryDate = r.expiryDate
+          if (pivotFields.createdAt) out.createdAt = r.createdAt
+          out.status = r.status
+          return out
+        })
+        const dataSheet = XLSX.utils.json_to_sheet(dataForSheet)
         XLSX.utils.book_append_sheet(wb, dataSheet, 'Data')
 
-        // Determine grouping keys
+        // Create per-status sheets
+        const wsActive = XLSX.utils.json_to_sheet(perStatus.active.map(r => ({ customer: r.customer, product: r.product, serial: r.serial, expiryDate: r.expiryDate, createdAt: r.createdAt })))
+        XLSX.utils.book_append_sheet(wb, wsActive, 'Active')
+        const wsNearing = XLSX.utils.json_to_sheet(perStatus.nearing.map(r => ({ customer: r.customer, product: r.product, serial: r.serial, expiryDate: r.expiryDate, createdAt: r.createdAt })))
+        XLSX.utils.book_append_sheet(wb, wsNearing, 'Nearing')
+        const wsExpired = XLSX.utils.json_to_sheet(perStatus.expired.map(r => ({ customer: r.customer, product: r.product, serial: r.serial, expiryDate: r.expiryDate, createdAt: r.createdAt })))
+        XLSX.utils.book_append_sheet(wb, wsExpired, 'Expired')
+
+        // Determine grouping keys for pivot summary
         const groupFields = []
         if (pivotByCustomer) groupFields.push('customer')
         if (pivotByProduct) groupFields.push('product')
@@ -605,60 +632,79 @@ export default function StoreDashboard() {
               <h2 className="text-lg font-semibold text-slate-900">ภาพรวม & การรับประกัน</h2>
               <p className="text-sm text-slate-500">สรุปภาพรวมการรับประกันและสินค้าของร้าน</p>
             </div>
-            <div className="flex flex-wrap items-center gap-2 min-w-0">
-              <label className="text-xs text-slate-500">โหมดส่งออก</label>
-              <select value={exportMode} onChange={(e) => setExportMode(e.target.value)} className="rounded-md border px-2 py-1 text-sm max-w-[140px] sm:max-w-[190px]">
-                <option value="raw">Raw</option>
-                <option value="aggregate">Aggregate</option>
-                <option value="pivot">Pivot</option>
-              </select>
+            <div className="flex items-center justify-between w-full gap-4">
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <label className="text-xs text-slate-500">โหมดส่งออก</label>
+                <select value={exportMode} onChange={(e) => setExportMode(e.target.value)} className="rounded-md border px-2 py-1 text-sm w-auto min-w-0 max-w-[190px]">
+                  <option value="raw">ข้อมูล</option>
+                  <option value="aggregate">สรุป</option>
+                  <option value="pivot">Pivot (ตารางสรุป)</option>
+                </select>
 
-              {exportMode !== 'pivot' && (
-                <>
-                  <label className="text-xs text-slate-500">สรุปตาม</label>
-                  <select value={exportAggregateBy} onChange={(e) => setExportAggregateBy(e.target.value)} className="rounded-md border px-2 py-1 text-sm max-w-[140px] sm:max-w-[190px]">
-                    <option value="overview">ภาพรวม</option>
-                    <option value="byCustomer">สรุปตามลูกค้า</option>
-                    <option value="byProduct">สรุปตามสินค้า</option>
-                  </select>
+                {exportMode !== 'pivot' && (
+                  <>
+                    <label className="text-xs text-slate-500">สรุปตาม</label>
+                    <select value={exportAggregateBy} onChange={(e) => setExportAggregateBy(e.target.value)} className="rounded-md border px-2 py-1 text-sm w-auto min-w-0 max-w-[190px]">
+                      <option value="overview">ภาพรวม</option>
+                      <option value="byCustomer">สรุปตามลูกค้า</option>
+                      <option value="byProduct">สรุปตามสินค้า</option>
+                    </select>
 
-                  <label className="text-xs text-slate-500">สถานะ</label>
-                  <select value={exportStatusFilter} onChange={(e) => setExportStatusFilter(e.target.value)} className="rounded-md border px-2 py-1 text-sm max-w-[120px] sm:max-w-[160px]">
-                    <option value="all">ทั้งหมด</option>
-                    <option value="active">กำลังใช้งาน</option>
-                    <option value="nearing">ใกล้หมดอายุ</option>
-                    <option value="expired">หมดอายุ</option>
-                  </select>
+                    <label className="text-xs text-slate-500">สถานะ</label>
+                    <select value={exportStatusFilter} onChange={(e) => setExportStatusFilter(e.target.value)} className="rounded-md border px-2 py-1 text-sm w-auto min-w-0 max-w-[160px]">
+                      <option value="all">ทั้งหมด</option>
+                      <option value="active">กำลังใช้งาน</option>
+                      <option value="nearing">ใกล้หมดอายุ</option>
+                      <option value="expired">หมดอายุ</option>
+                    </select>
 
-                  <label className="text-sm flex items-center gap-2">
-                    <input type="checkbox" checked={exportIncludeDetails} onChange={(e) => setExportIncludeDetails(e.target.checked)} />
-                    <span className="text-xs text-slate-600">รวมรายละเอียด</span>
-                  </label>
-                </>
-              )}
+                    <label className="text-sm flex items-center gap-2">
+                      <input type="checkbox" checked={exportIncludeDetails} onChange={(e) => setExportIncludeDetails(e.target.checked)} />
+                      <span className="text-xs text-slate-600">รวมรายละเอียด</span>
+                    </label>
+                  </>
+                )}
+              </div>
 
-              {exportMode === 'pivot' && (
-                <div className="flex items-center gap-3 px-2 py-1">
-                  <div className="text-xs text-slate-500">จัดกลุ่มตาม</div>
-                  <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={pivotByCustomer} onChange={(e) => setPivotByCustomer(e.target.checked)} /> ลูกค้า</label>
-                  <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={pivotByProduct} onChange={(e) => setPivotByProduct(e.target.checked)} /> สินค้า</label>
-                  <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={pivotByStatus} onChange={(e) => setPivotByStatus(e.target.checked)} /> สถานะ</label>
-                  <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={pivotByMonth} onChange={(e) => setPivotByMonth(e.target.checked)} /> เดือนสร้าง</label>
-                  <label className="text-xs text-slate-500">Agg</label>
-                  <select value={pivotAggType} onChange={(e) => setPivotAggType(e.target.value)} className="rounded-md border px-2 py-1 text-sm max-w-[120px]">
-                    <option value="count">Count</option>
-                  </select>
+              <div className="flex-1 min-w-0 px-2">
+                <div className="flex items-center gap-3 flex-wrap overflow-x-auto">
+                  {exportMode === 'pivot' ? (
+                    <>
+                      <div className="text-xs text-slate-500">จัดกลุ่มตาม</div>
+                      <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={pivotByCustomer} onChange={(e) => setPivotByCustomer(e.target.checked)} /> ลูกค้า</label>
+                      <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={pivotByProduct} onChange={(e) => setPivotByProduct(e.target.checked)} /> สินค้า</label>
+                      <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={pivotByStatus} onChange={(e) => setPivotByStatus(e.target.checked)} /> สถานะ</label>
+                      <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={pivotByMonth} onChange={(e) => setPivotByMonth(e.target.checked)} /> เดือน</label>
+                      <div className="ml-2 text-xs text-slate-500">แสดงคอลัมน์</div>
+                      <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={!!pivotFields.customer} onChange={(e) => setPivotFields(f => ({ ...f, customer: e.target.checked }))} /> ลูกค้า</label>
+                      <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={!!pivotFields.customerEmail} onChange={(e) => setPivotFields(f => ({ ...f, customerEmail: e.target.checked }))} /> อีเมล</label>
+                      <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={!!pivotFields.product} onChange={(e) => setPivotFields(f => ({ ...f, product: e.target.checked }))} /> สินค้า</label>
+                      <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={!!pivotFields.serial} onChange={(e) => setPivotFields(f => ({ ...f, serial: e.target.checked }))} /> ซีเรียล</label>
+                      <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={!!pivotFields.expiryDate} onChange={(e) => setPivotFields(f => ({ ...f, expiryDate: e.target.checked }))} /> วันหมดอายุ</label>
+                      <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={!!pivotFields.createdAt} onChange={(e) => setPivotFields(f => ({ ...f, createdAt: e.target.checked }))} /> วันที่สร้าง</label>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-xs text-slate-500">แสดงคอลัมน์</div>
+                      <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={!!pivotFields.customer} onChange={(e) => setPivotFields(f => ({ ...f, customer: e.target.checked }))} /> ลูกค้า</label>
+                      <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={!!pivotFields.customerEmail} onChange={(e) => setPivotFields(f => ({ ...f, customerEmail: e.target.checked }))} /> อีเมล</label>
+                      <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={!!pivotFields.product} onChange={(e) => setPivotFields(f => ({ ...f, product: e.target.checked }))} /> สินค้า</label>
+                      <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={!!pivotFields.serial} onChange={(e) => setPivotFields(f => ({ ...f, serial: e.target.checked }))} /> ซีเรียล</label>
+                    </>
+                  )}
                 </div>
-              )}
+              </div>
 
-              <button
-                type="button"
-                onClick={exportOverviewToExcel}
-                className={`h-10 min-w-0 sm:min-w-[96px] rounded-full border border-sky-300 px-4 py-2 text-sm font-semibold text-sky-700 bg-white hover:-translate-y-0.5 hover:bg-sky-50 transition self-center`}
-                aria-label="ส่งออกเป็น Excel"
-              >
-                ส่งออก Excel
-              </button>
+              <div className="flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={exportOverviewToExcel}
+                  className={`h-10 w-full md:w-auto min-w-0 rounded-full border border-sky-300 px-4 py-2 text-sm font-semibold text-sky-700 bg-white hover:-translate-y-0.5 hover:bg-sky-50 transition`}
+                  aria-label="ส่งออกเป็น Excel"
+                >
+                  ส่งออก Excel
+                </button>
+              </div>
             </div>
           </div>
 
