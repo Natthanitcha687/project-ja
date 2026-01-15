@@ -55,66 +55,7 @@ export default function StoreComplaints() {
   }, [user]);
 
   // ===== notifications (ให้ DashboardHeader ใช้งานได้เหมือนหน้า StoreDashboard) =====
-  const [notifications, setNotifications] = useState([]);
-  const [notifLoading, setNotifLoading] = useState(false);
-
-  const fetchNotifications = useCallback(async () => {
-    if (!storeIdResolved) return [];
-    try {
-      let res;
-      try {
-        res = await api.get(`/store/${storeIdResolved}/notifications`);
-      } catch {
-        res = await api.get("/notifications");
-      }
-
-      const data = res?.data?.data || res?.data || [];
-      const arr = Array.isArray(data) ? data : [];
-      arr.sort(
-        (a, b) =>
-          new Date(b.createdAt || b.time || b.created_at || 0) -
-          new Date(a.createdAt || a.time || a.created_at || 0)
-      );
-      setNotifications(arr);
-      return arr;
-    } catch {
-      setNotifications([]);
-      return [];
-    }
-  }, [storeIdResolved]);
-
-  // SSE realtime notifications
-  useEffect(() => {
-    const token = getToken();
-    if (!token) return;
-    const base = String(API_URL || "").replace(/\/+$/, "");
-    const es = new EventSource(`${base}/notifications/stream?token=${token}`);
-    es.addEventListener("notification", (ev) => {
-      try {
-        const payload = JSON.parse(ev.data);
-        setNotifications((p) => [payload, ...(p || [])]);
-      } catch {}
-    });
-    es.onerror = () => {};
-    return () => es.close();
-  }, []);
-
-  useEffect(() => {
-    fetchNotifications().catch(() => {});
-  }, [fetchNotifications]);
-
-  async function markAllAsRead() {
-    setNotifications((prev) => (prev || []).map((n) => ({ ...n, read: true })));
-    try {
-      setNotifLoading(true);
-      await api.post('/notifications/mark-all-read');
-      // do not re-fetch here; rely on optimistic update and SSE
-    } catch (e) {
-      // ignore
-    } finally {
-      setNotifLoading(false);
-    }
-  }
+  // Notifications are handled by DashboardLayout; no local header needed here.
 
   // ===== form =====
   const [category, setCategory] = useState(CATEGORY_OPTIONS[0]);
@@ -249,14 +190,7 @@ export default function StoreComplaints() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-sky-50 to-sky-100/60 pb-12">
-      <DashboardHeader
-        title="แจ้งปัญหา"
-        subtitle="ติดต่อแอดมิน/ผู้ดูแลระบบ"
-        notifications={notifications}
-        onFetchNotifications={fetchNotifications}
-        notificationsLoading={notifLoading}
-        onMarkAllRead={markAllAsRead}
-      />
+
 
       <main className="mx-auto max-w-6xl px-4 pt-6">
         <div className="mb-6">

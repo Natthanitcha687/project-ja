@@ -82,7 +82,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
   return (
     <header className="sticky top-0 z-40 border-b border-sky-100 bg-white/80 py-3 backdrop-blur">
       <div className="mx-auto max-w-6xl px-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+        <Link to="/" className="flex items-center gap-3">
           <div className="relative grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-sky-50 to-white ring-1 ring-black/5 shadow-sm">
             <AppLogo className="h-6 w-6" />
           </div>
@@ -90,7 +90,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
             <div className="text-lg font-semibold text-slate-900">{title}</div>
             <div className="text-xs text-slate-500">{subtitle}</div>
           </div>
-        </div>
+        </Link>
 
         <div className="flex items-center gap-3" ref={profileMenuRef}>
           <div className="relative" ref={notifRef}>
@@ -200,15 +200,16 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
           {isAuthenticated && !isOnComplaintsPage && (
             <Link
               to="/dashboard/complaints"
-              title="แจ้งปัญหา/ติดต่อแอดมิน"
-              aria-label="แจ้งปัญหา/ติดต่อแอดมิน"
-              className="relative grid h-10 w-10 place-items-center rounded-full bg-white shadow ring-1 ring-black/5 hover:bg-gray-50 transition"
+              title="ร้องเรียน/ติดต่อแอดมิน"
+              aria-label="ร้องเรียน/ติดต่อแอดมิน"
+              className="inline-flex items-center gap-2 rounded-full bg-white shadow ring-1 ring-black/5 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
               onClick={() => {
                 setNotifOpen(false)
                 setProfileMenuOpen(false)
               }}
             >
               <span className="text-xl">📝</span>
+              <span className="hidden md:inline">ร้องเรียน</span>
             </Link>
           )}
 
