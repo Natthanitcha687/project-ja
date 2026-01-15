@@ -214,6 +214,13 @@ export default function StoreDashboard() {
   const [exportAggregateBy, setExportAggregateBy] = useState('overview') // 'overview' | 'byCustomer' | 'byProduct'
   const [exportStatusFilter, setExportStatusFilter] = useState('all') // 'all' | 'active' | 'nearing' | 'expired'
   const [exportIncludeDetails, setExportIncludeDetails] = useState(true)
+  // Pivot export options
+  const [exportMode, setExportMode] = useState('raw') // 'raw' | 'aggregate' | 'pivot'
+  const [pivotByCustomer, setPivotByCustomer] = useState(true)
+  const [pivotByProduct, setPivotByProduct] = useState(false)
+  const [pivotByStatus, setPivotByStatus] = useState(false)
+  const [pivotByMonth, setPivotByMonth] = useState(false)
+  const [pivotAggType, setPivotAggType] = useState('count') // 'count' currently supported
 
   // helpers: ensure date-only UTC handling and status derivation (matches CustomerWarranty)
   function dateOnlyUTC(v) {
@@ -450,65 +457,125 @@ export default function StoreDashboard() {
     try {
       const wb = XLSX.utils.book_new()
 
-      if (exportAggregateBy === 'byCustomer') {
-        const byCustomerRows = []
-        const custMap = new Map()
+      // If user requested pivot mode, build raw data sheet + pivot summary sheet
+      if (exportMode === 'pivot') {
+        // Flatten items
+        const flat = []
         for (const h of (filteredWarranties || [])) {
-          const key = (h.customerEmail || h.customer_email || h.customerName || h.customer_name || 'Unknown').toLowerCase()
-          const entry = custMap.get(key) || { customerName: h.customerName || h.customer_name || '', customerEmail: h.customerEmail || h.customer_email || '', headers: 0, items: 0, active: 0, nearing: 0, expired: 0 }
-          entry.headers += 1
-          entry.items += (h.items || []).length
           for (const it of (h.items || [])) {
-            const code = it.statusCode || it._status || deriveItemStatusCode(it, profile?.notifyDaysInAdvance ?? 14)
-            if (code === 'active') entry.active++
-            else if (code === 'nearing_expiration' || code === 'nearing') entry.nearing++
-            else if (code === 'expired') entry.expired++
+            const status = it.status || it._status || deriveItemStatusCode(it, profile?.notifyDaysInAdvance ?? 14)
+            const created = h.createdAt || h.created_at || ''
+            const createdMonth = created ? (new Date(created)).toISOString().slice(0,7) : ''
+            flat.push({
+              headerId: h.id || h.headerId || '',
+              customer: h.customerName || h.customer_name || '',
+              customerEmail: h.customerEmail || h.customer_email || '',
+              product: it.productName || it.product_name || '',
+              serial: it.serial || it.serialNumber || '',
+              status,
+              createdAt: created,
+              createdMonth,
+              expiryDate: it.expiryDate || it.expiry_date || ''
+            })
           }
-          custMap.set(key, entry)
         }
-        for (const v of custMap.values()) byCustomerRows.push(v)
-        const ws = XLSX.utils.json_to_sheet(byCustomerRows)
-        XLSX.utils.book_append_sheet(wb, ws, 'ByCustomer')
-      } else if (exportAggregateBy === 'byProduct') {
+        const dataSheet = XLSX.utils.json_to_sheet(flat)
+        XLSX.utils.book_append_sheet(wb, dataSheet, 'Data')
+
+        // Determine grouping keys
+        const groupFields = []
+        if (pivotByCustomer) groupFields.push('customer')
+        if (pivotByProduct) groupFields.push('product')
+        if (pivotByStatus) groupFields.push('status')
+        if (pivotByMonth) groupFields.push('createdMonth')
+
+        // Aggregate
         const map = new Map()
-        for (const h of (filteredWarranties || [])) {
-          for (const it of (h.items || [])) {
-            const pKey = (it.productName || it.product_name || 'Unknown').toLowerCase()
-            const entry = map.get(pKey) || { productName: it.productName || it.product_name || '', count: 0, active: 0, nearing: 0, expired: 0 }
-            entry.count++
-            const code = it.statusCode || it._status || deriveItemStatusCode(it, profile?.notifyDaysInAdvance ?? 14)
-            if (code === 'active') entry.active++
-            else if (code === 'nearing_expiration' || code === 'nearing') entry.nearing++
-            else if (code === 'expired') entry.expired++
-            map.set(pKey, entry)
+        if (groupFields.length === 0) {
+          // total only
+          const total = { Count: flat.length }
+          const ws = XLSX.utils.json_to_sheet([total])
+          XLSX.utils.book_append_sheet(wb, ws, 'Pivot')
+        } else {
+          for (const r of flat) {
+            const keyParts = groupFields.map(f => String(r[f] ?? ''))
+            const key = keyParts.join('||')
+            const entry = map.get(key) || { __count: 0, __values: Object.fromEntries(groupFields.map((f, i) => [f, keyParts[i]])) }
+            entry.__count += 1
+            map.set(key, entry)
           }
+          const rows = []
+          for (const e of map.values()) {
+            const out = { }
+            for (const f of groupFields) out[f] = e.__values[f]
+            out.Count = e.__count
+            rows.push(out)
+          }
+          const ws = XLSX.utils.json_to_sheet(rows)
+          XLSX.utils.book_append_sheet(wb, ws, 'Pivot')
         }
-        const rows = Array.from(map.values())
-        const ws = XLSX.utils.json_to_sheet(rows)
-        XLSX.utils.book_append_sheet(wb, ws, 'ByProduct')
       } else {
-        const rows = []
-        for (const h of (filteredWarranties || [])) {
-          rows.push({
-            headerId: h.id || h.headerId || '',
-            customer: h.customerName || h.customer_name || '',
-            customerEmail: h.customerEmail || h.customer_email || '',
-            createdAt: h.createdAt || h.created_at || '',
-            items: (h.items || []).length,
-            status: (h.items || []).map(it => it.status || it._status || deriveItemStatusCode(it, profile?.notifyDaysInAdvance ?? 14)).join('; ')
-          })
-          if (exportIncludeDetails) {
+        // existing behavior: raw/aggregate modes
+        if (exportAggregateBy === 'byCustomer') {
+          const byCustomerRows = []
+          const custMap = new Map()
+          for (const h of (filteredWarranties || [])) {
+            const key = (h.customerEmail || h.customer_email || h.customerName || h.customer_name || 'Unknown').toLowerCase()
+            const entry = custMap.get(key) || { customerName: h.customerName || h.customer_name || '', customerEmail: h.customerEmail || h.customer_email || '', headers: 0, items: 0, active: 0, nearing: 0, expired: 0 }
+            entry.headers += 1
+            entry.items += (h.items || []).length
             for (const it of (h.items || [])) {
-              rows.push({ headerId: h.id || h.headerId || '', itemProduct: it.productName || it.product_name || '', itemSerial: it.serial || it.serialNumber || '', expiryDate: it.expiryDate || it.expiry_date || '' })
+              const code = it.statusCode || it._status || deriveItemStatusCode(it, profile?.notifyDaysInAdvance ?? 14)
+              if (code === 'active') entry.active++
+              else if (code === 'nearing_expiration' || code === 'nearing') entry.nearing++
+              else if (code === 'expired') entry.expired++
+            }
+            custMap.set(key, entry)
+          }
+          for (const v of custMap.values()) byCustomerRows.push(v)
+          const ws = XLSX.utils.json_to_sheet(byCustomerRows)
+          XLSX.utils.book_append_sheet(wb, ws, 'ByCustomer')
+        } else if (exportAggregateBy === 'byProduct') {
+          const map = new Map()
+          for (const h of (filteredWarranties || [])) {
+            for (const it of (h.items || [])) {
+              const pKey = (it.productName || it.product_name || 'Unknown').toLowerCase()
+              const entry = map.get(pKey) || { productName: it.productName || it.product_name || '', count: 0, active: 0, nearing: 0, expired: 0 }
+              entry.count++
+              const code = it.statusCode || it._status || deriveItemStatusCode(it, profile?.notifyDaysInAdvance ?? 14)
+              if (code === 'active') entry.active++
+              else if (code === 'nearing_expiration' || code === 'nearing') entry.nearing++
+              else if (code === 'expired') entry.expired++
+              map.set(pKey, entry)
             }
           }
+          const rows = Array.from(map.values())
+          const ws = XLSX.utils.json_to_sheet(rows)
+          XLSX.utils.book_append_sheet(wb, ws, 'ByProduct')
+        } else {
+          const rows = []
+          for (const h of (filteredWarranties || [])) {
+            rows.push({
+              headerId: h.id || h.headerId || '',
+              customer: h.customerName || h.customer_name || '',
+              customerEmail: h.customerEmail || h.customer_email || '',
+              createdAt: h.createdAt || h.created_at || '',
+              items: (h.items || []).length,
+              status: (h.items || []).map(it => it.status || it._status || deriveItemStatusCode(it, profile?.notifyDaysInAdvance ?? 14)).join('; ')
+            })
+            if (exportIncludeDetails) {
+              for (const it of (h.items || [])) {
+                rows.push({ headerId: h.id || h.headerId || '', itemProduct: it.productName || it.product_name || '', itemSerial: it.serial || it.serialNumber || '', expiryDate: it.expiryDate || it.expiry_date || '' })
+              }
+            }
+          }
+          const ws = XLSX.utils.json_to_sheet(rows)
+          XLSX.utils.book_append_sheet(wb, ws, 'Overview')
         }
-        const ws = XLSX.utils.json_to_sheet(rows)
-        XLSX.utils.book_append_sheet(wb, ws, 'Overview')
       }
 
       const now = new Date().toISOString().slice(0,19).replaceAll(':','-')
-      const fileName = `warranty-overview-${exportAggregateBy}-${exportStatusFilter}-${exportIncludeDetails ? 'details' : 'nodetails'}-${now}.xlsx`
+      const fileName = `warranty-export-${exportMode}-${exportAggregateBy}-${exportStatusFilter}-${exportIncludeDetails ? 'details' : 'nodetails'}-${now}.xlsx`
       XLSX.writeFile(wb, fileName)
     } catch (err) {
       console.error('Export to Excel failed', err)
@@ -539,25 +606,50 @@ export default function StoreDashboard() {
               <p className="text-sm text-slate-500">สรุปภาพรวมการรับประกันและสินค้าของร้าน</p>
             </div>
             <div className="flex flex-wrap items-center gap-2 min-w-0">
-              <label className="text-xs text-slate-500">สรุปตาม</label>
-              <select value={exportAggregateBy} onChange={(e) => setExportAggregateBy(e.target.value)} className="rounded-md border px-2 py-1 text-sm max-w-[140px] sm:max-w-[190px]">
-                <option value="overview">ภาพรวม</option>
-                <option value="byCustomer">สรุปตามลูกค้า</option>
-                <option value="byProduct">สรุปตามสินค้า</option>
+              <label className="text-xs text-slate-500">โหมดส่งออก</label>
+              <select value={exportMode} onChange={(e) => setExportMode(e.target.value)} className="rounded-md border px-2 py-1 text-sm max-w-[140px] sm:max-w-[190px]">
+                <option value="raw">Raw</option>
+                <option value="aggregate">Aggregate</option>
+                <option value="pivot">Pivot</option>
               </select>
 
-              <label className="text-xs text-slate-500">สถานะ</label>
-              <select value={exportStatusFilter} onChange={(e) => setExportStatusFilter(e.target.value)} className="rounded-md border px-2 py-1 text-sm max-w-[120px] sm:max-w-[160px]">
-                <option value="all">ทั้งหมด</option>
-                <option value="active">กำลังใช้งาน</option>
-                <option value="nearing">ใกล้หมดอายุ</option>
-                <option value="expired">หมดอายุ</option>
-              </select>
+              {exportMode !== 'pivot' && (
+                <>
+                  <label className="text-xs text-slate-500">สรุปตาม</label>
+                  <select value={exportAggregateBy} onChange={(e) => setExportAggregateBy(e.target.value)} className="rounded-md border px-2 py-1 text-sm max-w-[140px] sm:max-w-[190px]">
+                    <option value="overview">ภาพรวม</option>
+                    <option value="byCustomer">สรุปตามลูกค้า</option>
+                    <option value="byProduct">สรุปตามสินค้า</option>
+                  </select>
 
-              <label className="text-sm flex items-center gap-2">
-                <input type="checkbox" checked={exportIncludeDetails} onChange={(e) => setExportIncludeDetails(e.target.checked)} />
-                <span className="text-xs text-slate-600">รวมรายละเอียด</span>
-              </label>
+                  <label className="text-xs text-slate-500">สถานะ</label>
+                  <select value={exportStatusFilter} onChange={(e) => setExportStatusFilter(e.target.value)} className="rounded-md border px-2 py-1 text-sm max-w-[120px] sm:max-w-[160px]">
+                    <option value="all">ทั้งหมด</option>
+                    <option value="active">กำลังใช้งาน</option>
+                    <option value="nearing">ใกล้หมดอายุ</option>
+                    <option value="expired">หมดอายุ</option>
+                  </select>
+
+                  <label className="text-sm flex items-center gap-2">
+                    <input type="checkbox" checked={exportIncludeDetails} onChange={(e) => setExportIncludeDetails(e.target.checked)} />
+                    <span className="text-xs text-slate-600">รวมรายละเอียด</span>
+                  </label>
+                </>
+              )}
+
+              {exportMode === 'pivot' && (
+                <div className="flex items-center gap-3 px-2 py-1">
+                  <div className="text-xs text-slate-500">จัดกลุ่มตาม</div>
+                  <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={pivotByCustomer} onChange={(e) => setPivotByCustomer(e.target.checked)} /> ลูกค้า</label>
+                  <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={pivotByProduct} onChange={(e) => setPivotByProduct(e.target.checked)} /> สินค้า</label>
+                  <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={pivotByStatus} onChange={(e) => setPivotByStatus(e.target.checked)} /> สถานะ</label>
+                  <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={pivotByMonth} onChange={(e) => setPivotByMonth(e.target.checked)} /> เดือนสร้าง</label>
+                  <label className="text-xs text-slate-500">Agg</label>
+                  <select value={pivotAggType} onChange={(e) => setPivotAggType(e.target.value)} className="rounded-md border px-2 py-1 text-sm max-w-[120px]">
+                    <option value="count">Count</option>
+                  </select>
+                </div>
+              )}
 
               <button
                 type="button"
