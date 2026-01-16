@@ -20,6 +20,119 @@ function resolveFirstExisting(candidates) {
   return null;
 }
 
+// --- load province/district/subdistrict maps (from frontend data) ---
+let _thaiAdminMaps = null;
+function ensureThaiAdminMaps() {
+  if (_thaiAdminMaps) return _thaiAdminMaps;
+  const candidates = {
+    provinces: [
+      path.resolve(process.cwd(), "public/data/api_province.json"),
+      path.resolve(process.cwd(), "../frontend-sma/public/data/api_province.json"),
+      new URL("../../frontend-sma/public/data/api_province.json", import.meta.url).href,
+    ],
+    districts: [
+      path.resolve(process.cwd(), "public/data/api_district.json"),
+      path.resolve(process.cwd(), "../frontend-sma/public/data/api_district.json"),
+      new URL("../../frontend-sma/public/data/api_district.json", import.meta.url).href,
+    ],
+    subdistricts: [
+      path.resolve(process.cwd(), "public/data/api_subdistrict.json"),
+      path.resolve(process.cwd(), "../frontend-sma/public/data/api_subdistrict.json"),
+      new URL("../../frontend-sma/public/data/api_subdistrict.json", import.meta.url).href,
+    ],
+  };
+
+  function loadJson(list) {
+    for (const p of list) {
+      try {
+        if (!p) continue;
+        const abs = p.startsWith("file:") ? fileURLToPath(p) : path.isAbsolute(p) ? p : path.resolve(p);
+        if (fs.existsSync(abs)) return JSON.parse(fs.readFileSync(abs, "utf8"));
+      } catch {}
+    }
+    return null;
+  }
+
+  const provinces = loadJson(candidates.provinces) || [];
+  const districts = loadJson(candidates.districts) || [];
+  const subdistricts = loadJson(candidates.subdistricts) || [];
+
+  const provMap = new Map();
+  for (const p of provinces) provMap.set(String(p.id), p.name_th || p.name || "");
+
+  const distMap = new Map();
+  for (const d of districts) distMap.set(String(d.id), (d.name_th || d.name || ""));
+
+  const subMap = new Map();
+  for (const s of subdistricts) subMap.set(String(s.id), (s.name_th || s.name || ""));
+
+  _thaiAdminMaps = { provMap, distMap, subMap };
+  return _thaiAdminMaps;
+}
+
+function safeJsonParseMaybe(v) {
+  if (v == null) return null;
+  if (typeof v === "object") return v;
+  const s = String(v).trim();
+  if (!s) return null;
+  if (!(s.startsWith("{") || s.startsWith("["))) return null;
+  try {
+    return JSON.parse(s);
+  } catch {
+    return null;
+  }
+}
+
+function stripPrefixThaiName(name) {
+  if (!name) return name;
+  return String(name).replace(/^(เขต|อำเภอ|แขวง|ตำบล)\s*/u, "");
+}
+
+export function formatThaiAddress(addr) {
+  if (!addr) return "-";
+
+  const obj = safeJsonParseMaybe(addr);
+  if (!obj) return String(addr).trim() || "-";
+
+  const maps = ensureThaiAdminMaps();
+
+  const street = (obj.street || obj.address || obj.line1 || obj.line || obj.address_line || "").toString().trim();
+
+  // try various keys for admin codes/names
+  const rawSub = (obj.subdistrict || obj.subDistrict || obj.tambon || obj.subdistrict_id || obj.subdistrictId || obj.subdistrictCode || obj.subdistrict_code || "").toString().trim();
+  const rawDist = (obj.district || obj.amphoe || obj.district_id || obj.districtId || obj.district_code || obj.district_code || "").toString().trim();
+  const rawProv = (obj.province || obj.state || obj.province_id || obj.provinceId || obj.province_code || obj.provinceCode || "").toString().trim();
+  const postcode = (obj.postcode || obj.zip || obj.zipcode || obj.postalCode || obj.postal_code || "").toString().trim();
+
+  let subName = rawSub;
+  let distName = rawDist;
+  let provName = rawProv;
+
+  // numeric id -> lookup
+  try {
+    if (maps && rawProv && /^\d+$/.test(rawProv)) provName = maps.provMap.get(String(rawProv)) || rawProv;
+    if (maps && rawDist && /^\d+$/.test(rawDist)) distName = (maps.distMap.get(String(rawDist)) || rawDist);
+    if (maps && rawSub && /^\d+$/.test(rawSub)) subName = (maps.subMap.get(String(rawSub)) || rawSub);
+  } catch (e) {}
+
+  // if values are present but may contain full strings like 'เขตพระนคร', strip prefix for consistent formatting
+  subName = stripPrefixThaiName(subName || "");
+  distName = stripPrefixThaiName(distName || "");
+  provName = stripPrefixThaiName(provName || "");
+
+  const isBkk = (provName || "").includes("กรุงเทพ") || (String(provName || "").toLowerCase().includes("bangkok"));
+
+  const parts = [];
+  if (street) parts.push(street);
+  if (subName) parts.push(isBkk ? `แขวง${subName}` : `ตำบล${subName}`);
+  if (distName) parts.push(isBkk ? `เขต${distName}` : `อำเภอ${distName}`);
+  if (provName) parts.push(isBkk ? provName : `จังหวัด${provName}`);
+  if (postcode) parts.push(postcode);
+
+  const out = parts.join(" ").replace(/\s+/g, " ").trim();
+  return out || "-";
+}
+
 function loadThaiFonts(doc) {
   const envReg = process.env.THAI_FONT_REGULAR;
   const envBold = process.env.THAI_FONT_BOLD;
@@ -116,7 +229,7 @@ export function drawWarrantyPage(doc, base, item) {
   doc.font(fonts.regular).fontSize(10).fillColor("#000").text("ที่อยู่", left + mm(3.5), y + mm(3.5));
   doc.font(fonts.regular).fontSize(9).fillColor("#555").text("Address", left + mm(3.5), y + mm(8.5));
   doc.font(fonts.regular).fontSize(11).fillColor("#000")
-    .text(T(base.customerAddress), left + mm(3.5), y + mm(14), { width: tableW - mm(7) });
+    .text(T(formatThaiAddress(base.customerAddress)), left + mm(3.5), y + mm(14), { width: tableW - mm(7) });
   y += rowH4;
 
   const purchaseDate = item.purchaseDate || base.purchaseDate;
