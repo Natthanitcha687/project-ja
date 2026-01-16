@@ -1,6 +1,7 @@
 import PDFDocument from "pdfkit";
 import fs from "fs";
 import path from "path";
+import { pathToFileURL } from "url";
 import { prisma } from "../db/prisma.js";
 import { sendError, sendSuccess } from "../utils/http.js";
 import { createAndPublish as createNotification } from "../routes/notifications.routes.js";
@@ -201,19 +202,29 @@ export async function downloadWarrantyPdf(req, res) {
       }
     }
 
-    function formatThaiAddress(addr) {
+    // prefer the shared formatter in src/pdf/warrantyTemplate_v2 when available
+    let formatThaiAddress = async function (addr) {
       if (!addr) return "-";
-
       const obj = safeJsonParseMaybe(addr);
-      if (!obj) {
-        return String(addr).trim() || "-";
-      }
+      if (!obj) return String(addr).trim() || "-";
+      const street = (obj.street || obj.address || obj.line1 || obj.line || obj.address_line || "").toString().trim();
+      const subdistrict = (obj.subdistrict || obj.subDistrict || obj.tambon || obj.subdistrict_id || obj.subdistrictId || obj.subdistrictCode || obj.subdistrict_code || "").toString().trim();
+      const district = (obj.district || obj.amphoe || obj.district_id || obj.districtId || obj.district_code || "").toString().trim();
+      const province = (obj.province || obj.state || obj.province_id || obj.provinceId || obj.province_code || obj.provinceCode || "").toString().trim();
+      const postcode = (obj.postcode || obj.zip || obj.zipcode || obj.postalCode || obj.postal_code || "").toString().trim();
 
-      const street = (obj.street || obj.address || obj.line1 || "").toString().trim();
-      const subdistrict = (obj.subdistrict || obj.subDistrict || obj.tambon || "").toString().trim();
-      const district = (obj.district || obj.amphoe || "").toString().trim();
-      const province = (obj.province || obj.state || "").toString().trim();
-      const postcode = (obj.postcode || obj.zip || obj.postalCode || "").toString().trim();
+      // best-effort: if numeric ids present, try resolve via frontend json files
+      try {
+        const mapsModulePath = path.resolve(process.cwd(), "src/pdf/warrantyTemplate_v2.js");
+        if (fs.existsSync(mapsModulePath)) {
+          const w2 = await import(pathToFileURL(mapsModulePath).href);
+          if (w2 && typeof w2.formatThaiAddress === "function") {
+            return w2.formatThaiAddress(addr);
+          }
+        }
+      } catch (e) {
+        // fallback to simple formatting below
+      }
 
       const isBkk = province.includes("กรุงเทพ") || province.toLowerCase().includes("bangkok");
 
@@ -226,7 +237,7 @@ export async function downloadWarrantyPdf(req, res) {
 
       const out = parts.join(" ").replace(/\s+/g, " ").trim();
       return out || "-";
-    }
+    };
 
     // --- logo helper ---
     const logoCandidates = [
@@ -382,7 +393,9 @@ export async function downloadWarrantyPdf(req, res) {
       const top = mm(12);
       const width = pageW - mm(12) * 2;
 
-      headerTitle(left, top, width);
+      drawTopLogo(left, top);              // 👈 โลโก้ด้านบน
+      headerTitle(left + mm(26), top, width - mm(26)); 
+
 
       const tableTop = top + mm(22);
       const tableW = width;
@@ -429,13 +442,38 @@ export async function downloadWarrantyPdf(req, res) {
         "Dealer' Name",
         T(base.dealerName)
       );
+
+      function drawTopLogo(left, top) {
+  const logoSize = mm(20); // ขนาดโลโก้ด้านบน
+  const logoX = left;
+  const logoY = top;
+
+  if (logoPath) {
+    try {
+      const buf = fs.readFileSync(logoPath);
+      doc.image(buf, logoX, logoY, { fit: [logoSize, logoSize] });
+    } catch {
+      doc.save();
+      doc.fillColor("#E11D48").rect(logoX, logoY, logoSize, logoSize).fill();
+      doc.fillColor("#fff")
+        .font(boldPath ? "THAI_BOLD" : "THAI")
+        .fontSize(10)
+        .text("APP", logoX, logoY + mm(6), {
+          width: logoSize,
+          align: "center",
+        });
+      doc.restore();
+    }
+  }
+}
+
       drawCellBilingual(left + colL, y, colR, row5, "วันที่ซื้อ", "Purchase Date", purchaseTxt);
 
       const footerNoteY = pageH - mm(52);
       drawBottomBrandArea(left, footerNoteY, width, base.company, base.footerNote);
     }
 
-    const storeAddressThai = formatThaiAddress(profile?.address || profile?.addressText || profile?.storeAddress);
+    const storeAddressThai = await formatThaiAddress(profile?.address || profile?.addressText || profile?.storeAddress);
 
     const base = {
       cardNo: header.code || header.id,
