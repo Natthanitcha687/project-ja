@@ -393,7 +393,9 @@ export async function downloadWarrantyPdf(req, res) {
       const top = mm(12);
       const width = pageW - mm(12) * 2;
 
-      headerTitle(left, top, width);
+      drawTopLogo(left, top);              // 👈 โลโก้ด้านบน
+      headerTitle(left + mm(26), top, width - mm(26)); 
+
 
       const tableTop = top + mm(22);
       const tableW = width;
@@ -440,6 +442,31 @@ export async function downloadWarrantyPdf(req, res) {
         "Dealer' Name",
         T(base.dealerName)
       );
+
+      function drawTopLogo(left, top) {
+  const logoSize = mm(20); // ขนาดโลโก้ด้านบน
+  const logoX = left;
+  const logoY = top;
+
+  if (logoPath) {
+    try {
+      const buf = fs.readFileSync(logoPath);
+      doc.image(buf, logoX, logoY, { fit: [logoSize, logoSize] });
+    } catch {
+      doc.save();
+      doc.fillColor("#E11D48").rect(logoX, logoY, logoSize, logoSize).fill();
+      doc.fillColor("#fff")
+        .font(boldPath ? "THAI_BOLD" : "THAI")
+        .fontSize(10)
+        .text("APP", logoX, logoY + mm(6), {
+          width: logoSize,
+          align: "center",
+        });
+      doc.restore();
+    }
+  }
+}
+
       drawCellBilingual(left + colL, y, colR, row5, "วันที่ซื้อ", "Purchase Date", purchaseTxt);
 
       const footerNoteY = pageH - mm(52);
