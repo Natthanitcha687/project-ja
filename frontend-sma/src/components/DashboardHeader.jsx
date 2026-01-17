@@ -209,7 +209,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
               }}
             >
               <span className="text-xl">📝</span>
-              <span className="hidden md:inline">ร้องเรียน</span>
+              <span className="hidden md:inline">แจ้งปัญหา</span>
             </Link>
           )}
 

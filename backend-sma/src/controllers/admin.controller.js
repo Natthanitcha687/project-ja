@@ -466,11 +466,17 @@ export async function createStoreWarranty(req, res) {
         if (!normEmail) {
           return { email: null, userId: null, name: nameFromPayload ?? null, phone: phoneFromPayload ?? null };
         }
-        const user = await tx.user.findFirst({ where: { email: { equals: normEmail, mode: "insensitive" }, role: "CUSTOMER" }, select: { id: true } });
+        const user = await tx.user.findFirst({
+          where: { email: { equals: normEmail, mode: "insensitive" }, role: "CUSTOMER" },
+          select: { id: true },
+        });
         let name = nameFromPayload ?? null;
         let phone = phoneFromPayload ?? null;
         if (user) {
-          const cp = await tx.customerProfile.findUnique({ where: { userId: user.id }, select: { firstName: true, lastName: true, phone: true } });
+          const cp = await tx.customerProfile.findUnique({
+            where: { userId: user.id },
+            select: { firstName: true, lastName: true, phone: true },
+          });
           if (!name) name = fullNameFromCP(cp);
           if (!phone && cp?.phone) phone = cp.phone;
         }
@@ -481,7 +487,11 @@ export async function createStoreWarranty(req, res) {
 
       if (Array.isArray(body.items) && body.items.length > 0) {
         const first = body.items[0] || {};
-        const { email, userId, name, phone } = await resolveCustomer(first.customer_email ?? first.customerEmail, first.customer_name ?? first.customerName, first.customer_phone ?? first.customerPhone);
+        const { email, userId, name, phone } = await resolveCustomer(
+          first.customer_email ?? first.customerEmail,
+          first.customer_name ?? first.customerName,
+          first.customer_phone ?? first.customerPhone
+        );
 
         const usedSerial = new Set();
         let seq = 1;
@@ -514,9 +524,23 @@ export async function createStoreWarranty(req, res) {
 
         for (let attempt = 0; attempt < 3; attempt++) {
           try {
-            return await tx.warranty.create({ data: { storeId, code, customerEmail: email, customerUserId: userId, customerName: name, customerPhone: phone, items: { create: itemsToCreate } }, include: { items: true } });
+            return await tx.warranty.create({
+              data: {
+                storeId,
+                code,
+                customerEmail: email,
+                customerUserId: userId,
+                customerName: name,
+                customerPhone: phone,
+                items: { create: itemsToCreate },
+              },
+              include: { items: true },
+            });
           } catch (e) {
-            if (e?.code === "P2002" && (e.meta?.target?.includes?.("storeId_code") || e.meta?.target?.includes?.("code"))) {
+            if (
+              e?.code === "P2002" &&
+              (e.meta?.target?.includes?.("storeId_code") || e.meta?.target?.includes?.("code"))
+            ) {
               code = await allocateWarrantyCode(tx, storeId, { prefix: "WR" });
               continue;
             }
@@ -530,7 +554,11 @@ export async function createStoreWarranty(req, res) {
       }
 
       // single item payload
-      const { email, userId, name, phone } = await resolveCustomer(body.customer_email ?? body.customerEmail, body.customer_name ?? body.customerName, body.customer_phone ?? body.customerPhone);
+      const { email, userId, name, phone } = await resolveCustomer(
+        body.customer_email ?? body.customerEmail,
+        body.customer_name ?? body.customerName,
+        body.customer_phone ?? body.customerPhone
+      );
 
       const purchase = body.purchase_date ? new Date(body.purchase_date) : new Date();
       let expiry = body.expiry_date ? new Date(body.expiry_date) : null;
@@ -540,9 +568,38 @@ export async function createStoreWarranty(req, res) {
 
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          return await tx.warranty.create({ data: { storeId, code, customerEmail: email, customerUserId: userId, customerName: name, customerPhone: phone, items: { create: [ { productName: String(body.product_name || body.productName || "").trim(), model: String(body.model || body.product_model || "").trim() || null, serial: serialOne, purchaseDate: purchase, expiryDate: expiry, durationMonths: dm || null, durationDays: expiry ? daysBetween(purchase, expiry) : null, coverageNote: String(body.warranty_terms || body.coverageNote || "").trim() || null, note: String(body.note || "").trim() || null, images: [], }, ], }, }, include: { items: true } });
+          return await tx.warranty.create({
+            data: {
+              storeId,
+              code,
+              customerEmail: email,
+              customerUserId: userId,
+              customerName: name,
+              customerPhone: phone,
+              items: {
+                create: [
+                  {
+                    productName: String(body.product_name || body.productName || "").trim(),
+                    model: String(body.model || body.product_model || "").trim() || null,
+                    serial: serialOne,
+                    purchaseDate: purchase,
+                    expiryDate: expiry,
+                    durationMonths: dm || null,
+                    durationDays: expiry ? daysBetween(purchase, expiry) : null,
+                    coverageNote: String(body.warranty_terms || body.coverageNote || "").trim() || null,
+                    note: String(body.note || "").trim() || null,
+                    images: [],
+                  },
+                ],
+              },
+            },
+            include: { items: true },
+          });
         } catch (e) {
-          if (e?.code === "P2002" && (e.meta?.target?.includes?.("storeId_code") || e.meta?.target?.includes?.("code"))) {
+          if (
+            e?.code === "P2002" &&
+            (e.meta?.target?.includes?.("storeId_code") || e.meta?.target?.includes?.("code"))
+          ) {
             code = await allocateWarrantyCode(tx, storeId, { prefix: "WR" });
             continue;
           }
@@ -560,7 +617,16 @@ export async function createStoreWarranty(req, res) {
       const title = `สร้างใบรับประกัน ${createdHeader.code || ""}`;
       const bodyText = `สร้างใบรับประกัน ${createdHeader.code || ""} จำนวน ${createdHeader.items?.length || 0} รายการ`;
       if (createdHeader.customerUserId) {
-        await createNotification({ prisma, attrs: { userId: createdHeader.customerUserId, title, body: bodyText, data: { type: "warranty_created", warrantyId: createdHeader.id }, sendEmail: true } });
+        await createNotification({
+          prisma,
+          attrs: {
+            userId: createdHeader.customerUserId,
+            title,
+            body: bodyText,
+            data: { type: "warranty_created", warrantyId: createdHeader.id },
+            sendEmail: true,
+          },
+        });
       }
     } catch (e) {
       console.warn("notify warranty created failed (admin)", e?.message || e);
@@ -568,18 +634,40 @@ export async function createStoreWarranty(req, res) {
 
     // audit
     try {
-      await prisma.auditLog.create({ data: { actorUserId: Number(req.user?.id ?? req.user?.sub) || null, action: "CREATE_WARRANTY", targetType: "Store", targetId: String(storeId), ip: req.ip || null, userAgent: req.get ? req.get("user-agent") : null, meta: { result: "SUCCESS", storeId, warrantyId: createdHeader.id, warrantyCode: createdHeader.code, after: createdHeader } } });
+      await prisma.auditLog.create({
+        data: {
+          actorUserId: Number(req.user?.id ?? req.user?.sub) || null,
+          action: "CREATE_WARRANTY",
+          targetType: "Store",
+          targetId: String(storeId),
+          ip: req.ip || null,
+          userAgent: req.get ? req.get("user-agent") : null,
+          meta: {
+            result: "SUCCESS",
+            storeId,
+            warrantyId: createdHeader.id,
+            warrantyCode: createdHeader.code,
+            after: createdHeader,
+          },
+        },
+      });
     } catch (e) {
       console.warn("audit CREATE_WARRANTY failed (ignored):", e?.message || e);
     }
 
-    return res.status(201).json({ message: "สร้างใบรับประกันเรียบร้อย", data: { warranty: mapWarrantyHeaderForResponse(createdHeader, notifyDays) } });
+    return res.status(201).json({
+      message: "สร้างใบรับประกันเรียบร้อย",
+      data: { warranty: mapWarrantyHeaderForResponse(createdHeader, notifyDays) },
+    });
   } catch (error) {
     if (error?.status) return res.status(error.status).json({ message: error.message });
     if (error?.code === "P2002" && error.meta?.target?.includes?.("warrantyId_serial")) {
       return res.status(409).json({ message: "Serial ซ้ำภายในใบรับประกัน" });
     }
-    if (error?.code === "P2002" && (error.meta?.target?.includes?.("storeId_code") || error.meta?.target?.includes?.("code"))) {
+    if (
+      error?.code === "P2002" &&
+      (error.meta?.target?.includes?.("storeId_code") || error.meta?.target?.includes?.("code"))
+    ) {
       return res.status(409).json({ message: "รหัสใบรับประกันซ้ำ กรุณาลองใหม่" });
     }
     console.error("createStoreWarranty error", error);
@@ -804,6 +892,7 @@ export async function setUserStatus(req, res) {
 /* =========================
  * Logs & Complaints
  * ========================= */
+
 export async function listSecurityEvents(_req, res) {
   const events = await prisma.securityEvent.findMany({
     orderBy: { createdAt: "desc" },
@@ -851,11 +940,7 @@ export async function listAuditLogs(_req, res) {
   const complaintIds = Array.from(
     new Set(
       (logs || [])
-        .filter(
-          (l) =>
-            (l.targetType || "").toLowerCase() === "complaint" &&
-            l.targetId
-        )
+        .filter((l) => (l.targetType || "").toLowerCase() === "complaint" && l.targetId)
         .map((l) => String(l.targetId))
     )
   );
@@ -878,9 +963,7 @@ export async function listAuditLogs(_req, res) {
         user: { select: { id: true, email: true, role: true } },
       },
     });
-    complaintUserMap = new Map(
-      (complaints || []).map((c) => [String(c.id), c.user || null])
-    );
+    complaintUserMap = new Map((complaints || []).map((c) => [String(c.id), c.user || null]));
   }
 
   const enriched = (logs || []).map((l) => {
@@ -902,43 +985,99 @@ export async function listAuditLogs(_req, res) {
   res.json({ logs: enriched });
 }
 
+/* =========================
+ * Complaints helpers (safe images)
+ * ========================= */
+
+function isMissingImagesColumnError(err) {
+  // Prisma: P2022 = Column does not exist
+  if (err?.code === "P2022") return true;
+
+  const msg = String(err?.message || "").toLowerCase();
+  // postgres: column "images" of relation "Complaint" does not exist
+  // mysql: unknown column 'images' ...
+  return (
+    msg.includes("images") &&
+    (msg.includes("does not exist") || msg.includes("unknown column") || msg.includes("column"))
+  );
+}
+
+function normalizeComplaintImages(row) {
+  const imgs = row?.images;
+  return { ...row, images: Array.isArray(imgs) ? imgs : [] };
+}
+
 /**
  * include user + profile เพื่อให้ฝั่ง Admin UI แสดง "ผู้ส่ง" ได้
+ * ✅ เพิ่ม images แบบ fallback-safe (ถ้า DB ยังไม่มีคอลัมน์ images จะไม่พัง)
  */
 export async function listComplaints(req, res) {
   const status = (req.query.status || "").toString().trim();
 
-  // Select complaint scalar fields explicitly (exclude `images`) and include user/profile info
-  const complaints = await prisma.complaint.findMany({
-    where: status ? { status } : {},
-    orderBy: { createdAt: "desc" },
-    take: 200,
+  const userSelect = {
     select: {
       id: true,
-      userId: true,
-      category: true,
-      subject: true,
-      message: true,
-      status: true,
-      createdAt: true,
-      updatedAt: true,
-      user: {
-        select: {
-          id: true,
-          email: true,
-          role: true,
-          customerProfile: { select: { firstName: true, lastName: true, phone: true } },
-          storeProfile: { select: { storeName: true, phone: true } },
-        },
-      },
+      email: true,
+      role: true,
+      customerProfile: { select: { firstName: true, lastName: true, phone: true } },
+      storeProfile: { select: { storeName: true, phone: true } },
     },
-  });
+  };
+
+  const selectWithImages = {
+    id: true,
+    userId: true,
+    category: true,
+    subject: true,
+    message: true,
+    status: true,
+    images: true, // ✅ images
+    createdAt: true,
+    updatedAt: true,
+    user: userSelect,
+  };
+
+  const selectWithoutImages = {
+    id: true,
+    userId: true,
+    category: true,
+    subject: true,
+    message: true,
+    status: true,
+    createdAt: true,
+    updatedAt: true,
+    user: userSelect,
+  };
+
+  let complaints = [];
+  try {
+    complaints = await prisma.complaint.findMany({
+      where: status ? { status } : {},
+      orderBy: { createdAt: "desc" },
+      take: 200,
+      select: selectWithImages,
+    });
+    complaints = (complaints || []).map(normalizeComplaintImages);
+  } catch (e) {
+    if (isMissingImagesColumnError(e)) {
+      complaints = await prisma.complaint.findMany({
+        where: status ? { status } : {},
+        orderBy: { createdAt: "desc" },
+        take: 200,
+        select: selectWithoutImages,
+      });
+      complaints = (complaints || []).map((c) => ({ ...c, images: [] }));
+    } else {
+      throw e;
+    }
+  }
 
   res.json({ complaints });
 }
 
 /**
  * update แล้ว include user กลับไปด้วย (กัน UI หลุดข้อมูลผู้ส่งใน modal/list)
+ * ✅ เพิ่ม images แบบ fallback-safe (ถ้า DB ยังไม่มีคอลัมน์ images จะไม่พัง)
  */
 export async function setComplaintStatus(req, res) {
   const id = req.params.id;
@@ -948,36 +1087,71 @@ export async function setComplaintStatus(req, res) {
     return res.status(400).json({ message: "สถานะไม่ถูกต้อง" });
 
   // Only fetch minimal fields to avoid selecting `images` column when missing
-  const beforeRow = await prisma.complaint.findUnique({ where: { id }, select: { id: true, status: true } });
+  const beforeRow = await prisma.complaint.findUnique({
+    where: { id },
+    select: { id: true, status: true },
+  });
   if (!beforeRow) return res.status(404).json({ message: "ไม่พบข้อมูลการแจ้งปัญหา" });
 
   const before = { status: beforeRow.status };
 
+  const userSelect = {
+    select: {
+      id: true,
+      email: true,
+      role: true,
+      customerProfile: { select: { firstName: true, lastName: true, phone: true } },
+      storeProfile: { select: { storeName: true, phone: true } },
+    },
+  };
+
+  const selectWithImages = {
+    id: true,
+    userId: true,
+    category: true,
+    subject: true,
+    message: true,
+    status: true,
+    images: true, // ✅ images
+    createdAt: true,
+    updatedAt: true,
+    user: userSelect,
+  };
+
+  const selectWithoutImages = {
+    id: true,
+    userId: true,
+    category: true,
+    subject: true,
+    message: true,
+    status: true,
+    createdAt: true,
+    updatedAt: true,
+    user: userSelect,
+  };
+
   try {
-    // Explicit select to avoid returning `images` column if DB not migrated
-    const updated = await prisma.complaint.update({
-      where: { id },
-      data: { status },
-      select: {
-        id: true,
-        userId: true,
-        category: true,
-        subject: true,
-        message: true,
-        status: true,
-        createdAt: true,
-        updatedAt: true,
-        user: {
-          select: {
-            id: true,
-            email: true,
-            role: true,
-            customerProfile: { select: { firstName: true, lastName: true, phone: true } },
-            storeProfile: { select: { storeName: true, phone: true } },
-          },
-        },
-      },
-    });
+    let updated;
+
+    try {
+      updated = await prisma.complaint.update({
+        where: { id },
+        data: { status },
+        select: selectWithImages,
+      });
+      updated = normalizeComplaintImages(updated);
+    } catch (e) {
+      if (isMissingImagesColumnError(e)) {
+        updated = await prisma.complaint.update({
+          where: { id },
+          data: { status },
+          select: selectWithoutImages,
+        });
+        updated = { ...updated, images: [] };
+      } else {
+        throw e;
+      }
+    }
 
     const after = { status: updated.status };
 

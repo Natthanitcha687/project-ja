@@ -13,8 +13,7 @@ export default function DashboardLayout() {
     if (!token) return []
     setNotifLoading(true)
     try {
-      let res
-      try { res = await api.get('/store/notifications') } catch (e) { res = await api.get('/notifications') }
+      const res = await api.get('/notifications')
       const data = res?.data?.data || res?.data || []
       const arr = Array.isArray(data) ? data : []
       arr.sort((a,b)=> new Date(b.createdAt || b.time || b.created_at || 0) - new Date(a.createdAt || a.time || a.created_at || 0))
