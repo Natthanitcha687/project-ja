@@ -1,3 +1,4 @@
+// admin-sma/src/pages/Users.jsx
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 
@@ -15,14 +16,19 @@ function fmtDT(v) {
   return d.toLocaleString("th-TH");
 }
 
-function PageButton({ active, disabled, children, onClick }) {
+function PageButton({ active, disabled, children, onClick, ariaLabel }) {
   return (
     <button
+      type="button"
       disabled={disabled}
       onClick={onClick}
+      aria-label={ariaLabel}
+      aria-current={active ? "page" : undefined}
       className={[
         "min-w-[38px] h-9 px-3 rounded-xl border text-sm font-semibold transition",
-        disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-slate-50",
+        disabled
+          ? "opacity-50 cursor-not-allowed"
+          : "hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-sky-200",
         active
           ? "bg-sky-700 text-white border-sky-700 hover:bg-sky-800"
           : "bg-white text-slate-700 border-slate-200",
@@ -49,6 +55,25 @@ function buildPageItems(current, total) {
     out.push(n);
   }
   return out;
+}
+
+/** ✅ เปลี่ยนการแสดง Status เป็น “จุด + ข้อความไทย” (ไม่กระทบ logic) */
+function statusMeta(status) {
+  const s = String(status || "").toUpperCase();
+  if (s === "ACTIVE") return { label: "ใช้งานอยู่", dot: "bg-emerald-500" };
+  if (s === "SUSPENDED") return { label: "ถูกระงับ", dot: "bg-rose-500" };
+  if (!s) return { label: "—", dot: "bg-slate-400" };
+  return { label: s, dot: "bg-slate-400" };
+}
+
+function StatusDot({ status, className = "" }) {
+  const meta = statusMeta(status);
+  return (
+    <span className={clsx("inline-flex items-center gap-2", className)} title={meta.label}>
+      <span className={clsx("h-2.5 w-2.5 rounded-full", meta.dot)} aria-hidden="true" />
+      <span className="text-xs font-semibold text-slate-800">{meta.label}</span>
+    </span>
+  );
 }
 
 export default function Users() {
@@ -80,7 +105,16 @@ export default function Users() {
   const [dTarget, setDTarget] = useState(null);
   const [dReason, setDReason] = useState("");
 
+  // ✅ บังคับเหตุผลก่อนกดได้ (เฉพาะส่วนที่เกี่ยวกับเหตุผล)
+  const sReasonTrim = (sReason || "").trim();
+  const dReasonTrim = (dReason || "").trim();
+
   const role = ROLE_LOCK;
+
+  // a11y ids (แก้ Select ไม่มี label + เพิ่มความชัดเจน)
+  const STATUS_SELECT_ID = "users-status";
+  const SEARCH_INPUT_ID = "users-search";
+  const HELP_ID = "users-controls-help";
 
   async function load() {
     setErr("");
@@ -140,11 +174,17 @@ export default function Users() {
     if (!sTarget) return;
     setErr("");
 
+    // ✅ บังคับต้องมีเหตุผลก่อนระงับ
+    if (!sReasonTrim) {
+      setErr("กรุณาระบุเหตุผล");
+      return;
+    }
+
     const daysNum = sUseCustom ? Number(String(sDaysCustom || "").trim()) : Number(sDaysPreset);
 
     const payload = {
       status: "SUSPENDED",
-      reason: (sReason || "").trim() || null,
+      reason: sReasonTrim,
       days: Number.isFinite(daysNum) && daysNum > 0 ? daysNum : null,
     };
 
@@ -164,10 +204,17 @@ export default function Users() {
   async function doDelete() {
     if (!dTarget) return;
     setErr("");
+
+    // ✅ บังคับต้องมีเหตุผลก่อนลบ
+    if (!dReasonTrim) {
+      setErr("กรุณาระบุเหตุผลในการลบ");
+      return;
+    }
+
     setLoading(true);
     try {
       await api.delete(`/admin/customers/${dTarget.id}`, {
-        data: { reason: (dReason || "").trim() || null },
+        data: { reason: dReasonTrim },
       });
       setOpenDelete(false);
       setDTarget(null);
@@ -215,46 +262,76 @@ export default function Users() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <div className="text-xl font-semibold text-slate-900">จัดการลูกค้า</div>
-          <div className="mt-1 text-sm text-slate-500">
-            หน้านี้แสดงเฉพาะผู้ใช้ประเภท <span className="font-semibold">CUSTOMER</span>
+
+          {/* ✅ เพิ่ม contrast + แก้ span.font-semibold ที่โดน Lighthouse ชี้ */}
+          <div className="mt-1 text-sm text-slate-600">
+            หน้านี้แสดงเฉพาะผู้ใช้ประเภท{" "}
+            <span className="font-semibold text-slate-900">CUSTOMER</span>
           </div>
         </div>
 
-        {/* ✅ เอากรอบเขียว/แดง Active/Suspended ออกตามที่ขอ */}
         <div className="flex items-center gap-2 text-sm">
-          {loading && <div className="text-slate-500">กำลังโหลด…</div>}
+          {loading && (
+            <div className="text-slate-600" role="status" aria-live="polite">
+              กำลังโหลด…
+            </div>
+          )}
         </div>
       </div>
 
+      {/* a11y help (sr-only) */}
+      <p id={HELP_ID} className="sr-only">
+        เลือกสถานะเพื่อกรองรายการ, พิมพ์คำค้นหาเพื่อค้นหาอีเมล, และกดปุ่มรีเฟรชเพื่อโหลดข้อมูลใหม่
+      </p>
+
       {/* ✅ Filter row: dropdown + search (เหมือนหน้าร้านค้า) */}
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <select
-          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm"
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-        >
-          <option value="">ลูกค้าทั้งหมด</option>
-          <option value="ACTIVE">ใช้งานอยู่</option>
-          <option value="SUSPENDED">ถูกระงับ</option>
-        </select>
+        <div>
+          {/* ✅ label for select (แก้ Lighthouse) */}
+          <label htmlFor={STATUS_SELECT_ID} className="sr-only">
+            กรองตามสถานะลูกค้า
+          </label>
+          <select
+            id={STATUS_SELECT_ID}
+            name="status"
+            aria-describedby={HELP_ID}
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+          >
+            <option value="">ลูกค้าทั้งหมด</option>
+            <option value="ACTIVE">ใช้งานอยู่</option>
+            <option value="SUSPENDED">ถูกระงับ</option>
+          </select>
+        </div>
 
         <div className="flex flex-1 items-center gap-2">
+          {/* ✅ label for input (ดีต่อ a11y) */}
+          <label htmlFor={SEARCH_INPUT_ID} className="sr-only">
+            ค้นหาอีเมลลูกค้า
+          </label>
           <input
-            className="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-slate-900 shadow-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+            id={SEARCH_INPUT_ID}
+            name="q"
+            type="search"
+            className="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-slate-900 shadow-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
             placeholder="ค้นหาอีเมลลูกค้า..."
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") load();
             }}
+            aria-describedby={HELP_ID}
           />
 
-          {/* ✅ เปลี่ยนปุ่ม "ค้นหา" สีน้ำเงิน -> ปุ่ม "รีเฟรช" แบบเดียวกับหน้าร้าน */}
+          {/* ✅ ปุ่มรีเฟรช */}
           <button
+            type="button"
             onClick={load}
-            className="w-[110px] rounded-xl border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-[110px] rounded-xl border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200"
             disabled={loading}
             title="รีเฟรชรายการ"
+            aria-describedby={HELP_ID}
           >
             รีเฟรช
           </button>
@@ -262,46 +339,25 @@ export default function Users() {
       </div>
 
       {err && (
-        <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+        <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700" role="alert">
           {err}
         </div>
       )}
 
-      {/* ✅ Summary + Pagination (แสดง 10 ต่อหน้า) */}
-      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-sm text-slate-600">
+      {/* ✅ Summary */}
+      <div className="mt-4">
+        <div className="text-sm text-slate-700">
           {loading ? (
             "กำลังโหลด…"
           ) : total ? (
             <>
               แสดง {showingFrom}-{showingTo} จาก {total} รายการ
-              <span className="text-slate-400"> • หน้า {safePage}/{totalPages}</span>
+              {/* ✅ แก้ contrast จาก slate-400 -> slate-600 */}
+              <span className="text-slate-600"> • หน้า {safePage}/{totalPages}</span>
             </>
           ) : (
             "ไม่มีข้อมูลลูกค้า"
           )}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <PageButton disabled={loading || safePage <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
-            ←
-          </PageButton>
-
-          {pageItems.map((it, idx) =>
-            it === "…" ? (
-              <span key={`e-${idx}`} className="px-2 text-slate-500">
-                …
-              </span>
-            ) : (
-              <PageButton key={it} active={it === safePage} disabled={loading} onClick={() => setPage(it)}>
-                {it}
-              </PageButton>
-            )
-          )}
-
-          <PageButton disabled={loading || safePage >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
-            →
-          </PageButton>
         </div>
       </div>
 
@@ -311,40 +367,33 @@ export default function Users() {
           <div key={u.id} className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-xs text-slate-500">ID</div>
+                <div className="text-xs text-slate-600">ID</div>
                 <div className="font-semibold text-slate-900">{u.id}</div>
               </div>
 
-              <span
-                className={clsx(
-                  "shrink-0 inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold",
-                  u.status === "SUSPENDED"
-                    ? "bg-rose-50 text-rose-700 border-rose-200"
-                    : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                )}
-              >
-                {u.status}
-              </span>
+              <StatusDot status={u.status} className="shrink-0" />
             </div>
 
             <div className="mt-3">
-              <div className="text-xs text-slate-500">Email</div>
+              <div className="text-xs text-slate-600">Email</div>
               <div className="font-medium text-slate-900 break-words">{u.email}</div>
             </div>
 
             <div className="mt-3 grid grid-cols-2 gap-2">
               {u.status !== "SUSPENDED" ? (
                 <button
+                  type="button"
                   onClick={() => openSuspendModal(u)}
-                  className="rounded-xl bg-amber-50 text-amber-800 border border-amber-200 px-3 py-2 text-sm font-semibold hover:bg-amber-100 disabled:opacity-60"
+                  className="rounded-xl bg-amber-50 text-amber-800 border border-amber-200 px-3 py-2 text-sm font-semibold hover:bg-amber-100 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-sky-200"
                   disabled={loading}
                 >
                   ระงับ
                 </button>
               ) : (
                 <button
+                  type="button"
                   onClick={() => openUnsuspendModal(u)}
-                  className="rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-2 text-sm font-semibold hover:bg-emerald-100 disabled:opacity-60"
+                  className="rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-2 text-sm font-semibold hover:bg-emerald-100 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-sky-200"
                   disabled={loading}
                 >
                   ปลดระงับ
@@ -352,8 +401,9 @@ export default function Users() {
               )}
 
               <button
+                type="button"
                 onClick={() => openDeleteModal(u)}
-                className="rounded-xl bg-rose-50 text-rose-700 border border-rose-200 px-3 py-2 text-sm font-semibold hover:bg-rose-100 disabled:opacity-60"
+                className="rounded-xl bg-rose-50 text-rose-700 border border-rose-200 px-3 py-2 text-sm font-semibold hover:bg-rose-100 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-sky-200"
                 disabled={loading}
               >
                 ลบ
@@ -361,15 +411,15 @@ export default function Users() {
             </div>
 
             {u.suspendedUntil && (
-              <div className="mt-3 text-xs text-slate-500">
-                หมดระงับ: <span className="font-semibold">{fmtDT(u.suspendedUntil)}</span>
+              <div className="mt-3 text-xs text-slate-600">
+                หมดระงับ: <span className="font-semibold text-slate-900">{fmtDT(u.suspendedUntil)}</span>
               </div>
             )}
           </div>
         ))}
 
         {!total && (
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 text-slate-500">
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 text-slate-600">
             ไม่มีข้อมูลลูกค้า
           </div>
         )}
@@ -378,17 +428,27 @@ export default function Users() {
       {/* ===== Tablet/Desktop (Table) ===== */}
       <div className="mt-4 hidden md:block rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-slate-600">
+          <thead className="bg-slate-50 text-slate-700">
             <tr>
-              <th className="p-3 text-left w-[80px]">ID</th>
-              <th className="p-3 text-left">Email</th>
-              <th className="p-3 text-left w-[140px]">Status</th>
-              <th className="p-3 text-left w-[220px]">Suspended Until</th>
-              <th className="p-3 text-left w-[240px]">Action</th>
+              <th scope="col" className="p-3 text-left w-[80px]">
+                ID
+              </th>
+              <th scope="col" className="p-3 text-left">
+                Email
+              </th>
+              <th scope="col" className="p-3 text-left w-[180px]">
+                Status
+              </th>
+              <th scope="col" className="p-3 text-left w-[220px]">
+                Suspended Until
+              </th>
+              <th scope="col" className="p-3 text-left w-[240px]">
+                Action
+              </th>
             </tr>
           </thead>
 
-          <tbody className="text-slate-800">
+          <tbody className="text-slate-900">
             {pageRows.map((u) => (
               <tr key={u.id} className="border-t border-slate-200 hover:bg-slate-50/70">
                 <td className="p-3">{u.id}</td>
@@ -400,34 +460,27 @@ export default function Users() {
                 </td>
 
                 <td className="p-3">
-                  <span
-                    className={clsx(
-                      "inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold",
-                      u.status === "SUSPENDED"
-                        ? "bg-rose-50 text-rose-700 border-rose-200"
-                        : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                    )}
-                  >
-                    {u.status}
-                  </span>
+                  <StatusDot status={u.status} />
                 </td>
 
-                <td className="p-3 text-slate-600">{u.suspendedUntil ? fmtDT(u.suspendedUntil) : "—"}</td>
+                <td className="p-3 text-slate-700">{u.suspendedUntil ? fmtDT(u.suspendedUntil) : "—"}</td>
 
                 <td className="p-3">
                   <div className="flex flex-wrap gap-2">
                     {u.status !== "SUSPENDED" ? (
                       <button
+                        type="button"
                         onClick={() => openSuspendModal(u)}
-                        className="rounded-lg bg-amber-50 text-amber-800 border border-amber-200 px-3 py-1 font-semibold hover:bg-amber-100 disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="rounded-lg bg-amber-50 text-amber-800 border border-amber-200 px-3 py-1 font-semibold hover:bg-amber-100 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200"
                         disabled={loading}
                       >
                         ระงับ
                       </button>
                     ) : (
                       <button
+                        type="button"
                         onClick={() => openUnsuspendModal(u)}
-                        className="rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1 font-semibold hover:bg-emerald-100 disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1 font-semibold hover:bg-emerald-100 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200"
                         disabled={loading}
                       >
                         ปลดระงับ
@@ -435,8 +488,9 @@ export default function Users() {
                     )}
 
                     <button
+                      type="button"
                       onClick={() => openDeleteModal(u)}
-                      className="rounded-lg bg-rose-50 text-rose-700 border border-rose-200 px-3 py-1 font-semibold hover:bg-rose-100 disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="rounded-lg bg-rose-50 text-rose-700 border border-rose-200 px-3 py-1 font-semibold hover:bg-rose-100 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200"
                       disabled={loading}
                     >
                       ลบ
@@ -448,7 +502,7 @@ export default function Users() {
 
             {!total && (
               <tr>
-                <td className="p-3 text-slate-500" colSpan={5}>
+                <td className="p-3 text-slate-700" colSpan={5}>
                   ไม่มีข้อมูลลูกค้า
                 </td>
               </tr>
@@ -457,12 +511,56 @@ export default function Users() {
         </table>
       </div>
 
+      {/* Pagination (ใต้ตาราง ชิดขวา) */}
+      {totalPages > 1 && (
+        <nav className="mt-3 flex justify-end" aria-label="Pagination">
+          <div className="flex flex-wrap items-center gap-2">
+            <PageButton
+              disabled={loading || safePage <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              ariaLabel="ไปหน้าก่อนหน้า"
+            >
+              ←
+            </PageButton>
+
+            {pageItems.map((it, idx) =>
+              it === "…" ? (
+                <span key={`e-${idx}`} className="px-2 text-slate-600" aria-hidden="true">
+                  …
+                </span>
+              ) : (
+                <PageButton
+                  key={it}
+                  active={it === safePage}
+                  disabled={loading}
+                  onClick={() => setPage(it)}
+                  ariaLabel={`ไปหน้า ${it}`}
+                >
+                  {it}
+                </PageButton>
+              )
+            )}
+
+            <PageButton
+              disabled={loading || safePage >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              ariaLabel="ไปหน้าถัดไป"
+            >
+              →
+            </PageButton>
+          </div>
+        </nav>
+      )}
+
       {/* =========================
        * Unsuspend Confirm Modal
        * ========================= */}
       {openUnsuspend && uTarget && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="ปลดระงับบัญชีลูกค้า"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) {
               setOpenUnsuspend(false);
@@ -473,28 +571,28 @@ export default function Users() {
           <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl">
             <div className="p-5 border-b border-slate-100">
               <div className="text-lg font-semibold text-slate-900">ปลดระงับบัญชีลูกค้า</div>
-              <div className="mt-1 text-sm text-slate-500">กรุณาตรวจสอบรายละเอียดก่อนยืนยันการทำรายการ</div>
+              <div className="mt-1 text-sm text-slate-600">กรุณาตรวจสอบรายละเอียดก่อนยืนยันการทำรายการ</div>
             </div>
 
             <div className="p-5 space-y-4">
               <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                <div className="text-sm text-slate-600">ลูกค้า</div>
+                <div className="text-sm text-slate-700">ลูกค้า</div>
                 <div className="mt-1 font-semibold text-slate-900 break-words">{uTarget.email}</div>
-                <div className="mt-1 text-xs text-slate-500">
-                  ID: <span className="font-semibold text-slate-700">{uTarget.id}</span>
+                <div className="mt-1 text-xs text-slate-700">
+                  ID: <span className="font-semibold text-slate-900">{uTarget.id}</span>
                 </div>
 
                 {(uTarget.suspendedUntil || uTarget.suspendedReason) && (
-                  <div className="mt-3 text-sm text-slate-600 space-y-1">
+                  <div className="mt-3 text-sm text-slate-700 space-y-1">
                     <div>
                       หมดระงับเดิม:{" "}
-                      <span className="font-semibold text-slate-800">
+                      <span className="font-semibold text-slate-900">
                         {uTarget.suspendedUntil ? fmtDT(uTarget.suspendedUntil) : "—"}
                       </span>
                     </div>
                     <div>
                       เหตุผลเดิม:{" "}
-                      <span className="font-semibold text-slate-800">
+                      <span className="font-semibold text-slate-900">
                         {uTarget.suspendedReason ? String(uTarget.suspendedReason) : "—"}
                       </span>
                     </div>
@@ -513,7 +611,8 @@ export default function Users() {
 
             <div className="p-5 border-t border-slate-100 flex items-center justify-end gap-2">
               <button
-                className="rounded-xl border border-slate-200 bg-white px-5 py-2 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                type="button"
+                className="rounded-xl border border-slate-200 bg-white px-5 py-2 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-sky-200"
                 onClick={() => {
                   setOpenUnsuspend(false);
                   setUTarget(null);
@@ -523,7 +622,8 @@ export default function Users() {
                 ยกเลิก
               </button>
               <button
-                className="rounded-xl bg-emerald-600 px-5 py-2 font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                type="button"
+                className="rounded-xl bg-emerald-600 px-5 py-2 font-semibold text-white hover:bg-emerald-700 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-sky-200"
                 onClick={doUnsuspendConfirm}
                 disabled={loading}
               >
@@ -540,6 +640,9 @@ export default function Users() {
       {openSuspend && sTarget && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="ระงับบัญชีลูกค้า"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) setOpenSuspend(false);
           }}
@@ -547,12 +650,12 @@ export default function Users() {
           <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl">
             <div className="p-5 border-b border-slate-100">
               <div className="text-lg font-semibold text-slate-900">ระงับบัญชีลูกค้า</div>
-              <div className="mt-1 text-sm text-slate-500">กรุณาระบุรายละเอียดและเหตุผลในการทำรายการ</div>
+              <div className="mt-1 text-sm text-slate-600">กรุณาระบุรายละเอียดและเหตุผลในการทำรายการ</div>
             </div>
 
             <div className="p-5 space-y-4">
               <div className="text-sm">
-                <div className="text-slate-500">อีเมล</div>
+                <div className="text-slate-700">อีเมล</div>
                 <div className="font-semibold text-slate-900 break-words">{sTarget.email}</div>
               </div>
 
@@ -568,7 +671,7 @@ export default function Users() {
                         setSDaysPreset(d);
                       }}
                       className={clsx(
-                        "rounded-xl px-4 py-2 text-sm font-semibold border",
+                        "rounded-xl px-4 py-2 text-sm font-semibold border focus:outline-none focus:ring-2 focus:ring-sky-200",
                         !sUseCustom && sDaysPreset === d
                           ? "bg-slate-900 text-white border-slate-900"
                           : "bg-white text-slate-900 border-slate-200 hover:bg-slate-50"
@@ -582,7 +685,7 @@ export default function Users() {
                     type="button"
                     onClick={() => setSUseCustom(true)}
                     className={clsx(
-                      "rounded-xl px-4 py-2 text-sm font-semibold border",
+                      "rounded-xl px-4 py-2 text-sm font-semibold border focus:outline-none focus:ring-2 focus:ring-sky-200",
                       sUseCustom
                         ? "bg-slate-900 text-white border-slate-900"
                         : "bg-white text-slate-900 border-slate-200 hover:bg-slate-50"
@@ -612,6 +715,7 @@ export default function Users() {
                   placeholder="ระบุเหตุผลการระงับ (แนะนำให้ระบุให้ชัดเจน)"
                   className="mt-2 w-full min-h-[120px] rounded-xl border border-slate-200 px-3 py-2 text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
                 />
+                {!sReasonTrim && <div className="mt-2 text-xs font-semibold text-rose-600">กรุณาระบุเหตุผล</div>}
               </div>
 
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 text-sm">
@@ -621,16 +725,18 @@ export default function Users() {
 
             <div className="p-5 border-t border-slate-100 flex items-center justify-end gap-2">
               <button
-                className="rounded-xl border border-slate-200 bg-white px-5 py-2 font-semibold text-slate-700 hover:bg-slate-50"
+                type="button"
+                className="rounded-xl border border-slate-200 bg-white px-5 py-2 font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-sky-200"
                 onClick={() => setOpenSuspend(false)}
                 disabled={loading}
               >
                 ยกเลิก
               </button>
               <button
-                className="rounded-xl bg-amber-500 px-5 py-2 font-semibold text-white hover:bg-amber-600 disabled:opacity-60"
+                type="button"
+                className="rounded-xl bg-amber-500 px-5 py-2 font-semibold text-white hover:bg-amber-600 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200"
                 onClick={doSuspend}
-                disabled={loading}
+                disabled={loading || !sReasonTrim}
               >
                 ยืนยัน
               </button>
@@ -645,6 +751,9 @@ export default function Users() {
       {openDelete && dTarget && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="ลบบัญชีลูกค้า"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) setOpenDelete(false);
           }}
@@ -652,12 +761,12 @@ export default function Users() {
           <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl">
             <div className="p-5 border-b border-slate-100">
               <div className="text-lg font-semibold text-rose-600">ลบบัญชีลูกค้า</div>
-              <div className="mt-1 text-sm text-slate-500">การลบไม่สามารถกู้คืนได้ กรุณาระบุเหตุผลในการลบ</div>
+              <div className="mt-1 text-sm text-slate-600">การลบไม่สามารถกู้คืนได้ กรุณาระบุเหตุผลในการลบ</div>
             </div>
 
             <div className="p-5 space-y-4">
               <div className="text-sm">
-                <div className="text-slate-500">อีเมล</div>
+                <div className="text-slate-700">อีเมล</div>
                 <div className="font-semibold text-slate-900 break-words">{dTarget.email}</div>
               </div>
 
@@ -669,6 +778,9 @@ export default function Users() {
                   placeholder="ระบุเหตุผลการลบ (แนะนำให้ระบุให้ชัดเจน)"
                   className="mt-2 w-full min-h-[140px] rounded-xl border border-slate-200 px-3 py-2 text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
                 />
+                {!dReasonTrim && (
+                  <div className="mt-2 text-xs font-semibold text-rose-600">กรุณาระบุเหตุผลในการลบ</div>
+                )}
               </div>
 
               <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700 text-sm">
@@ -685,16 +797,18 @@ export default function Users() {
 
             <div className="p-5 border-t border-slate-100 flex items-center justify-end gap-2">
               <button
-                className="rounded-xl border border-slate-200 bg-white px-5 py-2 font-semibold text-slate-700 hover:bg-slate-50"
+                type="button"
+                className="rounded-xl border border-slate-200 bg-white px-5 py-2 font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-sky-200"
                 onClick={() => setOpenDelete(false)}
                 disabled={loading}
               >
                 ยกเลิก
               </button>
               <button
-                className="rounded-xl bg-rose-600 px-5 py-2 font-semibold text-white hover:bg-rose-700 disabled:opacity-60"
+                type="button"
+                className="rounded-xl bg-rose-600 px-5 py-2 font-semibold text-white hover:bg-rose-700 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200"
                 onClick={doDelete}
-                disabled={loading}
+                disabled={loading || !dReasonTrim}
               >
                 ยืนยัน
               </button>

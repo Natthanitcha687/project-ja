@@ -127,45 +127,58 @@ function changeSummary(l) {
   return r ? `เหตุผล: ${r}` : "";
 }
 
+/**
+ * ✅ Result: เปลี่ยนเป็น “จุดบอกสถานะ” (ไม่กระทบ logic)
+ */
 function ResultPill({ value }) {
   const v = (value || "").toUpperCase();
-  const cls =
-    v === "SUCCESS"
-      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-      : v === "FAIL"
-      ? "bg-rose-50 text-rose-700 border-rose-200"
-      : "bg-slate-50 text-slate-700 border-slate-200";
 
-  const label = v || "—";
+  const dotCls =
+    v === "SUCCESS" ? "bg-emerald-500" : v === "FAIL" ? "bg-rose-500" : "bg-slate-400";
+
+  const label = v === "SUCCESS" ? "SUCCESS" : v === "FAIL" ? "FAIL" : v || "—";
+
   return (
-    <span className={["inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold", cls].join(" ")}>
-      {label}
+    <span className="inline-flex items-center gap-2" title={label}>
+      <span className={["h-2.5 w-2.5 rounded-full", dotCls].join(" ")} aria-hidden="true" />
+      <span className="text-xs font-semibold text-slate-800">{label}</span>
     </span>
   );
 }
 
+/**
+ * ✅ Action: เอาจุดออก เหลือ “ตัวหนา” อย่างเดียว
+ */
 function ActionPill({ value }) {
+  const v = value || "—";
   return (
     <span
-      className="inline-flex max-w-full rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700 truncate align-middle"
-      title={value || ""}
+      className="max-w-full truncate align-middle text-xs font-extrabold text-slate-900 tracking-wide"
+      title={v}
     >
-      {value || "—"}
+      {v}
     </span>
   );
 }
 
 const PAGE_SIZE = 10;
 
-function PageButton({ active, disabled, children, onClick }) {
+function PageButton({ active, disabled, children, onClick, ariaLabel }) {
   return (
     <button
+      type="button"
       disabled={disabled}
       onClick={onClick}
+      aria-label={ariaLabel}
+      aria-current={active ? "page" : undefined}
       className={[
         "min-w-[38px] h-9 px-3 rounded-xl border text-sm font-semibold transition",
-        disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-slate-50",
-        active ? "bg-sky-700 text-white border-sky-700 hover:bg-sky-800" : "bg-white text-slate-700 border-slate-200",
+        disabled
+          ? "opacity-50 cursor-not-allowed"
+          : "hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-sky-200",
+        active
+          ? "bg-sky-700 text-white border-sky-700 hover:bg-sky-800"
+          : "bg-white text-slate-700 border-slate-200",
       ].join(" ")}
     >
       {children}
@@ -205,6 +218,11 @@ export default function Logs() {
   // ✅ IP Popover state
   const [ipPop, setIpPop] = useState(null); // { ip, left, top, width }
   const ipPopRef = useRef(null);
+
+  // a11y ids
+  const Q_ID = "logs-q";
+  const RESULT_ID = "logs-result";
+  const HELP_ID = "logs-help";
 
   async function load() {
     setErr("");
@@ -342,93 +360,102 @@ export default function Logs() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="text-xl font-semibold text-slate-900">Activity Logs</div>
-          <div className="mt-1 text-sm text-slate-500">
-            บันทึกการกระทำสำคัญในระบบ (การจัดการสถาะบัญชีผู้ใช้โดยแอดมิน ระงับ ปลดระงับ ลบบัญชี / กาารสร้างใบรับประกันและแก้ไข / การแจ้งปัญหา )
+
+          {/* ✅ แก้ contrast จาก text-slate-500 */}
+          <div className="mt-1 text-sm text-slate-700">
+            บันทึกการกระทำสำคัญในระบบ (การจัดการสถานะบัญชีผู้ใช้โดยแอดมิน ระงับ/ปลดระงับ/ลบบัญชี, การสร้าง/แก้ไขใบรับประกัน, การแจ้งปัญหา)
           </div>
         </div>
 
         <button
+          type="button"
           onClick={load}
           disabled={loading}
-          className="rounded-xl bg-sky-700 text-white px-4 py-2 text-sm font-semibold shadow-sm hover:bg-sky-800 disabled:opacity-60 disabled:cursor-not-allowed"
+          className="rounded-xl bg-sky-700 text-white px-4 py-2 text-sm font-semibold shadow-sm hover:bg-sky-800 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200"
+          aria-label="รีเฟรชรายการ Activity Logs"
         >
           รีเฟรช
         </button>
       </div>
 
       {err && (
-        <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+        <div
+          className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700"
+          role="alert"
+        >
           {err}
         </div>
       )}
 
+      {/* a11y help */}
+      <p id={HELP_ID} className="sr-only">
+        ช่องค้นหาใช้ค้นหา actor/action/target/ip/user-agent/meta, ตัวกรองผลลัพธ์ใช้เลือก SUCCESS หรือ FAIL, ปุ่มล้างใช้รีเซ็ตตัวกรอง
+      </p>
+
       {/* Controls */}
       <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_180px_110px] items-center">
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          className="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-slate-900 shadow-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
-          placeholder="ค้นหา: actor / action / target / ip / user-agent / meta..."
-        />
+        <div>
+          <label htmlFor={Q_ID} className="sr-only">
+            ค้นหา logs
+          </label>
+          <input
+            id={Q_ID}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            aria-describedby={HELP_ID}
+            className="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-slate-900 shadow-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+            placeholder="ค้นหา: actor / action / target / ip / user-agent / meta..."
+          />
+        </div>
 
-        <select
-          value={result}
-          onChange={(e) => setResult(e.target.value)}
-          className="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
-          title="กรองผลลัพธ์"
-        >
-          <option value="">ผลลัพธ์: ทั้งหมด</option>
-          <option value="SUCCESS">SUCCESS</option>
-          <option value="FAIL">FAIL</option>
-        </select>
+        <div>
+          <label htmlFor={RESULT_ID} className="sr-only">
+            กรองผลลัพธ์
+          </label>
+          <select
+            id={RESULT_ID}
+            value={result}
+            onChange={(e) => setResult(e.target.value)}
+            aria-describedby={HELP_ID}
+            className="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
+            title="กรองผลลัพธ์"
+          >
+            <option value="">ผลลัพธ์: ทั้งหมด</option>
+            <option value="SUCCESS">SUCCESS</option>
+            <option value="FAIL">FAIL</option>
+          </select>
+        </div>
 
         <button
+          type="button"
           onClick={() => {
             setQ("");
             setResult("");
           }}
-          className="w-full rounded-xl bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2 font-semibold shadow-sm hover:bg-slate-100"
+          className="w-full rounded-xl bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2 font-semibold shadow-sm hover:bg-slate-100 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200"
           disabled={loading}
+          aria-describedby={HELP_ID}
         >
           ล้าง
         </button>
       </div>
 
-      {/* Summary + Pagination */}
-      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-sm text-slate-600">
+      {/* Summary */}
+      <div className="mt-4">
+        {/* ✅ แก้ contrast + เอา text-slate-400 ออก */}
+        <div className="text-sm text-slate-700">
           {loading ? (
-            "กำลังโหลด…"
+            <span role="status" aria-live="polite">
+              กำลังโหลด…
+            </span>
           ) : total ? (
             <>
               แสดง {showingFrom}-{showingTo} จาก {total} รายการ (หลังกรอง/ค้นหา)
-              <span className="text-slate-400"> • หน้า {safePage}/{totalPages}</span>
+              <span className="text-slate-700"> • หน้า {safePage}/{totalPages}</span>
             </>
           ) : (
             "ยังไม่มี log"
           )}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <PageButton disabled={loading || safePage <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
-            ←
-          </PageButton>
-
-          {pageItems.map((it, idx) =>
-            it === "…" ? (
-              <span key={`e-${idx}`} className="px-2 text-slate-500">
-                …
-              </span>
-            ) : (
-              <PageButton key={it} active={it === safePage} disabled={loading} onClick={() => setPage(it)}>
-                {it}
-              </PageButton>
-            )
-          )}
-
-          <PageButton disabled={loading || safePage >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
-            →
-          </PageButton>
         </div>
       </div>
 
@@ -444,10 +471,11 @@ export default function Logs() {
             <div key={l.id} className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="text-xs text-slate-500">Time</div>
+                  {/* ✅ contrast */}
+                  <div className="text-xs text-slate-700">Time</div>
                   <div className="text-sm font-semibold text-slate-900">{fmtDT(l.createdAt)}</div>
 
-                  <div className="mt-2 text-xs text-slate-500">Who</div>
+                  <div className="mt-2 text-xs text-slate-700">Who</div>
                   <div className="text-sm text-slate-900 break-words">{actorText(l)}</div>
                 </div>
 
@@ -459,31 +487,31 @@ export default function Logs() {
 
               <div className="mt-3 grid grid-cols-1 gap-3">
                 <div>
-                  <div className="text-xs text-slate-500">Target</div>
-                  <div className="text-sm text-slate-800 break-words">{tgt}</div>
+                  <div className="text-xs text-slate-700">Target</div>
+                  <div className="text-sm text-slate-900 break-words">{tgt}</div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <div className="text-xs text-slate-500">IP</div>
+                    <div className="text-xs text-slate-700">IP</div>
 
                     {l.ip ? (
                       <button
                         type="button"
                         onClick={(e) => openIpPopover(e, l.ip)}
-                        className="mt-1 inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                        className="mt-1 inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-sky-200"
                         title="Show IP"
                       >
                         Show
                       </button>
                     ) : (
-                      <div className="mt-1 text-sm text-slate-400">—</div>
+                      <div className="mt-1 text-sm text-slate-700">—</div>
                     )}
                   </div>
 
                   <div>
-                    <div className="text-xs text-slate-500">User-Agent</div>
-                    <div className="text-sm text-slate-800 break-words" title={l.userAgent || ""}>
+                    <div className="text-xs text-slate-700">User-Agent</div>
+                    <div className="text-sm text-slate-900 break-words" title={l.userAgent || ""}>
                       {clip(l.userAgent || "—", 40)}
                     </div>
                   </div>
@@ -491,22 +519,26 @@ export default function Logs() {
 
                 {(sum || why) && (
                   <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                    <div className="text-xs text-slate-500">Meta</div>
-                    <div className="text-sm text-slate-800 break-words">{sum || (why ? `เหตุผล: ${why}` : "—")}</div>
+                    <div className="text-xs text-slate-700">Meta</div>
+                    <div className="text-sm text-slate-900 break-words">
+                      {sum || (why ? `เหตุผล: ${why}` : "—")}
+                    </div>
                   </div>
                 )}
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-2">
                 <button
+                  type="button"
                   onClick={() => openDetail(l)}
-                  className="rounded-xl bg-sky-50 text-sky-700 border border-sky-200 px-3 py-2 text-sm font-semibold hover:bg-sky-100"
+                  className="rounded-xl bg-sky-50 text-sky-700 border border-sky-200 px-3 py-2 text-sm font-semibold hover:bg-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-200"
                 >
                   ดูรายละเอียด
                 </button>
                 <button
+                  type="button"
                   onClick={() => copyMeta(l)}
-                  className="rounded-xl bg-slate-50 text-slate-700 border border-slate-200 px-3 py-2 text-sm font-semibold hover:bg-slate-100"
+                  className="rounded-xl bg-slate-50 text-slate-700 border border-slate-200 px-3 py-2 text-sm font-semibold hover:bg-slate-100 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200"
                   disabled={!metaOf(l)}
                   title={!metaOf(l) ? "ไม่มี meta" : "คัดลอก meta JSON"}
                 >
@@ -518,47 +550,76 @@ export default function Logs() {
         })}
 
         {!pageLogs.length && !loading && (
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 text-slate-500">ยังไม่มี log</div>
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 text-slate-700">ยังไม่มี log</div>
         )}
 
         {loading && (
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 text-slate-500">กำลังโหลด...</div>
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 text-slate-700" role="status" aria-live="polite">
+            กำลังโหลด...
+          </div>
         )}
       </div>
 
       {/* ===== Tablet/Desktop (Table) ===== */}
       <div className="mt-4 hidden md:block rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
         <table className="w-full text-sm table-fixed">
-          <thead className="bg-slate-50 text-slate-600">
+          {/* ✅ contrast */}
+          <thead className="bg-slate-50 text-slate-700">
             <tr>
-              <th className="p-3 text-left w-[190px]">Time</th>
-              <th className="p-3 text-left w-[260px]">Who</th>
-              <th className="p-3 text-left w-[220px]">Action</th>
-              <th className="p-3 text-left w-[220px]">Target</th>
-              <th className="p-3 text-left w-[140px]">Result</th>
-
-              {/* ✅ ปุ่ม Show อย่างเดียว */}
-              <th className="p-3 text-left w-[140px]">IP</th>
-
-              <th className="p-3 text-left hidden xl:table-cell">User-Agent</th>
-              <th className="p-3 text-left hidden xl:table-cell">Meta (สรุป)</th>
-              <th className="p-3 text-left w-[140px]"> </th>
+              <th className="p-3 text-left w-[190px]" scope="col">
+                Time
+              </th>
+              <th className="p-3 text-left w-[260px]" scope="col">
+                Who
+              </th>
+              <th className="p-3 text-left w-[220px]" scope="col">
+                Action
+              </th>
+              <th className="p-3 text-left w-[220px]" scope="col">
+                Target
+              </th>
+              <th className="p-3 text-left w-[140px]" scope="col">
+                Result
+              </th>
+              <th className="p-3 text-left w-[140px]" scope="col">
+                IP
+              </th>
+              <th className="p-3 text-left hidden xl:table-cell" scope="col">
+                User-Agent
+              </th>
+              <th className="p-3 text-left hidden xl:table-cell" scope="col">
+                Meta (สรุป)
+              </th>
+              <th className="p-3 text-left w-[140px]" scope="col">
+                {" "}
+              </th>
             </tr>
           </thead>
 
-          <tbody className="text-slate-800">
+          <tbody className="text-slate-900">
             {pageLogs.map((l) => {
               const tgt = targetText(l);
               const rs = resultOf(l);
               const sum = changeSummary(l);
               const ua = l.userAgent || "";
 
+              function onRowKeyDown(e) {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  openDetail(l);
+                }
+              }
+
               return (
                 <tr
                   key={l.id}
                   className="border-t border-slate-200 hover:bg-slate-50/70 cursor-pointer"
                   onClick={() => openDetail(l)}
-                  title="คลิกเพื่อดูรายละเอียด"
+                  onKeyDown={onRowKeyDown}
+                  tabIndex={0}
+                  role="button"
+                  aria-label={`เปิดรายละเอียด log: ${l.action || "unknown"}`}
+                  title="คลิกเพื่อดูรายละเอียด (กด Enter/Space ได้)"
                 >
                   <td className="p-3 whitespace-nowrap">{fmtDT(l.createdAt)}</td>
 
@@ -568,9 +629,9 @@ export default function Logs() {
                         {actorText(l)}
                       </div>
                       {l.actor?.id != null ? (
-                        <div className="text-xs text-slate-500 truncate">actorUserId: {l.actor.id}</div>
+                        <div className="text-xs text-slate-700 truncate">actorUserId: {l.actor.id}</div>
                       ) : (
-                        <div className="text-xs text-slate-500 truncate">actorUserId: —</div>
+                        <div className="text-xs text-slate-700 truncate">actorUserId: —</div>
                       )}
                     </div>
                   </td>
@@ -579,7 +640,7 @@ export default function Logs() {
                     <ActionPill value={l.action} />
                   </td>
 
-                  <td className="p-3 text-slate-700">
+                  <td className="p-3">
                     <div className="truncate" title={tgt}>
                       <span className="font-medium text-slate-900">{tgt}</span>
                     </div>
@@ -589,30 +650,30 @@ export default function Logs() {
                     <ResultPill value={rs} />
                   </td>
 
-                  {/* ✅ IP: Show button */}
+                  {/* IP: Show button */}
                   <td className="p-3" onClick={(e) => e.stopPropagation()}>
                     {l.ip ? (
                       <button
                         type="button"
                         onClick={(e) => openIpPopover(e, l.ip)}
-                        className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                        className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-sky-200"
                         title="Show IP"
                       >
                         Show
                       </button>
                     ) : (
-                      <span className="text-slate-400">—</span>
+                      <span className="text-slate-700">—</span>
                     )}
                   </td>
 
                   <td className="p-3 hidden xl:table-cell">
-                    <div className="truncate text-slate-700" title={ua}>
+                    <div className="truncate text-slate-900" title={ua}>
                       {ua ? clip(ua, 60) : "—"}
                     </div>
                   </td>
 
                   <td className="p-3 hidden xl:table-cell">
-                    <div className="truncate text-slate-700" title={sum || safeStr(metaOf(l))}>
+                    <div className="truncate text-slate-900" title={sum || safeStr(metaOf(l))}>
                       {sum || (metaOf(l) ? clip(safeStr(metaOf(l)), 70) : "—")}
                     </div>
                   </td>
@@ -620,14 +681,16 @@ export default function Logs() {
                   <td className="p-3" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-2">
                       <button
+                        type="button"
                         onClick={() => openDetail(l)}
-                        className="rounded-lg bg-sky-50 text-sky-700 border border-sky-200 px-3 py-1 font-semibold hover:bg-sky-100"
+                        className="rounded-lg bg-sky-50 text-sky-700 border border-sky-200 px-3 py-1 font-semibold hover:bg-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-200"
                       >
                         รายละเอียด
                       </button>
                       <button
+                        type="button"
                         onClick={() => copyMeta(l)}
-                        className="rounded-lg bg-slate-50 text-slate-700 border border-slate-200 px-3 py-1 font-semibold hover:bg-slate-100"
+                        className="rounded-lg bg-slate-50 text-slate-700 border border-slate-200 px-3 py-1 font-semibold hover:bg-slate-100 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200"
                         disabled={!metaOf(l)}
                         title={!metaOf(l) ? "ไม่มี meta" : "คัดลอก meta JSON"}
                       >
@@ -641,7 +704,7 @@ export default function Logs() {
 
             {!pageLogs.length && !loading && (
               <tr>
-                <td className="p-3 text-slate-500" colSpan={9}>
+                <td className="p-3 text-slate-700" colSpan={9}>
                   ยังไม่มี log
                 </td>
               </tr>
@@ -649,7 +712,7 @@ export default function Logs() {
 
             {loading && (
               <tr>
-                <td className="p-3 text-slate-500" colSpan={9}>
+                <td className="p-3 text-slate-700" colSpan={9} role="status" aria-live="polite">
                   กำลังโหลด...
                 </td>
               </tr>
@@ -658,7 +721,48 @@ export default function Logs() {
         </table>
       </div>
 
-      {/* ✅ IP Popover (fixed) ไม่โดน overflow-hidden ตัดแน่นอน */}
+      {/* Pagination (ใต้ตาราง ชิดขวา) */}
+      {totalPages > 1 && (
+        <nav className="mt-3 flex justify-end" aria-label="Pagination">
+          <div className="flex flex-wrap items-center gap-2">
+            <PageButton
+              disabled={loading || safePage <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              ariaLabel="ไปหน้าก่อนหน้า"
+            >
+              ←
+            </PageButton>
+
+            {pageItems.map((it, idx) =>
+              it === "…" ? (
+                <span key={`e-${idx}`} className="px-2 text-slate-700" aria-hidden="true">
+                  …
+                </span>
+              ) : (
+                <PageButton
+                  key={it}
+                  active={it === safePage}
+                  disabled={loading}
+                  onClick={() => setPage(it)}
+                  ariaLabel={`ไปหน้า ${it}`}
+                >
+                  {it}
+                </PageButton>
+              )
+            )}
+
+            <PageButton
+              disabled={loading || safePage >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              ariaLabel="ไปหน้าถัดไป"
+            >
+              →
+            </PageButton>
+          </div>
+        </nav>
+      )}
+
+      {/* ✅ IP Popover */}
       {ipPop && (
         <div
           ref={ipPopRef}
@@ -668,12 +772,13 @@ export default function Logs() {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="text-sm font-semibold text-slate-900">IP Address</div>
-              <div className="mt-1 text-xs text-slate-500">คลิกนอกกล่องหรือกด ESC เพื่อปิด</div>
+              {/* ✅ contrast */}
+              <div className="mt-1 text-xs text-slate-700">คลิกนอกกล่องหรือกด ESC เพื่อปิด</div>
             </div>
             <button
               type="button"
               onClick={() => setIpPop(null)}
-              className="shrink-0 rounded-xl border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              className="shrink-0 rounded-xl border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-sky-200"
             >
               ปิด
             </button>
@@ -687,7 +792,7 @@ export default function Logs() {
             <button
               type="button"
               onClick={() => copyIp(ipPop.ip)}
-              className="rounded-xl bg-sky-700 text-white px-3 py-2 text-xs font-semibold hover:bg-sky-800"
+              className="rounded-xl bg-sky-700 text-white px-3 py-2 text-xs font-semibold hover:bg-sky-800 focus:outline-none focus:ring-2 focus:ring-sky-200"
             >
               คัดลอก IP
             </button>
@@ -698,36 +803,42 @@ export default function Logs() {
       {/* Modal รายละเอียด */}
       {selected && (
         <div className="fixed inset-0 z-50 flex items-start justify-center p-3 sm:p-6">
-          <div className="absolute inset-0 bg-black/70" onClick={() => setSelected(null)} />
+          <div className="absolute inset-0 bg-black/70" onClick={() => setSelected(null)} aria-hidden="true" />
 
-          <div className="relative w-full max-w-[980px] max-h-[calc(100vh-24px)] sm:max-h-[calc(100vh-48px)] rounded-2xl border border-white/10 bg-zinc-950 text-white shadow-2xl overflow-hidden flex flex-col">
+          <div
+            className="relative w-full max-w-[980px] max-h-[calc(100vh-24px)] sm:max-h-[calc(100vh-48px)] rounded-2xl border border-white/10 bg-zinc-950 text-white shadow-2xl overflow-hidden flex flex-col"
+            role="dialog"
+            aria-modal="true"
+            aria-label="รายละเอียด Activity Log"
+          >
             <div className="shrink-0 bg-white/5 px-5 py-4 flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <div className="text-lg font-semibold truncate text-white">{selected.action || "Log Detail"}</div>
 
-                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/70">
+                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/80">
                   <div>
-                    เวลา: <span className="text-white/90">{fmtDT(selected.createdAt)}</span>
+                    เวลา: <span className="text-white/95">{fmtDT(selected.createdAt)}</span>
                   </div>
                   <div>
                     Who: <span className="text-white font-semibold">{actorText(selected)}</span>
                   </div>
                 </div>
 
-                <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/70">
+                <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/80">
                   <div>
-                    Target: <span className="text-white/90">{targetText(selected)}</span>
+                    Target: <span className="text-white/95">{targetText(selected)}</span>
                   </div>
                   <div>IP: {selected.ip || "—"}</div>
-                  <div className="text-white/40">ID: {selected.id}</div>
+                  <div className="text-white/60">ID: {selected.id}</div>
                 </div>
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
                 <ResultPill value={resultOf(selected)} />
                 <button
+                  type="button"
                   onClick={() => setSelected(null)}
-                  className="rounded-xl bg-white/10 px-3 py-2 text-sm hover:bg-white/15"
+                  className="rounded-xl bg-white/10 px-3 py-2 text-sm hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-white/30"
                 >
                   ปิด
                 </button>
@@ -736,44 +847,45 @@ export default function Logs() {
 
             <div className="flex-1 overflow-auto p-5 space-y-4">
               <div>
-                <div className="text-sm font-semibold text-white/85">User-Agent</div>
-                <div className="mt-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/85 break-words">
+                <div className="text-sm font-semibold text-white/90">User-Agent</div>
+                <div className="mt-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/90 break-words">
                   {selected.userAgent || "—"}
                 </div>
               </div>
 
               <div>
-                <div className="text-sm font-semibold text-white/85">Meta Summary</div>
-                <div className="mt-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/85 break-words">
+                <div className="text-sm font-semibold text-white/90">Meta Summary</div>
+                <div className="mt-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/90 break-words">
                   {changeSummary(selected) || "—"}
                 </div>
               </div>
 
               <div>
                 <div className="flex items-center justify-between gap-3">
-                  <div className="text-sm font-semibold text-white/85">Meta JSON (หลักฐาน)</div>
+                  <div className="text-sm font-semibold text-white/90">Meta JSON (หลักฐาน)</div>
                   <button
+                    type="button"
                     onClick={() => copyMeta(selected)}
-                    className="rounded-xl bg-white/10 px-3 py-2 text-sm hover:bg-white/15 disabled:opacity-50"
+                    className="rounded-xl bg-white/10 px-3 py-2 text-sm hover:bg-white/15 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-white/30"
                     disabled={!metaOf(selected)}
                   >
                     คัดลอก JSON
                   </button>
                 </div>
 
-                <pre className="mt-2 max-h-[360px] overflow-auto rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-xs text-white/80 whitespace-pre-wrap break-words">
+                <pre className="mt-2 max-h-[360px] overflow-auto rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-xs text-white/85 whitespace-pre-wrap break-words">
 {metaOf(selected) ? JSON.stringify(metaOf(selected), null, 2) : "—"}
                 </pre>
               </div>
 
-              <div className="text-xs text-white/40">* คลิกพื้นหลังหรือกด ESC เพื่อปิดหน้าต่างนี้</div>
+              <div className="text-xs text-white/70">* คลิกพื้นหลังหรือกด ESC เพื่อปิดหน้าต่างนี้</div>
             </div>
           </div>
         </div>
       )}
 
       {!loading && filtered.length >= 200 && (
-        <div className="mt-3 text-xs text-slate-500">
+        <div className="mt-3 text-xs text-slate-700">
           หมายเหตุ: ตอนนี้ backend ดึงมาเฉพาะรายการล่าสุด 200 รายการ ถ้าต้องการดูเก่ากว่านี้ต้องเพิ่ม pagination ที่ backend (skip/take)
         </div>
       )}
