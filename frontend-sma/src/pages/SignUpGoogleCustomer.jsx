@@ -167,7 +167,7 @@ export default function SignUpGoogleCustomer() {
 
       // ✅ กันกรณี backend เก่าเผลอส่ง token มา (ไม่ควรล็อกอินในหน้าสมัคร)
       if (data?.token || data?.existing) {
-        setError("มีบัญชีอยู่แล้ว หรืออีเมลนี้ถูกใช้งานแล้ว กรุณาไปหน้าเข้าสู่ระบบ");
+        setError("มีบัญชีอยู่แล้ว กรุณาไปหน้าเข้าสู่ระบบ");
         return;
       }
 
