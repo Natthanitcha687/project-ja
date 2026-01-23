@@ -312,7 +312,7 @@ export default function SignIn() {
       googleBtnRef.current.innerHTML = "";
       g.renderButton(googleBtnRef.current, {
         theme: "outline",
-        size: "large",
+        size: "medium",
         shape: "pill",
         width: w,
         text: "signin_with",
@@ -542,13 +542,13 @@ export default function SignIn() {
 
                 {/* ✅ Responsive: กำหนด width ของปุ่มตาม container จริง (ไม่ใช้ scale) */}
                 <div className="w-full flex justify-center">
-                  <div ref={googleWrapRef} className="w-full max-w-[420px] flex justify-center">
+                  <div ref={googleWrapRef} className="w-full max-w-[420px] flex justify-center overflow-visible">
                     <div
-                      ref={googleBtnRef}
-                      className="w-full flex justify-center min-h-[44px]"
-                      aria-label={`เข้าสู่ระบบด้วย Google (${tab === "store" ? "ร้านค้า" : "ลูกค้า"})`}
+                        ref={googleBtnRef}
+                        className="w-full flex justify-center min-h-[56px] overflow-visible origin-center scale-[1.08]"
+                        aria-label={`เข้าสู่ระบบด้วย Google (${tab === "store" ? "ร้านค้า" : "ลูกค้า"})`}
                     />
-                  </div>
+                 </div>
                 </div>
 
                 {!googleReady && !googleErr ? (

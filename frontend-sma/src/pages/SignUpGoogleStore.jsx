@@ -435,7 +435,7 @@ export default function SignUpGoogleStore() {
       googleBtnRef.current.innerHTML = "";
       g.renderButton(googleBtnRef.current, {
         theme: "outline",
-        size: "large",
+        size: "medium",
         shape: "pill",
         width: w,
         text: "signup_with",
@@ -671,10 +671,14 @@ export default function SignUpGoogleStore() {
 
               {/* ✅ Google button (Responsive แบบไม่เล็ก + ไม่กระพริบ) */}
               <div className="w-full flex justify-center">
-                <div ref={googleWrapRef} className="w-full max-w-[420px] flex justify-center">
-                  <div ref={googleBtnRef} className="w-full flex justify-center min-h-[44px]" aria-label="สมัครด้วย Google (ร้านค้า)" />
+                <div ref={googleWrapRef} className="w-full max-w-[420px] flex justify-center overflow-visible">
+                  <div
+                      ref={googleBtnRef}
+                      className="w-full flex justify-center min-h-[56px] overflow-visible origin-center scale-[1.12]"
+                      aria-label="สมัครด้วย Google (ร้านค้า)"
+                  />
                 </div>
-              </div>
+             </div>
 
               {!googleReady && !googleErr ? (
                 <div className="mt-2 text-center text-xs text-gray-400">กำลังโหลดปุ่ม Google...</div>
