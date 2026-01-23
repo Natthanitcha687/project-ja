@@ -5,6 +5,9 @@ import jwt from 'jsonwebtoken'
 import { sendVerificationEmail, sendPasswordResetEmail, sendLoginOtpEmail } from '../services/email.js'
 import crypto from 'crypto'
 
+// ✅ เพิ่มสำหรับ Google ID token verify
+import { OAuth2Client } from 'google-auth-library'
+
 // ========= helpers =========
 function buildFrontendUrl(pathname, params = {}) {
   const base = process.env.FRONTEND_URL || process.env.APP_URL || 'http://localhost:5173'
@@ -61,6 +64,139 @@ function sign(user) {
   const payload = { sub: user.id, role: user.role, email: user.email }
   const expiresIn = process.env.JWT_EXPIRES_IN || '7d'
   return jwt.sign(payload, secret, { expiresIn })
+}
+
+/* =========================
+ * Google OAuth (ID token)
+ * ========================= */
+function googleClientId() {
+  const cid = (process.env.GOOGLE_CLIENT_ID || '').trim()
+  if (!cid) {
+    const err = new Error('GOOGLE_CLIENT_ID is missing')
+    err.code = 'GOOGLE_CLIENT_ID_MISSING'
+    throw err
+  }
+  return cid
+}
+
+function googleSignupExpiresIn() {
+  // ปรับได้ใน env ถ้าต้องการ เช่น "15m"
+  return (process.env.GOOGLE_SIGNUP_EXPIRES_IN || '15m').trim()
+}
+
+async function verifyGoogleCredential(idToken) {
+  const cid = googleClientId()
+  const client = new OAuth2Client(cid)
+
+  const ticket = await client.verifyIdToken({
+    idToken: String(idToken),
+    audience: cid
+  })
+
+  const payload = ticket.getPayload() || {}
+
+  const email = payload.email ? String(payload.email).trim().toLowerCase() : ''
+  const sub = payload.sub ? String(payload.sub).trim() : ''
+  const emailVerified = payload.email_verified
+
+  if (!email || !sub) {
+    const err = new Error('GOOGLE_TOKEN_INVALID')
+    err.code = 'GOOGLE_TOKEN_INVALID'
+    throw err
+  }
+  if (emailVerified === false) {
+    const err = new Error('GOOGLE_EMAIL_NOT_VERIFIED')
+    err.code = 'GOOGLE_EMAIL_NOT_VERIFIED'
+    throw err
+  }
+
+  return {
+    email,
+    sub,
+    givenName: payload.given_name ? String(payload.given_name).trim() : '',
+    familyName: payload.family_name ? String(payload.family_name).trim() : '',
+    name: payload.name ? String(payload.name).trim() : ''
+  }
+}
+
+function signGoogleSignupToken(data) {
+  const secret = process.env.JWT_SECRET
+  if (!secret) {
+    const err = new Error('JWT_SECRET is missing')
+    err.code = 'JWT_SECRET_MISSING'
+    throw err
+  }
+  // typ กันสับสนกับ token ของ login ปกติ
+  const payload = { typ: 'GOOGLE_SIGNUP', ...data }
+  return jwt.sign(payload, secret, { expiresIn: googleSignupExpiresIn() })
+}
+
+function verifyGoogleSignupToken(token) {
+  const secret = process.env.JWT_SECRET
+  if (!secret) {
+    const err = new Error('JWT_SECRET is missing')
+    err.code = 'JWT_SECRET_MISSING'
+    throw err
+  }
+  try {
+    const decoded = jwt.verify(String(token), secret)
+    if (!decoded || decoded.typ !== 'GOOGLE_SIGNUP') {
+      const err = new Error('GOOGLE_SIGNUP_TOKEN_INVALID')
+      err.code = 'GOOGLE_SIGNUP_TOKEN_INVALID'
+      throw err
+    }
+    return decoded
+  } catch (e) {
+    const err = new Error('GOOGLE_SIGNUP_TOKEN_INVALID')
+    err.code = 'GOOGLE_SIGNUP_TOKEN_INVALID'
+    throw err
+  }
+}
+
+function normalizeRole(v) {
+  const r = String(v || '').trim().toUpperCase()
+  if (r === 'CUSTOMER' || r === 'STORE') return r
+  return null
+}
+
+async function guardSuspendedUser(req, user) {
+  // ใช้ logic เดียวกับ login()
+  if (user.status === 'SUSPENDED') {
+    if (user.suspendedUntil && user.suspendedUntil <= new Date()) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          status: 'ACTIVE',
+          suspendedAt: null,
+          suspendedReason: null,
+          suspendedUntil: null
+        }
+      })
+      return { ok: true }
+    }
+
+    await logSecurityEvent(req, 'USER_LOGIN_BLOCKED_SUSPENDED', {
+      userId: user.id,
+      email: user.email
+    })
+
+    return {
+      ok: false,
+      status: 403,
+      body: {
+        message: 'บัญชีถูกระงับการใช้งาน',
+        reason: user.suspendedReason || null,
+        suspendedUntil: user.suspendedUntil || null
+      }
+    }
+  }
+  return { ok: true }
+}
+
+async function randomPasswordHash() {
+  // กัน schema บังคับ passwordHash (ผู้ใช้ไม่ต้องรู้รหัสนี้)
+  const random = crypto.randomBytes(32).toString('hex')
+  return bcrypt.hash(random, 10)
 }
 
 /* =========================
@@ -636,5 +772,228 @@ export async function resetPassword(req, res) {
   } catch (err) {
     console.error('resetPassword error:', err)
     res.status(500).json({ message: 'เกิดข้อผิดพลาด' })
+  }
+}
+
+// =========================
+// Google Signup/Login Flow
+// =========================
+
+// POST /auth/google/start
+// body: { credential, role }   role: "CUSTOMER" | "STORE"
+export async function googleStart(req, res) {
+  try {
+    const { credential, role } = req.body || {}
+    if (!credential) return res.status(400).json({ message: 'credential is required' })
+
+    const g = await verifyGoogleCredential(credential)
+    const desiredRole = normalizeRole(role)
+
+    // ถ้ามีบัญชีแล้ว => login ได้เลย
+    let user = await prisma.user.findUnique({
+      where: { email: g.email },
+      include: { customerProfile: true, storeProfile: true }
+    })
+
+    if (user) {
+      const guard = await guardSuspendedUser(req, user)
+      if (!guard.ok) return res.status(guard.status).json(guard.body)
+
+      // ถ้าเคยสมัครแบบ email แต่ยังไม่ verify -> ให้ถือว่า verify ได้ (เพราะ Google ยืนยันอีเมลแล้ว)
+      if (!user.emailVerifiedAt) {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: { emailVerifiedAt: new Date() },
+          include: { customerProfile: true, storeProfile: true }
+        })
+      }
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { lastLoginAt: new Date() }
+      })
+
+      await logSecurityEvent(req, 'USER_LOGIN_GOOGLE_SUCCESS', { userId: user.id, email: user.email })
+
+      const token = sign(user)
+      return res.json({ token, existing: true, role: user.role })
+    }
+
+    // ไม่มีบัญชี => ให้ไปกรอกข้อมูลเพิ่ม (หน้าแยกลูกค้า/ร้าน)
+    const signupToken = signGoogleSignupToken({
+      email: g.email,
+      googleSub: g.sub,
+      role: desiredRole, // อาจเป็น null ถ้าไม่ส่งมา
+      givenName: g.givenName,
+      familyName: g.familyName
+    })
+
+    await logSecurityEvent(req, 'USER_GOOGLE_START', { email: g.email, role: desiredRole || null })
+
+    return res.json({
+      needsProfile: true,
+      signupToken,
+      email: g.email,
+      givenName: g.givenName || null,
+      familyName: g.familyName || null,
+      role: desiredRole
+    })
+  } catch (err) {
+    if (err?.code === 'GOOGLE_CLIENT_ID_MISSING') {
+      return res.status(500).json({ message: 'GOOGLE_CLIENT_ID is missing' })
+    }
+    if (err?.code === 'GOOGLE_TOKEN_INVALID' || err?.code === 'GOOGLE_EMAIL_NOT_VERIFIED') {
+      return res.status(401).json({ message: 'Google token ไม่ถูกต้อง' })
+    }
+    if (err?.code === 'JWT_SECRET_MISSING') {
+      return res.status(500).json({ message: 'JWT_SECRET is missing' })
+    }
+    console.error('googleStart error:', err)
+    return res.status(500).json({ message: 'เกิดข้อผิดพลาด' })
+  }
+}
+
+// POST /auth/google/complete/customer
+// body: { signupToken, firstName, lastName, phone, isConsent }
+export async function googleCompleteCustomer(req, res) {
+  try {
+    const { signupToken, firstName, lastName, phone, isConsent } = req.body || {}
+    if (!signupToken) return res.status(400).json({ message: 'signupToken is required' })
+
+    const d = verifyGoogleSignupToken(signupToken)
+    const roleInToken = normalizeRole(d.role)
+    if (roleInToken && roleInToken !== 'CUSTOMER') {
+      return res.status(400).json({ message: 'role mismatch (expected CUSTOMER)' })
+    }
+
+    const email = String(d.email || '').trim().toLowerCase()
+    if (!email) return res.status(400).json({ message: 'email not found in signupToken' })
+
+    const exists = await prisma.user.findUnique({ where: { email } })
+    if (exists) return res.status(409).json({ message: 'อีเมลนี้ถูกใช้งานแล้ว' })
+
+    const fn = String(firstName || d.givenName || '').trim()
+    const ln = String(lastName || d.familyName || '').trim()
+    const ph = String(phone || '').trim()
+    if (!fn || !ln || !ph) {
+      return res.status(400).json({ message: 'กรุณากรอกข้อมูลให้ครบ: firstName, lastName, phone' })
+    }
+
+    const hash = await randomPasswordHash()
+
+    const user = await prisma.user.create({
+      data: {
+        email,
+        passwordHash: hash,
+        role: 'CUSTOMER',
+        emailVerifiedAt: new Date(),
+        customerProfile: {
+          create: {
+            firstName: fn,
+            lastName: ln,
+            phone: ph,
+            isConsent: !!isConsent
+          }
+        }
+      },
+      include: { customerProfile: true }
+    })
+
+    await logSecurityEvent(req, 'USER_REGISTER_GOOGLE_SUCCESS', { userId: user.id, email: user.email, role: 'CUSTOMER' })
+
+    const token = sign(user)
+    return res.status(201).json({ token })
+  } catch (err) {
+    if (err?.code === 'GOOGLE_SIGNUP_TOKEN_INVALID') {
+      return res.status(401).json({ message: 'signupToken ไม่ถูกต้องหรือหมดอายุ' })
+    }
+    if (err?.code === 'JWT_SECRET_MISSING') {
+      return res.status(500).json({ message: 'JWT_SECRET is missing' })
+    }
+    console.error('googleCompleteCustomer error:', err)
+    return res.status(500).json({ message: 'เกิดข้อผิดพลาด' })
+  }
+}
+
+// POST /auth/google/complete/store
+// body: { signupToken, storeName, typeStore/storeType, ownerStore/ownerName, phone, address, timeAvailable/businessHours, isConsent }
+export async function googleCompleteStore(req, res) {
+  try {
+    const {
+      signupToken,
+      storeName,
+      typeStore,
+      storeType: storeTypeRaw,
+      ownerStore,
+      ownerName: ownerNameRaw,
+      phone,
+      address,
+      timeAvailable,
+      businessHours: businessHoursRaw,
+      isConsent
+    } = req.body || {}
+
+    if (!signupToken) return res.status(400).json({ message: 'signupToken is required' })
+
+    const d = verifyGoogleSignupToken(signupToken)
+    const roleInToken = normalizeRole(d.role)
+    if (roleInToken && roleInToken !== 'STORE') {
+      return res.status(400).json({ message: 'role mismatch (expected STORE)' })
+    }
+
+    const email = String(d.email || '').trim().toLowerCase()
+    if (!email) return res.status(400).json({ message: 'email not found in signupToken' })
+
+    const exists = await prisma.user.findUnique({ where: { email } })
+    if (exists) return res.status(409).json({ message: 'อีเมลนี้ถูกใช้งานแล้ว' })
+
+    const storeType = (storeTypeRaw ?? typeStore)?.toString().trim()
+    const ownerName = (ownerNameRaw ?? ownerStore)?.toString().trim()
+    const businessHours = (businessHoursRaw ?? timeAvailable)?.toString().trim()
+
+    const required = { storeName, storeType, ownerName, phone, address, businessHours }
+    for (const [k, v] of Object.entries(required)) {
+      if (!v || String(v).trim() === '') {
+        return res.status(400).json({ message: `กรุณากรอกข้อมูลให้ครบ: ${k}` })
+      }
+    }
+
+    const hash = await randomPasswordHash()
+
+    const user = await prisma.user.create({
+      data: {
+        email,
+        passwordHash: hash,
+        role: 'STORE',
+        emailVerifiedAt: new Date(),
+        storeProfile: {
+          create: {
+            storeName: String(storeName).trim(),
+            storeType,
+            ownerName,
+            phone: String(phone).trim(),
+            email,
+            address: String(address).trim(),
+            businessHours,
+            isConsent: !!isConsent
+          }
+        }
+      },
+      include: { storeProfile: true }
+    })
+
+    await logSecurityEvent(req, 'USER_REGISTER_GOOGLE_SUCCESS', { userId: user.id, email: user.email, role: 'STORE' })
+
+    const token = sign(user)
+    return res.status(201).json({ token })
+  } catch (err) {
+    if (err?.code === 'GOOGLE_SIGNUP_TOKEN_INVALID') {
+      return res.status(401).json({ message: 'signupToken ไม่ถูกต้องหรือหมดอายุ' })
+    }
+    if (err?.code === 'JWT_SECRET_MISSING') {
+      return res.status(500).json({ message: 'JWT_SECRET is missing' })
+    }
+    console.error('googleCompleteStore error:', err)
+    return res.status(500).json({ message: 'เกิดข้อผิดพลาด' })
   }
 }
