@@ -443,7 +443,11 @@ export default function SignUpGoogleStore() {
       if (subdistrictsMap) {
         const list = subdistrictsMap[did] || [];
         setSubdistrictOptions(
-          list.map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip }))
+          list.map((s) => ({
+            name: s.name_th || s.name,
+            code: s.id ?? s.code,
+            zipcode: s.zip_code || s.zipcode || s.zip,
+          }))
         );
         return;
       }
@@ -458,7 +462,11 @@ export default function SignUpGoogleStore() {
 
       const filtered = subs.filter((s) => String(s.district_id ?? s.district_code) === did);
       setSubdistrictOptions(
-        filtered.map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip }))
+        filtered.map((s) => ({
+          name: s.name_th || s.name,
+          code: s.id ?? s.code,
+          zipcode: s.zip_code || s.zipcode || s.zip,
+        }))
       );
     } catch (err) {
       console.error("loadSubdistrictsForDistrict error", err);
@@ -469,22 +477,9 @@ export default function SignUpGoogleStore() {
   // init google button (เฉพาะตอนยังไม่มี signupToken) + Responsive width
   useEffect(() => {
     let cancelled = false;
-    let ro = null;
-    let raf = 0;
-
-    function cleanup() {
-      if (raf) cancelAnimationFrame(raf);
-      raf = 0;
-      if (ro) {
-        ro.disconnect();
-        ro = null;
-      }
-      window.removeEventListener("resize", onResizeFallback);
-    }
-
-    function onResizeFallback() {
-      scheduleRender();
-    }
+    let lastW = 0;
+    let resizeT = 0;
+    let onResize = null;
 
     function getContainerWidth() {
       const el = googleBtnRef.current;
@@ -494,23 +489,22 @@ export default function SignUpGoogleStore() {
       return Math.min(420, Math.max(240, Math.floor(w)));
     }
 
-    function scheduleRender() {
-      if (raf) cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        if (cancelled) return;
-        const g = window.google?.accounts?.id;
-        if (!g) return;
-        if (!googleBtnRef.current) return;
+    function renderButtonIfNeeded() {
+      const g = window.google?.accounts?.id;
+      if (!g || !googleBtnRef.current) return;
 
-        googleBtnRef.current.innerHTML = "";
-        g.renderButton(googleBtnRef.current, {
-          theme: "outline",
-          size: "large",
-          shape: "pill",
-          width: getContainerWidth(),
-          text: "signup_with",
-          locale: "th",
-        });
+      const w = getContainerWidth();
+      if (w === lastW) return; // ✅ กัน render ซ้ำ (ลด/กันอาการกระพริบ)
+      lastW = w;
+
+      googleBtnRef.current.innerHTML = "";
+      g.renderButton(googleBtnRef.current, {
+        theme: "outline",
+        size: "large",
+        shape: "pill",
+        width: w,
+        text: "signup_with",
+        locale: "th",
       });
     }
 
@@ -550,27 +544,31 @@ export default function SignUpGoogleStore() {
           cancel_on_tap_outside: true,
         });
 
-        scheduleRender();
+        requestAnimationFrame(() => {
+          if (!cancelled) renderButtonIfNeeded();
+        });
+
+        onResize = () => {
+          clearTimeout(resizeT);
+          resizeT = window.setTimeout(() => {
+            if (cancelled) return;
+            requestAnimationFrame(renderButtonIfNeeded);
+          }, 150);
+        };
+        window.addEventListener("resize", onResize);
+
         setGoogleReady(true);
-
-        const el = googleBtnRef.current;
-        const target = el?.parentElement || el;
-
-        if (target && "ResizeObserver" in window) {
-          ro = new ResizeObserver(() => scheduleRender());
-          ro.observe(target);
-        } else {
-          window.addEventListener("resize", onResizeFallback);
-        }
       } catch (e) {
         if (!cancelled) setGoogleErr("ไม่สามารถโหลดปุ่ม Google ได้");
       }
     }
 
     init();
+
     return () => {
       cancelled = true;
-      cleanup();
+      clearTimeout(resizeT);
+      if (onResize) window.removeEventListener("resize", onResize);
     };
   }, [signupToken, googleClientId]);
 
@@ -799,8 +797,317 @@ export default function SignUpGoogleStore() {
             </div>
           ) : (
             <form onSubmit={onSubmitComplete} className="mt-6 space-y-4" noValidate>
-              {/* ... (ฟอร์มเดิมของคุณทั้งหมดอยู่เหมือนเดิม) ... */}
-              {/* คุณสามารถวางส่วนฟอร์มที่เหลือต่อจากนี้ได้เหมือนเดิมโดยไม่ต้องแก้เพิ่ม */}
+              <label className="block">
+                <span className="block text-sm font-medium text-gray-700">อีเมล (จาก Google)</span>
+                <InputIcon value={email || ""} readOnly left={Icon.mail()} className="bg-gray-50 cursor-not-allowed" />
+              </label>
+
+              <label className="block">
+                <span className="block text-sm font-medium text-gray-700">ชื่อร้านค้า</span>
+                <InputIcon
+                  value={storeName}
+                  onChange={(e) => setStoreName(e.target.value)}
+                  placeholder="ชื่อร้านค้า"
+                  required
+                  left={Icon.home()}
+                />
+              </label>
+
+              <label className="block">
+                <span className="block text-sm font-medium text-gray-700">ประเภทร้านค้า</span>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2">{Icon.home()}</span>
+                  <select
+                    value={typeStore}
+                    onChange={(e) => setTypeStore(e.target.value)}
+                    className="mt-1 w-full h-10 rounded-xl border border-gray-300 bg-white pl-10 pr-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="" disabled>
+                      เลือกประเภทร้านค้า
+                    </option>
+                    <option value="electronics">อิเล็กทรอนิกส์</option>
+                    <option value="appliance">เครื่องใช้ไฟฟ้า</option>
+                    <option value="furniture">เฟอร์นิเจอร์</option>
+                    <option value="automotive">ยานยนต์</option>
+                    <option value="machine">เครื่องจักร / เครื่องมือช่าง</option>
+                    <option value="other">อื่น ๆ</option>
+                  </select>
+                </div>
+              </label>
+
+              <label className="block">
+                <span className="block text-sm font-medium text-gray-700">ชื่อเจ้าของร้าน</span>
+                <InputIcon
+                  value={ownerStore}
+                  onChange={(e) => setOwnerStore(e.target.value)}
+                  placeholder="ชื่อเจ้าของร้าน"
+                  required
+                  left={Icon.user()}
+                />
+              </label>
+
+              <label className="block">
+                <span className="block text-sm font-medium text-gray-700">เบอร์โทรศัพท์</span>
+                <InputIcon
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="กรอกเบอร์โทรศัพท์"
+                  required
+                  left={Icon.phone()}
+                />
+              </label>
+
+              {/* Address (เหมือน SignUp.jsx) */}
+              <label className="block">
+                <span className="block text-sm font-medium text-gray-700">ที่อยู่ร้าน</span>
+                <div className="mt-2 rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+                  <div className="mb-3">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">เลขที่ / ซอย / ถนน</label>
+                    <textarea
+                      value={addressStreet}
+                      onChange={(e) => updateAddress({ street: e.target.value })}
+                      placeholder="เช่น 123/4 ซ.สุขุมวิท 11"
+                      rows={2}
+                      className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3 mb-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">จังหวัด</label>
+                      <div className="relative">
+                        <select
+                          value={addressProvince}
+                          onChange={async (e) => {
+                            const code = e.target.value;
+                            updateAddress({ province: code, district: "", subdistrict: "", postcode: "" });
+                            await loadDistrictsForProvince(code);
+                            setSubdistrictOptions([]);
+                            setAddressDistrict("");
+                            setAddressSubdistrict("");
+                          }}
+                          className="appearance-none mt-1 w-full h-9 rounded-xl border border-gray-300 bg-white pl-3 pr-8 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          required
+                        >
+                          <option value="" disabled>
+                            เลือกจังหวัด
+                          </option>
+                          {provincesList.length > 0
+                            ? provincesList.map((p) => (
+                                <option key={p.code} value={p.code}>
+                                  {p.name}
+                                </option>
+                              ))
+                            : TH_PROVINCES.map((p) => (
+                                <option key={p} value={p}>
+                                  {p}
+                                </option>
+                              ))}
+                        </select>
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">▾</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">อำเภอ/เขต</label>
+                      <div className="relative">
+                        <select
+                          value={addressDistrict}
+                          onChange={async (e) => {
+                            const code = e.target.value;
+                            const found = districtOptions.find((d) => String(d.code) === String(code));
+                            updateAddress({ district: code, subdistrict: "", postcode: "" });
+                            if (found) await loadSubdistrictsForDistrict(found.code);
+                            else setSubdistrictOptions([]);
+                          }}
+                          className="appearance-none mt-1 w-full h-9 rounded-xl border border-gray-300 bg-white pl-3 pr-8 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          required
+                        >
+                          <option value="" disabled>
+                            เลือกอำเภอ/เขต
+                          </option>
+                          {districtOptions.map((d) => (
+                            <option key={d.code || d.name} value={d.code}>
+                              {d.name}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">▾</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">ตำบล/แขวง</label>
+                      <div className="relative">
+                        <select
+                          value={addressSubdistrict}
+                          onChange={(e) => {
+                            const code = e.target.value;
+                            const found = subdistrictOptions.find((s) => String(s.code) === String(code));
+                            updateAddress({ subdistrict: code });
+                            if (found && found.zipcode) updateAddress({ postcode: found.zipcode });
+                          }}
+                          className="appearance-none mt-1 w-full h-9 rounded-xl border border-gray-300 bg-white pl-3 pr-8 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          required
+                        >
+                          <option value="" disabled>
+                            เลือกตำบล/แขวง
+                          </option>
+                          {subdistrictOptions.map((s) => (
+                            <option key={s.code || s.name} value={s.code}>
+                              {s.name}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">▾</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3 items-end">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">รหัสไปรษณีย์</label>
+                      <input
+                        value={addressPostcode}
+                        onChange={(e) => updateAddress({ postcode: e.target.value })}
+                        placeholder="เช่น 10110"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        className="w-full h-9 rounded-xl border border-gray-300 bg-white px-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                      />
+                    </div>
+                    <div className="col-span-2 text-xs text-gray-400 flex items-center">
+                      ตัวอย่าง: เลขที่/ซอย/ถนน, ตำบล, อำเภอ, จังหวัด, รหัสไปรษณีย์
+                    </div>
+                  </div>
+                </div>
+              </label>
+
+              {/* Business hours schedule (เหมือน SignUp.jsx) */}
+              <label className="block">
+                <span className="block text-sm font-medium text-gray-700">เวลาทำการ</span>
+                <div className="mt-2 rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+                  <div className="flex items-center justify-between text-sm text-gray-700 mb-3">
+                    <div className="font-medium">เลือกวันที่เปิด</div>
+                    <div className="text-xs text-gray-400">คลิกที่วันเพื่อเปิด/ปิด แล้วเลือกเวลาเริ่ม–จบ</div>
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    {[
+                      ["mon", "จ."],
+                      ["tue", "อ."],
+                      ["wed", "พ."],
+                      ["thu", "พฤ."],
+                      ["fri", "ศ."],
+                      ["sat", "ส."],
+                      ["sun", "อา."],
+                    ].map(([key, label]) => (
+                      <div
+                        key={key}
+                        className="flex flex-col md:flex-row items-center justify-between gap-4 px-2 py-2 rounded-md hover:bg-slate-50"
+                      >
+                        <div className="flex items-center gap-3 md:w-36 w-full">
+                          <input
+                            type="checkbox"
+                            checked={!!schedule[key].on}
+                            onChange={() => setSchedule((s) => ({ ...s, [key]: { ...s[key], on: !s[key].on } }))}
+                            className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                          />
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium text-gray-700">{label}</span>
+                            <span className="text-xs text-gray-400">{schedule[key].on ? "เปิด" : "ปิด"}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+                          <input
+                            type="time"
+                            value={schedule[key].start}
+                            onChange={(e) => setSchedule((s) => ({ ...s, [key]: { ...s[key], start: e.target.value } }))}
+                            className="h-9 w-24 md:w-32 rounded border border-gray-300 bg-white px-2 text-sm"
+                            disabled={!schedule[key].on}
+                          />
+                          <span className="text-xs text-gray-400">—</span>
+                          <input
+                            type="time"
+                            value={schedule[key].end}
+                            onChange={(e) => setSchedule((s) => ({ ...s, [key]: { ...s[key], end: e.target.value } }))}
+                            className="h-9 w-24 md:w-32 rounded border border-gray-300 bg-white px-2 text-sm"
+                            disabled={!schedule[key].on}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </label>
+
+              {/* Consent */}
+              <label className="flex items-start gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={consent}
+                  onChange={(e) => setConsent(e.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600"
+                  required
+                />
+                <div className="text-sm text-gray-700 leading-tight">
+                  ฉันยอมรับ
+                  <button
+                    type="button"
+                    onClick={() => setShowTerms(true)}
+                    className="ml-2 text-blue-600 underline decoration-1 decoration-blue-400 hover:text-blue-700"
+                  >
+                    เงื่อนไขการใช้งาน
+                  </button>
+                  <span className="ml-2">ในการเข้าใช้งาน</span>
+                </div>
+              </label>
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white py-2.5 font-medium shadow"
+              >
+                {submitting ? "กำลังสมัคร..." : "ยืนยันสมัครสมาชิก ร้านค้า"}
+              </button>
+
+              <p className="text-center text-sm text-gray-600">
+                มีบัญชีอยู่แล้ว?{" "}
+                <Link to="/signin?role=store" className="text-blue-600 hover:underline">
+                  เข้าสู่ระบบ
+                </Link>
+              </p>
+
+              <div className="text-center text-xs text-gray-400">
+                ถ้าต้องการใช้บัญชี Google อื่น ให้{" "}
+                <button
+                  type="button"
+                  className="text-blue-600 hover:underline"
+                  onClick={() => {
+                    setSignupToken("");
+                    setEmail("");
+                    setStoreName("");
+                    setTypeStore("");
+                    setOwnerStore("");
+                    setPhone("");
+                    setSchedule(defaultSchedule);
+
+                    setAddressStreet("");
+                    setAddressProvince("");
+                    setAddressDistrict("");
+                    setAddressSubdistrict("");
+                    setAddressPostcode("");
+
+                    setConsent(false);
+                    setError("");
+                  }}
+                >
+                  เริ่มใหม่
+                </button>
+              </div>
             </form>
           )}
         </div>

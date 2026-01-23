@@ -254,23 +254,9 @@ export default function SignIn() {
   // ===== Google: init + render button (Responsive) =====
   useEffect(() => {
     let cancelled = false;
-    let ro = null; // ResizeObserver
-    let raf = 0;
-
-    function cleanup() {
-      if (raf) cancelAnimationFrame(raf);
-      raf = 0;
-      if (ro) {
-        ro.disconnect();
-        ro = null;
-      }
-      window.removeEventListener("resize", onResizeFallback);
-    }
-
-    function onResizeFallback() {
-      // fallback เมื่อไม่มี ResizeObserver
-      scheduleRender();
-    }
+    let lastW = 0;
+    let resizeT = 0;
+    let onResize = null;
 
     function getContainerWidth() {
       const el = googleBtnRef.current;
@@ -281,29 +267,25 @@ export default function SignIn() {
       const w = p?.clientWidth || el.clientWidth || 420;
 
       // จำกัดช่วงให้สวย/ไม่เล็กเกินไป (ปรับได้)
-      const clamped = Math.min(420, Math.max(240, Math.floor(w)));
-      return clamped;
+      return Math.min(420, Math.max(240, Math.floor(w)));
     }
 
-    function scheduleRender() {
-      if (raf) cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        if (cancelled) return;
+    function renderButtonIfNeeded() {
+      const g = window.google?.accounts?.id;
+      if (!g || !googleBtnRef.current) return;
 
-        const g = window.google?.accounts?.id;
-        if (!g) return;
-        if (!googleBtnRef.current) return;
+      const w = getContainerWidth();
+      if (w === lastW) return; // ✅ กัน render ซ้ำ (ลด/กันอาการกระพริบ)
+      lastW = w;
 
-        // clear container แล้ว render ใหม่ด้วยความกว้างล่าสุด
-        googleBtnRef.current.innerHTML = "";
-        g.renderButton(googleBtnRef.current, {
-          theme: "outline",
-          size: "large",
-          shape: "pill",
-          width: getContainerWidth(),
-          text: "signin_with",
-          locale: "th",
-        });
+      googleBtnRef.current.innerHTML = "";
+      g.renderButton(googleBtnRef.current, {
+        theme: "outline",
+        size: "large",
+        shape: "pill",
+        width: w,
+        text: "signin_with",
+        locale: "th",
       });
     }
 
@@ -346,21 +328,22 @@ export default function SignIn() {
           cancel_on_tap_outside: true,
         });
 
-        // render ครั้งแรกแบบ responsive
-        scheduleRender();
+        // render ครั้งแรกหลัง layout พร้อม
+        requestAnimationFrame(() => {
+          if (!cancelled) renderButtonIfNeeded();
+        });
+
+        // rerender เมื่อ resize แบบ debounce (กันกระพริบ)
+        onResize = () => {
+          clearTimeout(resizeT);
+          resizeT = window.setTimeout(() => {
+            if (cancelled) return;
+            requestAnimationFrame(renderButtonIfNeeded);
+          }, 150);
+        };
+        window.addEventListener("resize", onResize);
+
         setGoogleReady(true);
-
-        // ติดตามการเปลี่ยนขนาดแบบ responsive
-        const el = googleBtnRef.current;
-        const target = el?.parentElement || el;
-
-        if (target && "ResizeObserver" in window) {
-          ro = new ResizeObserver(() => scheduleRender());
-          ro.observe(target);
-        } else {
-          // fallback สำหรับบาง browser
-          window.addEventListener("resize", onResizeFallback);
-        }
       } catch (e) {
         if (!cancelled) {
           setGoogleErr("ไม่สามารถโหลดปุ่ม Google ได้");
@@ -372,7 +355,8 @@ export default function SignIn() {
 
     return () => {
       cancelled = true;
-      cleanup();
+      clearTimeout(resizeT);
+      if (onResize) window.removeEventListener("resize", onResize);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, step, googleClientId]);
