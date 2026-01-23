@@ -780,16 +780,17 @@ export async function resetPassword(req, res) {
 // =========================
 
 // POST /auth/google/start
-// body: { credential, role }   role: "CUSTOMER" | "STORE"
+// body: { credential, role, mode }   role: "CUSTOMER" | "STORE", mode: "signup" | "login"
 export async function googleStart(req, res) {
   try {
-    const { credential, role } = req.body || {}
+    const { credential, role, mode } = req.body || {}
     if (!credential) return res.status(400).json({ message: 'credential is required' })
 
     const g = await verifyGoogleCredential(credential)
     const desiredRole = normalizeRole(role)
+    const intent = String(mode || '').trim().toLowerCase()
 
-    // ถ้ามีบัญชีแล้ว => login ได้เลย
+    // ถ้ามีบัญชีแล้ว => login ได้เลย (ยกเว้นโหมดสมัคร)
     let user = await prisma.user.findUnique({
       where: { email: g.email },
       include: { customerProfile: true, storeProfile: true }
@@ -798,6 +799,15 @@ export async function googleStart(req, res) {
     if (user) {
       const guard = await guardSuspendedUser(req, user)
       if (!guard.ok) return res.status(guard.status).json(guard.body)
+
+      // ✅ โหมดสมัคร: ถ้ามีบัญชีอยู่แล้ว ให้แจ้งเตือน "มีบัญชีแล้ว/อีเมลถูกใช้แล้ว" (ห้ามล็อกอิน)
+      if (intent === 'signup') {
+        const msg =
+          desiredRole && user.role !== desiredRole
+            ? `อีเมลนี้ถูกใช้งานแล้ว (เป็นบัญชี ${user.role}) กรุณาเข้าสู่ระบบ`
+            : 'มีบัญชีอยู่แล้ว หรืออีเมลนี้ถูกใช้งานแล้ว กรุณาเข้าสู่ระบบ'
+        return res.status(409).json({ message: msg, existing: true, role: user.role })
+      }
 
       // ถ้าเคยสมัครแบบ email แต่ยังไม่ verify -> ให้ถือว่า verify ได้ (เพราะ Google ยืนยันอีเมลแล้ว)
       if (!user.emailVerifiedAt) {
