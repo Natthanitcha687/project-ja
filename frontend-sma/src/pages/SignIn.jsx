@@ -175,25 +175,40 @@ export default function SignIn() {
     setExpiresInSec(null);
   }
 
+  // ✅ helper: ล้าง token ให้หมดจริง (กันเด้งเข้าได้เอง)
+  function clearAuth() {
+    try {
+      if (setToken) setToken(""); // ให้ auth store เคลียร์ state + localStorage (ถ้า implement ไว้)
+    } catch {
+      // ignore
+    }
+    localStorage.removeItem("token");
+    delete api.defaults.headers.common["Authorization"];
+  }
+
   async function handleTokenLogin(token) {
     if (!token) {
       setError("เข้าสู่ระบบไม่สำเร็จ: ไม่พบโทเคน");
       return;
     }
 
-    // เก็บ token
-    localStorage.setItem("token", token);
-    api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-    if (setToken) setToken(token);
-
-    // ตรวจ role ให้ตรงกับแท็บ
+    // ✅ ตรวจ role ให้ตรงกับแท็บ "ก่อน" เก็บ token (สำคัญมาก)
     const role = decodeRoleFromToken(token); // "STORE" | "CUSTOMER"
     const expected = tab === "store" ? "STORE" : "CUSTOMER";
-    if (role !== expected) {
-      localStorage.removeItem("token");
-      delete api.defaults.headers.common["Authorization"];
+
+    if (!role || role !== expected) {
+      clearAuth();
       setError("ไม่พบบัญชีทางฝั่งนี้ (บัญชีนี้เป็นของอีกฝั่ง)");
       return;
+    }
+
+    // ✅ role ตรงแล้ว ค่อยเก็บ token
+    // (ถ้า setToken ทำหน้าที่ set localStorage+header อยู่แล้ว ก็พอ)
+    if (setToken) {
+      setToken(token);
+    } else {
+      localStorage.setItem("token", token);
+      api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
     }
 
     // ===== จุดแก้หลัก: คำนวณปลายทาง =====
