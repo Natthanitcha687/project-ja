@@ -1,5 +1,6 @@
 // src/pages/SignUp.jsx
 // เวอร์ชันเต็ม: ฟอร์มสมัครสมาชิก ลูกค้า/ร้านค้า + ตรวจสอบรหัสผ่าน + ส่ง API
+// ✅ เพิ่มปุ่ม "สมัครด้วย Google" (พาไปหน้าแยก /signup/google/customer|store)
 
 import { useEffect, useRef, useState, forwardRef } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
@@ -199,23 +200,6 @@ export default function Signup() {
   // terms modal visibility
   const [showTerms, setShowTerms] = useState(false);
 
-  // reset เมื่อสลับ tab
-  useEffect(() => {
-    setPassword("");
-    setConfirmPassword("");
-    setPwError("");
-    setConsent(false);
-    setShowPwd(false);
-    setShowPwd2(false);
-    setSchedule(defaultSchedule);
-    // reset address fields when switching between customer/store
-    setAddressStreet("");
-    setAddressSubdistrict("");
-    setAddressDistrict("");
-    setAddressProvince("");
-    setAddressPostcode("");
-  }, [tab]);
-
   // Helper: compose time availability string for form submission
   const defaultSchedule = {
     mon: { on: true, start: '09:00', end: '18:00' },
@@ -244,6 +228,26 @@ export default function Signup() {
     if (patch.province !== undefined) setAddressProvince(patch.province);
     if (patch.postcode !== undefined) setAddressPostcode(patch.postcode);
   }
+
+  // ✅ เพิ่ม: path ไปหน้าสมัครด้วย Google (แยกลูกค้า/ร้านค้า)
+  const googleSignupPath = tab === "store" ? "/signup/google/store" : "/signup/google/customer";
+
+  // reset เมื่อสลับ tab
+  useEffect(() => {
+    setPassword("");
+    setConfirmPassword("");
+    setPwError("");
+    setConsent(false);
+    setShowPwd(false);
+    setShowPwd2(false);
+    setSchedule(defaultSchedule);
+    // reset address fields when switching between customer/store
+    setAddressStreet("");
+    setAddressSubdistrict("");
+    setAddressDistrict("");
+    setAddressProvince("");
+    setAddressPostcode("");
+  }, [tab]);
 
   // Dynamic Thai administrative areas (provinces/districts/subdistricts)
   // Prefer local static JSON shipped in public/data; fallback to GitHub raw URLs
@@ -587,6 +591,7 @@ export default function Signup() {
           </div>
         </div>
       )}
+
       <div className="w-full max-w-xl">
         <div className="bg-white rounded-2xl shadow-2xl border border-black/5 p-8">
           {/* Header */}
@@ -602,11 +607,38 @@ export default function Signup() {
             <div className="mt-4">
               <Tabs value={tab} onChange={setTab} />
             </div>
+
+            {/* ✅ เพิ่ม: ปุ่มสมัครด้วย Google (แยกหน้าตามแท็บ) */}
+            <div className="mt-5 w-full">
+              <button
+                type="button"
+                onClick={() => navigate(googleSignupPath)}
+                className="w-full h-11 rounded-xl border border-gray-300 bg-white hover:bg-gray-50 text-gray-900 font-semibold shadow-sm transition flex items-center justify-center gap-2"
+              >
+                {/* Google G icon */}
+                <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+                  <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303C33.66 32.657 29.194 36 24 36c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.958 3.042l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" />
+                  <path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 16.108 19.01 12 24 12c3.059 0 5.842 1.154 7.958 3.042l5.657-5.657C34.046 6.053 29.268 4 24 4c-7.682 0-14.344 4.337-17.694 10.691z" />
+                  <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.197l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.173 0-9.626-3.323-11.284-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z" />
+                  <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.23-2.231 4.155-4.094 5.565l.003-.002 6.19 5.238C36.98 39.14 44 34 44 24c0-1.341-.138-2.65-.389-3.917z" />
+                </svg>
+                สมัครด้วย Google
+                <span className="text-xs text-gray-500 font-medium ml-1">
+                  ({tab === "store" ? "ร้านค้า" : "ลูกค้า"})
+                </span>
+              </button>
+
+              <div className="my-4 flex items-center gap-3 text-xs text-gray-400">
+                <div className="h-px bg-gray-200 flex-1" />
+                <span>หรือสมัครด้วยอีเมล</span>
+                <div className="h-px bg-gray-200 flex-1" />
+              </div>
+            </div>
           </div>
 
           {/* ===================== CUSTOMER FORM ===================== */}
           {tab === "customer" ? (
-            <form onSubmit={onSubmitCustomer} className="mt-6 space-y-4" noValidate>
+            <form onSubmit={onSubmitCustomer} className="mt-2 space-y-4" noValidate>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <label className="block">
                   <span className="block text-sm font-medium text-gray-700">ชื่อ</span>
@@ -702,7 +734,7 @@ export default function Signup() {
             </form>
           ) : (
             /* ===================== STORE FORM ===================== */
-            <form onSubmit={onSubmitStore} className="mt-6 space-y-4" noValidate>
+            <form onSubmit={onSubmitStore} className="mt-2 space-y-4" noValidate>
               <label className="block">
                 <span className="block text-sm font-medium text-gray-700">ชื่อร้านค้า</span>
                 <InputIcon name="storeName" placeholder="ชื่อร้านค้า" required left={Icon.home()} />
@@ -761,7 +793,6 @@ export default function Signup() {
                       required
                     />
                   </div>
-
 
                   <div className="grid grid-cols-3 gap-3 mb-3">
                     <div>

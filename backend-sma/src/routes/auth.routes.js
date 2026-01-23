@@ -10,7 +10,12 @@ import {
   resendLoginOtp,
   me,
   requestPasswordReset,
-  resetPassword
+  resetPassword,
+
+  // ✅ เพิ่ม: Google signup/login flow
+  googleStart,
+  googleCompleteCustomer,
+  googleCompleteStore
 } from '../controllers/auth.controller.js'
 
 // ✅ ใช้ middleware ตัวจริงที่เช็ค DB (กัน token เก่า + กันบัญชี SUSPENDED)
@@ -189,6 +194,24 @@ router.post('/login', login)
 // ✅ OTP (Email) login
 router.post('/login/otp/verify', verifyLoginOtp)
 router.post('/login/otp/resend', resendLoginOtp)
+
+/**
+ * ✅ Google: start (verify token -> existing login OR needsProfile)
+ * POST /auth/google/start
+ */
+router.post('/google/start', googleStart)
+
+/**
+ * ✅ Google: complete profile (customer)
+ * POST /auth/google/complete/customer
+ */
+router.post('/google/complete/customer', googleCompleteCustomer)
+
+/**
+ * ✅ Google: complete profile (store)
+ * POST /auth/google/complete/store
+ */
+router.post('/google/complete/store', googleCompleteStore)
 
 /**
  * @openapi

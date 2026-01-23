@@ -1,7 +1,8 @@
 // src/pages/SignIn.jsx
 // [อัปเดต] **ตัดโค้ดไอคอนตาออกทั้งหมด 100%**
+// ✅ เพิ่ม: เข้าสู่ระบบด้วย Google (GIS) -> POST /auth/google/start
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../store/auth";
@@ -99,6 +100,33 @@ function decodeRoleFromToken(token) {
   }
 }
 
+/* =========================
+ * Google Identity Services helpers
+ * ========================= */
+function loadGsiScript() {
+  return new Promise((resolve, reject) => {
+    if (typeof window === "undefined") return reject(new Error("No window"));
+    if (window.google?.accounts?.id) return resolve(true);
+
+    // prevent duplicate script
+    const existing = document.querySelector('script[data-gsi="1"]');
+    if (existing) {
+      existing.addEventListener("load", () => resolve(true));
+      existing.addEventListener("error", () => reject(new Error("Load Google script failed")));
+      return;
+    }
+
+    const s = document.createElement("script");
+    s.src = "https://accounts.google.com/gsi/client";
+    s.async = true;
+    s.defer = true;
+    s.setAttribute("data-gsi", "1");
+    s.onload = () => resolve(true);
+    s.onerror = () => reject(new Error("Load Google script failed"));
+    document.head.appendChild(s);
+  });
+}
+
 export default function SignIn() {
   const [params] = useSearchParams();
   const initial = params.get("role") === "store" ? "store" : "customer";
@@ -114,6 +142,15 @@ export default function SignIn() {
   const [otpMsg, setOtpMsg] = useState("");
   const [pendingEmail, setPendingEmail] = useState("");
   const [expiresInSec, setExpiresInSec] = useState(null);
+
+  // ===== Google state =====
+  const googleBtnRef = useRef(null);
+  const [googleReady, setGoogleReady] = useState(false);
+  const [googleErr, setGoogleErr] = useState("");
+  const googleClientId = useMemo(
+    () => (import.meta?.env?.VITE_GOOGLE_CLIENT_ID ? String(import.meta.env.VITE_GOOGLE_CLIENT_ID).trim() : ""),
+    []
+  );
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -164,6 +201,119 @@ export default function SignIn() {
 
     navigate(redirectTo, { replace: true });
   }
+
+  // ===== Google: send credential to backend =====
+  async function handleGoogleCredential(credential) {
+    try {
+      setError("");
+      setGoogleErr("");
+      setSubmitting(true);
+
+      const role = tab === "store" ? "STORE" : "CUSTOMER";
+
+      const { data } = await api.post("/auth/google/start", {
+        credential,
+        role,
+      });
+
+      // existing -> token login
+      if (data?.token) {
+        await handleTokenLogin(data.token);
+        return;
+      }
+
+      // needs profile -> ไปหน้ากรอกข้อมูลเพิ่ม
+      if (data?.needsProfile && data?.signupToken) {
+        const nextParam = params.get("next") || location.state?.from?.pathname || "";
+        const to = tab === "store" ? "/signup/google/store" : "/signup/google/customer";
+
+        navigate(to, {
+          replace: true,
+          state: {
+            signupToken: data.signupToken,
+            email: data.email || null,
+            givenName: data.givenName || null,
+            familyName: data.familyName || null,
+            role: data.role || role,
+            next: nextParam || null,
+          },
+        });
+        return;
+      }
+
+      setError("เข้าสู่ระบบด้วย Google ไม่สำเร็จ");
+    } catch (err) {
+      const body = err?.response?.data || {};
+      setError(body?.message || err?.message || "เข้าสู่ระบบด้วย Google ไม่สำเร็จ");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  // ===== Google: init + render button =====
+  useEffect(() => {
+    let cancelled = false;
+
+    async function initGoogle() {
+      try {
+        setGoogleErr("");
+        setGoogleReady(false);
+
+        if (step !== "password") return; // แสดง Google เฉพาะหน้า password
+        if (!googleClientId) {
+          setGoogleErr("ยังไม่ได้ตั้งค่า VITE_GOOGLE_CLIENT_ID");
+          return;
+        }
+
+        await loadGsiScript();
+        if (cancelled) return;
+
+        const g = window.google?.accounts?.id;
+        if (!g) {
+          setGoogleErr("โหลด Google Identity ไม่สำเร็จ");
+          return;
+        }
+
+        // clear container
+        if (googleBtnRef.current) googleBtnRef.current.innerHTML = "";
+
+        g.initialize({
+          client_id: googleClientId,
+          callback: (resp) => {
+            const cred = resp?.credential;
+            if (cred) handleGoogleCredential(cred);
+            else setError("ไม่พบ credential จาก Google");
+          },
+          auto_select: false,
+          cancel_on_tap_outside: true,
+        });
+
+        // render official button
+        if (googleBtnRef.current) {
+          g.renderButton(googleBtnRef.current, {
+            theme: "outline",
+            size: "large",
+            shape: "pill",
+            width: 420,
+            text: "signin_with",
+            locale: "th",
+          });
+        }
+
+        setGoogleReady(true);
+      } catch (e) {
+        if (!cancelled) {
+          setGoogleErr("ไม่สามารถโหลดปุ่ม Google ได้");
+        }
+      }
+    }
+
+    initGoogle();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, step, googleClientId]);
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -307,6 +457,33 @@ export default function SignIn() {
 
           {step === "password" ? (
             <form onSubmit={onSubmit} className="mt-4 space-y-4">
+              {/* ✅ Google login button */}
+              <div className="mt-1">
+                {googleErr ? (
+                  <div className="mb-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    {googleErr}
+                  </div>
+                ) : null}
+
+                <div className="w-full flex justify-center">
+                  <div
+                    ref={googleBtnRef}
+                    className="w-full flex justify-center"
+                    aria-label={`เข้าสู่ระบบด้วย Google (${tab === "store" ? "ร้านค้า" : "ลูกค้า"})`}
+                  />
+                </div>
+
+                {!googleReady && !googleErr ? (
+                  <div className="mt-2 text-center text-xs text-gray-400">กำลังโหลดปุ่ม Google...</div>
+                ) : null}
+
+                <div className="my-4 flex items-center gap-3 text-xs text-gray-400">
+                  <div className="h-px bg-gray-200 flex-1" />
+                  <span>หรือเข้าสู่ระบบด้วยอีเมล</span>
+                  <div className="h-px bg-gray-200 flex-1" />
+                </div>
+              </div>
+
               <label className="block">
                 <span className="block text-sm font-medium text-gray-700">อีเมล</span>
                 <InputIcon

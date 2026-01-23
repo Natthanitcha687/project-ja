@@ -29,6 +29,10 @@ import CustomerWarranty from './pages/CustomerWarranty.jsx'
 import CustomerComplaints from './pages/CustomerComplaints'
 import StoreComplaints from './pages/StoreComplaints' // ✅ เพิ่ม
 
+// ✅ เพิ่ม: หน้า Signup Google (ลูกค้า/ร้านค้า)
+import SignUpGoogleCustomer from './pages/SignUpGoogleCustomer'
+import SignUpGoogleStore from './pages/SignUpGoogleStore'
+
 // แถบของฝั่งลูกค้า / แดชบอร์ด (rich header with profile / notifications)
 import CustomerNavbar from './components/CustomerNavbar.jsx'
 import Navbar from './components/Navbar.jsx'
@@ -129,6 +133,11 @@ const router = createBrowserRouter([
       { path: '/support', element: <Support /> },
       { path: '/signin', element: <SignIn /> },
       { path: '/signup', element: <SignUp /> },
+
+      // ✅ เพิ่ม routes สำหรับสมัครด้วย Google (หน้าแยกกรอกข้อมูล)
+      { path: '/signup/google/customer', element: <SignUpGoogleCustomer /> },
+      { path: '/signup/google/store', element: <SignUpGoogleStore /> },
+
       { path: '/verify-email', element: <VerifyEmail /> },
       { path: '/forgot-password', element: <ForgotPassword /> },
       { path: '/reset-password', element: <ResetPassword /> },
