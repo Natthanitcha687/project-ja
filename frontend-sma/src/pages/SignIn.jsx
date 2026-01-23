@@ -1,6 +1,7 @@
 // src/pages/SignIn.jsx
 // [อัปเดต] **ตัดโค้ดไอคอนตาออกทั้งหมด 100%**
 // ✅ เพิ่ม: เข้าสู่ระบบด้วย Google (GIS) -> POST /auth/google/start
+// ✅ FIX (Responsive): ปรับความกว้างปุ่ม Google ตาม container จริง + rerender เมื่อ resize
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams, useNavigate, useLocation } from "react-router-dom";
@@ -250,16 +251,73 @@ export default function SignIn() {
     }
   }
 
-  // ===== Google: init + render button =====
+  // ===== Google: init + render button (Responsive) =====
   useEffect(() => {
     let cancelled = false;
+    let ro = null; // ResizeObserver
+    let raf = 0;
+
+    function cleanup() {
+      if (raf) cancelAnimationFrame(raf);
+      raf = 0;
+      if (ro) {
+        ro.disconnect();
+        ro = null;
+      }
+      window.removeEventListener("resize", onResizeFallback);
+    }
+
+    function onResizeFallback() {
+      // fallback เมื่อไม่มี ResizeObserver
+      scheduleRender();
+    }
+
+    function getContainerWidth() {
+      const el = googleBtnRef.current;
+      if (!el) return 420;
+
+      // ใช้ parent ที่เป็น "w-full flex justify-center" เป็นตัววัดความกว้างจริง
+      const p = el.parentElement;
+      const w = p?.clientWidth || el.clientWidth || 420;
+
+      // จำกัดช่วงให้สวย/ไม่เล็กเกินไป (ปรับได้)
+      const clamped = Math.min(420, Math.max(240, Math.floor(w)));
+      return clamped;
+    }
+
+    function scheduleRender() {
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        if (cancelled) return;
+
+        const g = window.google?.accounts?.id;
+        if (!g) return;
+        if (!googleBtnRef.current) return;
+
+        // clear container แล้ว render ใหม่ด้วยความกว้างล่าสุด
+        googleBtnRef.current.innerHTML = "";
+        g.renderButton(googleBtnRef.current, {
+          theme: "outline",
+          size: "large",
+          shape: "pill",
+          width: getContainerWidth(),
+          text: "signin_with",
+          locale: "th",
+        });
+      });
+    }
 
     async function initGoogle() {
       try {
         setGoogleErr("");
         setGoogleReady(false);
 
-        if (step !== "password") return; // แสดง Google เฉพาะหน้า password
+        // แสดง Google เฉพาะหน้า password
+        if (step !== "password") {
+          if (googleBtnRef.current) googleBtnRef.current.innerHTML = "";
+          return;
+        }
+
         if (!googleClientId) {
           setGoogleErr("ยังไม่ได้ตั้งค่า VITE_GOOGLE_CLIENT_ID");
           return;
@@ -288,19 +346,21 @@ export default function SignIn() {
           cancel_on_tap_outside: true,
         });
 
-        // render official button
-        if (googleBtnRef.current) {
-          g.renderButton(googleBtnRef.current, {
-            theme: "outline",
-            size: "large",
-            shape: "pill",
-            width:  Math.min(420, Math.floor(containerW)),
-            text: "signin_with",
-            locale: "th",
-          });
-        }
-
+        // render ครั้งแรกแบบ responsive
+        scheduleRender();
         setGoogleReady(true);
+
+        // ติดตามการเปลี่ยนขนาดแบบ responsive
+        const el = googleBtnRef.current;
+        const target = el?.parentElement || el;
+
+        if (target && "ResizeObserver" in window) {
+          ro = new ResizeObserver(() => scheduleRender());
+          ro.observe(target);
+        } else {
+          // fallback สำหรับบาง browser
+          window.addEventListener("resize", onResizeFallback);
+        }
       } catch (e) {
         if (!cancelled) {
           setGoogleErr("ไม่สามารถโหลดปุ่ม Google ได้");
@@ -309,8 +369,10 @@ export default function SignIn() {
     }
 
     initGoogle();
+
     return () => {
       cancelled = true;
+      cleanup();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, step, googleClientId]);
