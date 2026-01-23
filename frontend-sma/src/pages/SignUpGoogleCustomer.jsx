@@ -231,7 +231,7 @@ export default function SignUpGoogleCustomer() {
       googleBtnRef.current.innerHTML = "";
       g.renderButton(googleBtnRef.current, {
         theme: "outline",
-        size: "large",
+        size: "medium",
         shape: "pill",
         width: w,
         text: "signup_with",
@@ -455,8 +455,12 @@ export default function SignUpGoogleCustomer() {
 
               {/* ✅ Google button (Responsive แบบไม่เล็ก: renderButton ด้วย width จริง) */}
               <div className="w-full flex justify-center">
-                <div ref={googleWrapRef} className="w-full max-w-[420px] flex justify-center">
-                  <div ref={googleBtnRef} className="w-full flex justify-center min-h-[44px]" aria-label="สมัครด้วย Google (ลูกค้า)" />
+                <div ref={googleWrapRef} className="w-full max-w-[420px] flex justify-center overflow-visible">
+                  <div
+                     ref={googleBtnRef}
+                     className="w-full flex justify-center min-h-[56px] overflow-visible origin-center scale-[1.08]"
+                     aria-label="สมัครด้วย Google (ลูกค้า)"
+                  />
                 </div>
               </div>
 
