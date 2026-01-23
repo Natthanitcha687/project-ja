@@ -1,5 +1,7 @@
 // src/pages/SignUpGoogleCustomer.jsx
 // สมัครด้วย Google (ลูกค้า) -> /auth/google/start -> /auth/google/complete/customer
+// ✅ FIX (Responsive): ปรับความกว้างปุ่ม Google ตาม container จริง + rerender เมื่อ resize
+// ✅ ลบปัญหา containerW (ReferenceError) ออกทั้งหมด
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
@@ -9,24 +11,52 @@ import { useAuth } from "../store/auth";
 /* ===== ICONS (เทา) ===== */
 const Icon = {
   user: (cls = "w-5 h-5") => (
-    <svg viewBox="0 0 24 24" className={`${cls} text-gray-400`} fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      className={`${cls} text-gray-400`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      aria-hidden="true"
+    >
       <circle cx="12" cy="8" r="4" />
       <path d="M4 20a8 8 0 0116 0" />
     </svg>
   ),
   mail: (cls = "w-5 h-5") => (
-    <svg viewBox="0 0 24 24" className={`${cls} text-gray-400`} fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      className={`${cls} text-gray-400`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      aria-hidden="true"
+    >
       <path d="M4 6h16v12H4z" />
       <path d="M22 6l-10 7L2 6" />
     </svg>
   ),
   phone: (cls = "w-5 h-5") => (
-    <svg viewBox="0 0 24 24" className={`${cls} text-gray-400`} fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      className={`${cls} text-gray-400`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      aria-hidden="true"
+    >
       <path d="M22 16.92v3a2 2 0 01-2.18 2 19.8 19.8 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.8 19.8 0 012 4.18 2 2 0 014 2h3a2 2 0 012 1.72c.12.9.3 1.78.57 2.63a2 2 0 01-.45 2.11L8.1 9.9a16 16 0 006 6l1.44-1.02a2 2 0 012.11-.45 19 19 0 002.63.57A2 2 0 0122 16.92z" />
     </svg>
   ),
   lock: (cls = "w-5 h-5") => (
-    <svg viewBox="0 0 24 24" className={`${cls} text-gray-400`} fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      className={`${cls} text-gray-400`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      aria-hidden="true"
+    >
       <rect x="4" y="11" width="16" height="9" rx="2" />
       <path d="M8 11V7a4 4 0 018 0v4" />
     </svg>
@@ -186,16 +216,71 @@ export default function SignUpGoogleCustomer() {
     }
   }
 
-  // init google button (เฉพาะตอนยังไม่มี signupToken)
+  // init google button (เฉพาะตอนยังไม่มี signupToken) + Responsive width
   useEffect(() => {
     let cancelled = false;
+    let ro = null; // ResizeObserver
+    let raf = 0;
+
+    function cleanup() {
+      if (raf) cancelAnimationFrame(raf);
+      raf = 0;
+      if (ro) {
+        ro.disconnect();
+        ro = null;
+      }
+      window.removeEventListener("resize", onResizeFallback);
+    }
+
+    function onResizeFallback() {
+      scheduleRender();
+    }
+
+    function getContainerWidth() {
+      const el = googleBtnRef.current;
+      if (!el) return 420;
+
+      // วัดจาก parent ที่เป็น w-full flex justify-center (ใน JSX)
+      const p = el.parentElement;
+      const w = p?.clientWidth || el.clientWidth || 420;
+
+      // clamp: ไม่เกิน 420 และไม่เล็กเกินไป (ปรับได้)
+      return Math.min(420, Math.max(240, Math.floor(w)));
+    }
+
+    function scheduleRender() {
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        if (cancelled) return;
+
+        const g = window.google?.accounts?.id;
+        if (!g) return;
+        if (!googleBtnRef.current) return;
+
+        // clear container แล้ว render ใหม่ด้วยความกว้างล่าสุด
+        googleBtnRef.current.innerHTML = "";
+        g.renderButton(googleBtnRef.current, {
+          theme: "outline",
+          size: "large",
+          shape: "pill",
+          width: getContainerWidth(),
+          text: "signup_with",
+          locale: "th",
+        });
+      });
+    }
 
     async function init() {
       try {
         setGoogleErr("");
         setGoogleReady(false);
 
-        if (signupToken) return; // มี token แล้ว = ไม่ต้อง render ปุ่ม
+        // มี token แล้ว = ไม่ต้อง render ปุ่ม (และล้างปุ่ม)
+        if (signupToken) {
+          if (googleBtnRef.current) googleBtnRef.current.innerHTML = "";
+          return;
+        }
+
         if (!googleClientId) {
           setGoogleErr("ยังไม่ได้ตั้งค่า VITE_GOOGLE_CLIENT_ID");
           return;
@@ -223,28 +308,32 @@ export default function SignUpGoogleCustomer() {
           cancel_on_tap_outside: true,
         });
 
-        if (googleBtnRef.current) {
-          g.renderButton(googleBtnRef.current, {
-            theme: "outline",
-            size: "large",
-            shape: "pill",
-            width:  Math.min(420, Math.floor(containerW)),
-            text: "signup_with",
-            locale: "th",
-          });
-        }
-
+        // render ครั้งแรกแบบ responsive
+        scheduleRender();
         setGoogleReady(true);
+
+        // ติดตามการเปลี่ยนขนาดแบบ responsive
+        const el = googleBtnRef.current;
+        const target = el?.parentElement || el;
+
+        if (target && "ResizeObserver" in window) {
+          ro = new ResizeObserver(() => scheduleRender());
+          ro.observe(target);
+        } else {
+          window.addEventListener("resize", onResizeFallback);
+        }
       } catch (e) {
         if (!cancelled) setGoogleErr("ไม่สามารถโหลดปุ่ม Google ได้");
       }
     }
 
     init();
+
     return () => {
       cancelled = true;
+      cleanup();
     };
-  }, [signupToken, googleClientId]);
+  }, [signupToken, googleClientId]); // (intentional)
 
   async function onSubmitComplete(e) {
     e.preventDefault();
@@ -297,7 +386,9 @@ export default function SignUpGoogleCustomer() {
                 <p className="text-sm text-gray-500 mt-1">โปรดอ่านเอกสารเงื่อนไขด้านล่างก่อนยอมรับ</p>
               </div>
               <div>
-                <button onClick={() => setShowTerms(false)} className="rounded-full p-1 hover:bg-gray-100">ปิด</button>
+                <button onClick={() => setShowTerms(false)} className="rounded-full p-1 hover:bg-gray-100">
+                  ปิด
+                </button>
               </div>
             </div>
 
@@ -305,48 +396,98 @@ export default function SignUpGoogleCustomer() {
 
             <div className="prose max-w-none text-sm text-gray-700">
               <div>
-                <p className="mt-4"><strong className="font-semibold">1.</strong> การลงทะเบียนและบัญชีผู้ใช้</p>
-                <p><strong>1.1</strong> ลูกค้าต้องให้ข้อมูลส่วนบุคคลที่ถูกต้องและเป็นปัจจุบัน</p>
-                <p><strong>1.2</strong> ลูกค้าต้องรักษาความลับของชื่อผู้ใช้และรหัสผ่าน</p>
-                <p><strong>1.3</strong> ห้ามให้บุคคลอื่นใช้บัญชีของตน</p>
+                <p className="mt-4">
+                  <strong className="font-semibold">1.</strong> การลงทะเบียนและบัญชีผู้ใช้
+                </p>
+                <p>
+                  <strong>1.1</strong> ลูกค้าต้องให้ข้อมูลส่วนบุคคลที่ถูกต้องและเป็นปัจจุบัน
+                </p>
+                <p>
+                  <strong>1.2</strong> ลูกค้าต้องรักษาความลับของชื่อผู้ใช้และรหัสผ่าน
+                </p>
+                <p>
+                  <strong>1.3</strong> ห้ามให้บุคคลอื่นใช้บัญชีของตน
+                </p>
 
-                <p className="mt-6"><strong className="font-semibold">2.</strong> การใช้งานใบรับประกันสินค้า</p>
-                <p><strong>2.1</strong> ลูกค้าสามารถใช้แพลตฟอร์มเพื่อตรวจสอบ:</p>
+                <p className="mt-6">
+                  <strong className="font-semibold">2.</strong> การใช้งานใบรับประกันสินค้า
+                </p>
+                <p>
+                  <strong>2.1</strong> ลูกค้าสามารถใช้แพลตฟอร์มเพื่อตรวจสอบ:
+                </p>
                 <ul className="list-disc list-inside text-sm text-gray-700">
                   <li>รายละเอียดใบรับประกันสินค้า</li>
                   <li>ระยะเวลาการรับประกัน</li>
                   <li>สถานะการรับประกัน</li>
                 </ul>
-                <p className="mt-2"><strong>2.2</strong> ใบรับประกันที่แสดงในระบบเป็นข้อมูลอ้างอิง โดยเงื่อนไขการรับประกันเป็นไปตามที่ร้านค้าหรือผู้ผลิตกำหนด</p>
-                <p><strong>2.3</strong> ลูกค้าต้องใช้ข้อมูลในระบบเพื่อประโยชน์ของตนเองเท่านั้น</p>
+                <p className="mt-2">
+                  <strong>2.2</strong> ใบรับประกันที่แสดงในระบบเป็นข้อมูลอ้างอิง โดยเงื่อนไขการรับประกันเป็นไปตามที่ร้านค้าหรือผู้ผลิตกำหนด
+                </p>
+                <p>
+                  <strong>2.3</strong> ลูกค้าต้องใช้ข้อมูลในระบบเพื่อประโยชน์ของตนเองเท่านั้น
+                </p>
 
-                <p className="mt-6"><strong className="font-semibold">3.</strong> หน้าที่ของลูกค้า</p>
-                <p><strong>3.1</strong> ลูกค้าต้องไม่ปลอมแปลง แก้ไข หรือใช้ข้อมูลใบรับประกันของผู้อื่น</p>
-                <p><strong>3.2</strong> ลูกค้าต้องแจ้งผู้ให้บริการเมื่อพบการใช้งานบัญชีที่ผิดปกติ</p>
-                <p><strong>3.3</strong> ลูกค้าต้องปฏิบัติตามกฎหมายที่เกี่ยวข้อง</p>
+                <p className="mt-6">
+                  <strong className="font-semibold">3.</strong> หน้าที่ของลูกค้า
+                </p>
+                <p>
+                  <strong>3.1</strong> ลูกค้าต้องไม่ปลอมแปลง แก้ไข หรือใช้ข้อมูลใบรับประกันของผู้อื่น
+                </p>
+                <p>
+                  <strong>3.2</strong> ลูกค้าต้องแจ้งผู้ให้บริการเมื่อพบการใช้งานบัญชีที่ผิดปกติ
+                </p>
+                <p>
+                  <strong>3.3</strong> ลูกค้าต้องปฏิบัติตามกฎหมายที่เกี่ยวข้อง
+                </p>
 
-                <p className="mt-6"><strong className="font-semibold">4.</strong> ข้อจำกัดการใช้งาน</p>
-                <p><strong>4.1</strong> ห้ามใช้แพลตฟอร์มเพื่อการกระทำที่ผิดกฎหมาย</p>
-                <p><strong>4.2</strong> ห้ามพยายามเข้าถึงข้อมูลของร้านค้าหรือผู้ใช้รายอื่น</p>
-                <p><strong>4.3</strong> ห้ามรบกวนหรือทำให้ระบบเกิดความเสียหาย</p>
+                <p className="mt-6">
+                  <strong className="font-semibold">4.</strong> ข้อจำกัดการใช้งาน
+                </p>
+                <p>
+                  <strong>4.1</strong> ห้ามใช้แพลตฟอร์มเพื่อการกระทำที่ผิดกฎหมาย
+                </p>
+                <p>
+                  <strong>4.2</strong> ห้ามพยายามเข้าถึงข้อมูลของร้านค้าหรือผู้ใช้รายอื่น
+                </p>
+                <p>
+                  <strong>4.3</strong> ห้ามรบกวนหรือทำให้ระบบเกิดความเสียหาย
+                </p>
 
-                <p className="mt-6"><strong className="font-semibold">5.</strong> สิทธิ์ของลูกค้า</p>
-                <p><strong>5.1</strong> ลูกค้ามีสิทธิ์เข้าถึงข้อมูลใบรับประกันของตนเอง</p>
-                <p><strong>5.2</strong> ลูกค้าสามารถดาวน์โหลดหรือใช้ข้อมูลใบรับประกันเป็นหลักฐานได้</p>
-                <p><strong>5.3</strong> ลูกค้าสามารถยกเลิกการใช้งานบัญชีได้ตามขั้นตอนที่ระบบกำหนด</p>
+                <p className="mt-6">
+                  <strong className="font-semibold">5.</strong> สิทธิ์ของลูกค้า
+                </p>
+                <p>
+                  <strong>5.1</strong> ลูกค้ามีสิทธิ์เข้าถึงข้อมูลใบรับประกันของตนเอง
+                </p>
+                <p>
+                  <strong>5.2</strong> ลูกค้าสามารถดาวน์โหลดหรือใช้ข้อมูลใบรับประกันเป็นหลักฐานได้
+                </p>
+                <p>
+                  <strong>5.3</strong> ลูกค้าสามารถยกเลิกการใช้งานบัญชีได้ตามขั้นตอนที่ระบบกำหนด
+                </p>
 
-                <p className="mt-6"><strong className="font-semibold">6.</strong> บทลงโทษสำหรับลูกค้า</p>
+                <p className="mt-6">
+                  <strong className="font-semibold">6.</strong> บทลงโทษสำหรับลูกค้า
+                </p>
                 <p>หากลูกค้าฝ่าฝืนเงื่อนไข ผู้ให้บริการมีสิทธิ์ดำเนินการดังต่อไปนี้ โดยไม่ต้องแจ้งให้ทราบล่วงหน้า:</p>
                 <ul className="list-disc list-inside text-sm text-gray-700">
                   <li>ระงับการใช้งานบัญชี</li>
                   <li>ยกเลิกบัญชีผู้ใช้</li>
                 </ul>
 
-                <p className="mt-6"><strong className="font-semibold">7.</strong> วัตถุประสงค์ในการเข้าถึงข้อมูล</p>
-                <p>ผู้ดูแลระบบของแพลตฟอร์มอาจเข้าถึงข้อมูลใบรับประกันสินค้าและประวัติกิจกรรม (Activity Logs) ของระบบเพื่อจุดประสงค์ในการให้การสนับสนุนแก่ลูกค้า การตรวจสอบความถูกต้องของธุรกรรมตามคำร้องขอ หรือเพื่อใช้เป็นหลักฐานในกรณีเกิดข้อพิพาทหรือปัญหาในการใช้งาน การเข้าถึงข้อมูลจะทำโดยจำกัดขอบเขตตามความจำเป็นและอยู่ภายใต้การควบคุมของผู้ให้บริการ</p>
+                <p className="mt-6">
+                  <strong className="font-semibold">7.</strong> วัตถุประสงค์ในการเข้าถึงข้อมูล
+                </p>
+                <p>
+                  ผู้ดูแลระบบของแพลตฟอร์มอาจเข้าถึงข้อมูลใบรับประกันสินค้าและประวัติกิจกรรม (Activity Logs) ของระบบเพื่อจุดประสงค์ในการให้การสนับสนุนแก่ลูกค้า การตรวจสอบความถูกต้องของธุรกรรมตามคำร้องขอ หรือเพื่อใช้เป็นหลักฐานในกรณีเกิดข้อพิพาทหรือปัญหาในการใช้งาน การเข้าถึงข้อมูลจะทำโดยจำกัดขอบเขตตามความจำเป็นและอยู่ภายใต้การควบคุมของผู้ให้บริการ
+                </p>
 
-                <p className="mt-6"><strong className="font-semibold">8.</strong> ข้อจำกัดสิทธิ์และการรักษาความถูกต้องของข้อมูล</p>
-                <p>เพื่อให้ข้อมูลคงความถูกต้องและเชื่อถือได้ ผู้ดูแลระบบมีสิทธิ์เฉพาะในการ "เรียกดูข้อมูล (Read-only)" และ "ตรวจสอบประวัติกิจกรรม (Activity Logs)" เท่านั้น ผู้ดูแลระบบจะไม่ได้รับอนุญาตให้แก้ไข เปลี่ยนแปลง หรือลบข้อมูลใบรับประกันของลูกค้าหรือร้านค้า การเปลี่ยนแปลงข้อมูลใดๆ จะต้องมาจากเจ้าของข้อมูลหรือผ่านกระบวนการที่ระบบกำหนด</p>
+                <p className="mt-6">
+                  <strong className="font-semibold">8.</strong> ข้อจำกัดสิทธิ์และการรักษาความถูกต้องของข้อมูล
+                </p>
+                <p>
+                  เพื่อให้ข้อมูลคงความถูกต้องและเชื่อถือได้ ผู้ดูแลระบบมีสิทธิ์เฉพาะในการ "เรียกดูข้อมูล (Read-only)" และ "ตรวจสอบประวัติกิจกรรม (Activity Logs)" เท่านั้น ผู้ดูแลระบบจะไม่ได้รับอนุญาตให้แก้ไข เปลี่ยนแปลง หรือลบข้อมูลใบรับประกันของลูกค้าหรือร้านค้า การเปลี่ยนแปลงข้อมูลใดๆ จะต้องมาจากเจ้าของข้อมูลหรือผ่านกระบวนการที่ระบบกำหนด
+                </p>
               </div>
             </div>
 
@@ -372,7 +513,10 @@ export default function SignUpGoogleCustomer() {
             <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 border border-blue-300 shadow flex items-center justify-center">
               <svg viewBox="0 0 24 24" className="w-8 h-8 text-blue-600" fill="currentColor" aria-hidden="true">
                 <path d="M12 2l7 3v7c0 5-3.6 8.4-7 9-3.4-.6-7-4-7-9V5l7-3z" />
-                <path fill="#fff" d="M10.3 12.7l-.99-.99-1.41 1.41 1.7 1.7a1 1 0 001.41 0l4.1-4.1-1.41-1.41-3.4 3.39z" />
+                <path
+                  fill="#fff"
+                  d="M10.3 12.7l-.99-.99-1.41 1.41 1.7 1.7a1 1 0 001.41 0l4.1-4.1-1.41-1.41-3.4 3.39z"
+                />
               </svg>
             </div>
             <h1 className="mt-4 text-2xl font-extrabold text-gray-900">สมัครด้วย Google (ลูกค้า)</h1>
@@ -415,12 +559,7 @@ export default function SignUpGoogleCustomer() {
               {/* Email from Google */}
               <label className="block">
                 <span className="block text-sm font-medium text-gray-700">อีเมล (จาก Google)</span>
-                <InputIcon
-                  value={email || ""}
-                  readOnly
-                  left={Icon.mail()}
-                  className="bg-gray-50 cursor-not-allowed"
-                />
+                <InputIcon value={email || ""} readOnly left={Icon.mail()} className="bg-gray-50 cursor-not-allowed" />
               </label>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
