@@ -395,7 +395,7 @@ export default function SignUpGoogleStore() {
             theme: "outline",
             size: "large",
             shape: "pill",
-            width: 420,
+            width:  Math.min(420, Math.floor(containerW)),
             text: "signup_with",
             locale: "th",
           });

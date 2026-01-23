@@ -294,7 +294,7 @@ export default function SignIn() {
             theme: "outline",
             size: "large",
             shape: "pill",
-            width: 420,
+            width:  Math.min(420, Math.floor(containerW)),
             text: "signin_with",
             locale: "th",
           });
