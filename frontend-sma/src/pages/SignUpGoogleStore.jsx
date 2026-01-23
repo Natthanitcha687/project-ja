@@ -9,30 +9,65 @@ import { useAuth } from "../store/auth";
 /* ===== ICONS (เทา) ===== */
 const Icon = {
   user: (cls = "w-5 h-5") => (
-    <svg viewBox="0 0 24 24" className={`${cls} text-gray-400`} fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      className={`${cls} text-gray-400`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      aria-hidden="true"
+    >
       <circle cx="12" cy="8" r="4" />
       <path d="M4 20a8 8 0 0116 0" />
     </svg>
   ),
   mail: (cls = "w-5 h-5") => (
-    <svg viewBox="0 0 24 24" className={`${cls} text-gray-400`} fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      className={`${cls} text-gray-400`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      aria-hidden="true"
+    >
       <path d="M4 6h16v12H4z" />
       <path d="M22 6l-10 7L2 6" />
     </svg>
   ),
   phone: (cls = "w-5 h-5") => (
-    <svg viewBox="0 0 24 24" className={`${cls} text-gray-400`} fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      className={`${cls} text-gray-400`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      aria-hidden="true"
+    >
       <path d="M22 16.92v3a2 2 0 01-2.18 2 19.8 19.8 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.8 19.8 0 012 4.18 2 2 0 014 2h3a2 2 0 012 1.72c.12.9.3 1.78.57 2.63a2 2 0 01-.45 2.11L8.1 9.9a16 16 0 006 6l1.44-1.02a2 2 0 012.11-.45 19 19 0 002.63.57A2 2 0 0122 16.92z" />
     </svg>
   ),
   home: (cls = "w-5 h-5") => (
-    <svg viewBox="0 0 24 24" className={`${cls} text-gray-400`} fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      className={`${cls} text-gray-400`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      aria-hidden="true"
+    >
       <path d="M3 10l9-7 9 7" />
       <path d="M9 22V12h6v10" />
     </svg>
   ),
   lock: (cls = "w-5 h-5") => (
-    <svg viewBox="0 0 24 24" className={`${cls} text-gray-400`} fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      className={`${cls} text-gray-400`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      aria-hidden="true"
+    >
       <rect x="4" y="11" width="16" height="9" rx="2" />
       <path d="M8 11V7a4 4 0 018 0v4" />
     </svg>
@@ -57,14 +92,14 @@ function InputIcon({ left, className = "", ...props }) {
 
 // รายชื่อจังหวัด 77 จังหวัด (ชื่อภาษาไทย) (fallback)
 const TH_PROVINCES = [
-  'กรุงเทพมหานคร','กระบี่','กาญจนบุรี','กาฬสินธุ์','กำแพงเพชร','ขอนแก่น','จันทบุรี','ฉะเชิงเทรา','ชลบุรี','ชัยนาท',
-  'ชัยภูมิ','ชุมพร','เชียงราย','เชียงใหม่','ตรัง','ตราด','ตาก','นครนายก','นครปฐม','นครพนม',
-  'นครราชสีมา','นครศรีธรรมราช','นนทบุรี','นราธิวาส','น่าน','บึงกาฬ','บุรีรัมย์','ปทุมธานี','ประจวบคีรีขันธ์','ปราจีนบุรี',
-  'ปัตตานี','พระนครศรีอยุธยา','พังงา','พัทลุง','พิจิตร','พิษณุโลก','เพชรบุรี','เพชรบูรณ์','แพร่','ภูเก็ต',
-  'มหาสารคาม','มุกดาหาร','แม่ฮ่องสอน','ยะลา','ยโสธร','ร้อยเอ็ด','ระนอง','ระยอง','ราชบุรี','ลพบุรี',
-  'ลำปาง','ลำพูน','เลย','ศรีสะเกษ','สกลนคร','สงขลา','สตูล','สมุทรปราการ','สมุทรสงคราม','สมุทรสาคร',
-  'สระแก้ว','สระบุรี','สิงห์บุรี','สุโขทัย','สุพรรณบุรี','สุราษฎร์ธานี','สุรินทร์','หนองคาย','หนองบัวลำภู','อ่างทอง',
-  'อุดรธานี','อุทัยธานี','อุบลราชธานี','อำนาจเจริญ','อุตรดิตถ์'
+  "กรุงเทพมหานคร","กระบี่","กาญจนบุรี","กาฬสินธุ์","กำแพงเพชร","ขอนแก่น","จันทบุรี","ฉะเชิงเทรา","ชลบุรี","ชัยนาท",
+  "ชัยภูมิ","ชุมพร","เชียงราย","เชียงใหม่","ตรัง","ตราด","ตาก","นครนายก","นครปฐม","นครพนม",
+  "นครราชสีมา","นครศรีธรรมราช","นนทบุรี","นราธิวาส","น่าน","บึงกาฬ","บุรีรัมย์","ปทุมธานี","ประจวบคีรีขันธ์","ปราจีนบุรี",
+  "ปัตตานี","พระนครศรีอยุธยา","พังงา","พัทลุง","พิจิตร","พิษณุโลก","เพชรบุรี","เพชรบูรณ์","แพร่","ภูเก็ต",
+  "มหาสารคาม","มุกดาหาร","แม่ฮ่องสอน","ยะลา","ยโสธร","ร้อยเอ็ด","ระนอง","ระยอง","ราชบุรี","ลพบุรี",
+  "ลำปาง","ลำพูน","เลย","ศรีสะเกษ","สกลนคร","สงขลา","สตูล","สมุทรปราการ","สมุทรสงคราม","สมุทรสาคร",
+  "สระแก้ว","สระบุรี","สิงห์บุรี","สุโขทัย","สุพรรณบุรี","สุราษฎร์ธานี","สุรินทร์","หนองคาย","หนองบัวลำภู","อ่างทอง",
+  "อุดรธานี","อุทัยธานี","อุบลราชธานี","อำนาจเจริญ","อุตรดิตถ์"
 ];
 
 /* =========================
@@ -118,10 +153,7 @@ export default function SignUpGoogleStore() {
 
   // ===== Google state =====
   const googleBtnRef = useRef(null);
-
-  // ✅ เพิ่มแค่สำหรับทำ responsive แบบ "ไม่กระพริบ"
   const googleWrapRef = useRef(null);
-  const [googleScale, setGoogleScale] = useState(1);
 
   const [googleReady, setGoogleReady] = useState(false);
   const [googleErr, setGoogleErr] = useState("");
@@ -142,13 +174,13 @@ export default function SignUpGoogleStore() {
   const [phone, setPhone] = useState("");
 
   const defaultSchedule = {
-    mon: { on: true, start: '09:00', end: '18:00' },
-    tue: { on: true, start: '09:00', end: '18:00' },
-    wed: { on: true, start: '09:00', end: '18:00' },
-    thu: { on: true, start: '09:00', end: '18:00' },
-    fri: { on: true, start: '09:00', end: '18:00' },
-    sat: { on: false, start: '09:00', end: '12:00' },
-    sun: { on: false, start: '09:00', end: '12:00' }
+    mon: { on: true, start: "09:00", end: "18:00" },
+    tue: { on: true, start: "09:00", end: "18:00" },
+    wed: { on: true, start: "09:00", end: "18:00" },
+    thu: { on: true, start: "09:00", end: "18:00" },
+    fri: { on: true, start: "09:00", end: "18:00" },
+    sat: { on: false, start: "09:00", end: "12:00" },
+    sun: { on: false, start: "09:00", end: "12:00" },
   };
   const [schedule, setSchedule] = useState(defaultSchedule);
 
@@ -168,12 +200,15 @@ export default function SignUpGoogleStore() {
   }
 
   // location datasets (เหมือน SignUp.jsx)
-  const PROVINCES_JSON_LOCAL = '/data/api_province.json';
-  const DISTRICTS_JSON_LOCAL = '/data/api_district.json';
-  const SUBDISTRICTS_JSON_LOCAL = '/data/api_subdistrict.json';
-  const PROVINCES_JSON_FALLBACK = 'https://raw.githubusercontent.com/kongvut/thai-province-data/refs/heads/master/api/latest/province.json';
-  const DISTRICTS_JSON_FALLBACK = 'https://raw.githubusercontent.com/kongvut/thai-province-data/refs/heads/master/api/latest/district.json';
-  const SUBDISTRICTS_JSON_FALLBACK = 'https://raw.githubusercontent.com/kongvut/thai-province-data/refs/heads/master/api/latest/sub_district.json';
+  const PROVINCES_JSON_LOCAL = "/data/api_province.json";
+  const DISTRICTS_JSON_LOCAL = "/data/api_district.json";
+  const SUBDISTRICTS_JSON_LOCAL = "/data/api_subdistrict.json";
+  const PROVINCES_JSON_FALLBACK =
+    "https://raw.githubusercontent.com/kongvut/thai-province-data/refs/heads/master/api/latest/province.json";
+  const DISTRICTS_JSON_FALLBACK =
+    "https://raw.githubusercontent.com/kongvut/thai-province-data/refs/heads/master/api/latest/district.json";
+  const SUBDISTRICTS_JSON_FALLBACK =
+    "https://raw.githubusercontent.com/kongvut/thai-province-data/refs/heads/master/api/latest/sub_district.json";
 
   const [provincesList, setProvincesList] = useState([]);
   const [districtOptions, setDistrictOptions] = useState([]);
@@ -291,7 +326,9 @@ export default function SignUpGoogleStore() {
       }
     }
     loadAll();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   async function loadDistrictsForProvince(provinceNameOrCode) {
@@ -351,28 +388,65 @@ export default function SignUpGoogleStore() {
       }
 
       const filtered = subs.filter((s) => String(s.district_id ?? s.district_code) === did);
-      setSubdistrictOptions(list.map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip })));
+      setSubdistrictOptions(filtered.map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip })));
     } catch (err) {
       console.error("loadSubdistrictsForDistrict error", err);
       setSubdistrictOptions([]);
     }
   }
 
-  // init google button (เฉพาะตอนยังไม่มี signupToken)
+  // init google button (เฉพาะตอนยังไม่มี signupToken) — Responsive แบบไม่เล็ก + ไม่กระพริบ
   useEffect(() => {
     let cancelled = false;
     let ro = null;
+    let raf = 0;
 
-    const BASE_W = 420;
+    const MIN_W = 280;
+    const MAX_W = 420;
+    const RERENDER_THRESHOLD = 24;
+    let lastW = 0;
 
-    function applyScale() {
+    function cleanup() {
+      if (raf) cancelAnimationFrame(raf);
+      raf = 0;
+      if (ro) {
+        ro.disconnect();
+        ro = null;
+      }
+      window.removeEventListener("resize", scheduleResize);
+    }
+
+    function getWidth() {
       const wrap = googleWrapRef.current;
-      if (!wrap) return;
-      const w = wrap.clientWidth || BASE_W;
-      const s = Math.min(1, w / BASE_W);
-      // กัน setState ถี่ ๆ
-      const rounded = Math.round(s * 1000) / 1000;
-      setGoogleScale((prev) => (Math.abs(prev - rounded) < 0.001 ? prev : rounded));
+      const w = wrap?.clientWidth || MAX_W;
+      return Math.max(MIN_W, Math.min(MAX_W, Math.floor(w)));
+    }
+
+    function renderAtWidth(w) {
+      const g = window.google?.accounts?.id;
+      if (!g) return;
+      if (!googleBtnRef.current) return;
+
+      if (lastW && Math.abs(w - lastW) < RERENDER_THRESHOLD) return;
+      lastW = w;
+
+      googleBtnRef.current.innerHTML = "";
+      g.renderButton(googleBtnRef.current, {
+        theme: "outline",
+        size: "large",
+        shape: "pill",
+        width: w,
+        text: "signup_with",
+        locale: "th",
+      });
+    }
+
+    function scheduleResize() {
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        if (cancelled) return;
+        renderAtWidth(getWidth());
+      });
     }
 
     async function init() {
@@ -380,7 +454,10 @@ export default function SignUpGoogleStore() {
         setGoogleErr("");
         setGoogleReady(false);
 
-        if (signupToken) return;
+        if (signupToken) {
+          if (googleBtnRef.current) googleBtnRef.current.innerHTML = "";
+          return;
+        }
         if (!googleClientId) {
           setGoogleErr("ยังไม่ได้ตั้งค่า VITE_GOOGLE_CLIENT_ID");
           return;
@@ -408,31 +485,16 @@ export default function SignUpGoogleStore() {
           cancel_on_tap_outside: true,
         });
 
-        // ✅ render แค่ครั้งเดียว (ไม่ลบ/ไม่ render ซ้ำ = ไม่กระพริบ)
-        if (googleBtnRef.current) {
-          g.renderButton(googleBtnRef.current, {
-            theme: "outline",
-            size: "large",
-            shape: "pill",
-            width: BASE_W,
-            text: "signup_with",
-            locale: "th",
-          });
-        }
-
-        // ✅ คำนวณ scale ให้ responsive โดย "ไม่ rebuild ปุ่ม"
-        requestAnimationFrame(() => {
-          if (!cancelled) applyScale();
-        });
+        // render ครั้งแรกตามความกว้างจริง
+        scheduleResize();
+        setGoogleReady(true);
 
         if (googleWrapRef.current && "ResizeObserver" in window) {
-          ro = new ResizeObserver(() => applyScale());
+          ro = new ResizeObserver(() => scheduleResize());
           ro.observe(googleWrapRef.current);
         } else {
-          window.addEventListener("resize", applyScale);
+          window.addEventListener("resize", scheduleResize);
         }
-
-        setGoogleReady(true);
       } catch (e) {
         if (!cancelled) setGoogleErr("ไม่สามารถโหลดปุ่ม Google ได้");
       }
@@ -441,8 +503,7 @@ export default function SignUpGoogleStore() {
     init();
     return () => {
       cancelled = true;
-      if (ro) ro.disconnect();
-      window.removeEventListener("resize", applyScale);
+      cleanup();
     };
   }, [signupToken, googleClientId]);
 
@@ -606,12 +667,10 @@ export default function SignUpGoogleStore() {
                 </div>
               ) : null}
 
-              {/* ✅ Google button (Responsive แบบไม่กระพริบ: scale อย่างเดียว ไม่ rebuild) */}
+              {/* ✅ Google button (Responsive แบบไม่เล็ก + ไม่กระพริบ) */}
               <div className="w-full flex justify-center">
-                <div ref={googleWrapRef} className="w-full max-w-[420px] overflow-hidden flex justify-center">
-                  <div style={{ width: 420, transform: `scale(${googleScale})`, transformOrigin: "top center" }}>
-                    <div ref={googleBtnRef} className="flex justify-center" aria-label="สมัครด้วย Google (ร้านค้า)" />
-                  </div>
+                <div ref={googleWrapRef} className="w-full max-w-[420px] flex justify-center">
+                  <div ref={googleBtnRef} className="w-full flex justify-center min-h-[44px]" aria-label="สมัครด้วย Google (ร้านค้า)" />
                 </div>
               </div>
 
@@ -793,25 +852,25 @@ export default function SignUpGoogleStore() {
                   </div>
                   <div className="flex flex-col gap-3">
                     {[
-                      ['mon','จ.' ],
-                      ['tue','อ.' ],
-                      ['wed','พ.' ],
-                      ['thu','พฤ.' ],
-                      ['fri','ศ.' ],
-                      ['sat','ส.' ],
-                      ['sun','อา.']
-                    ].map(([key,label]) => (
+                      ["mon", "จ."],
+                      ["tue", "อ."],
+                      ["wed", "พ."],
+                      ["thu", "พฤ."],
+                      ["fri", "ศ."],
+                      ["sat", "ส."],
+                      ["sun", "อา."],
+                    ].map(([key, label]) => (
                       <div key={key} className="flex flex-col md:flex-row items-center justify-between gap-4 px-2 py-2 rounded-md hover:bg-slate-50">
                         <div className="flex items-center gap-3 md:w-36 w-full">
                           <input
                             type="checkbox"
                             checked={!!schedule[key].on}
-                            onChange={() => setSchedule(s => ({ ...s, [key]: { ...s[key], on: !s[key].on } }))}
+                            onChange={() => setSchedule((s) => ({ ...s, [key]: { ...s[key], on: !s[key].on } }))}
                             className="h-4 w-4 rounded border-gray-300 text-blue-600"
                           />
                           <div className="flex flex-col">
                             <span className="text-sm font-medium text-gray-700">{label}</span>
-                            <span className="text-xs text-gray-400">{schedule[key].on ? 'เปิด' : 'ปิด'}</span>
+                            <span className="text-xs text-gray-400">{schedule[key].on ? "เปิด" : "ปิด"}</span>
                           </div>
                         </div>
 
@@ -819,7 +878,7 @@ export default function SignUpGoogleStore() {
                           <input
                             type="time"
                             value={schedule[key].start}
-                            onChange={(e) => setSchedule(s => ({ ...s, [key]: { ...s[key], start: e.target.value } }))}
+                            onChange={(e) => setSchedule((s) => ({ ...s, [key]: { ...s[key], start: e.target.value } }))}
                             className="h-9 w-24 md:w-32 rounded border border-gray-300 bg-white px-2 text-sm"
                             disabled={!schedule[key].on}
                           />
@@ -827,7 +886,7 @@ export default function SignUpGoogleStore() {
                           <input
                             type="time"
                             value={schedule[key].end}
-                            onChange={(e) => setSchedule(s => ({ ...s, [key]: { ...s[key], end: e.target.value } }))}
+                            onChange={(e) => setSchedule((s) => ({ ...s, [key]: { ...s[key], end: e.target.value } }))}
                             className="h-9 w-24 md:w-32 rounded border border-gray-300 bg-white px-2 text-sm"
                             disabled={!schedule[key].on}
                           />

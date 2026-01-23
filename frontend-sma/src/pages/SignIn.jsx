@@ -146,9 +146,8 @@ export default function SignIn() {
   // ===== Google state =====
   const googleBtnRef = useRef(null);
 
-  // ✅ เพิ่มเฉพาะเพื่อทำ responsive แบบ "ไม่กระพริบ" (scale อย่างเดียว ไม่ rebuild ปุ่ม)
+  // ✅ ใช้ wrapper วัดความกว้างจริง แล้ว renderButton ด้วย width จริง (ไม่ใช้ scale)
   const googleWrapRef = useRef(null);
-  const [googleScale, setGoogleScale] = useState(1);
 
   const [googleReady, setGoogleReady] = useState(false);
   const [googleErr, setGoogleErr] = useState("");
@@ -255,20 +254,63 @@ export default function SignIn() {
     }
   }
 
-  // ===== Google: init + render button (Responsive แบบไม่กระพริบ: scale อย่างเดียว ไม่ rebuild) =====
+  // ===== Google: init + render button (Responsive แบบไม่ทำให้หน้ากระพริบ) =====
   useEffect(() => {
     let cancelled = false;
     let ro = null;
+    let raf = 0;
 
-    const BASE_W = 420;
+    const MIN_W = 280;
+    const MAX_W = 420;
+    const RERENDER_THRESHOLD = 24;
 
-    function applyScale() {
+    let lastW = 0;
+
+    function cleanup() {
+      if (raf) cancelAnimationFrame(raf);
+      raf = 0;
+      if (ro) {
+        ro.disconnect();
+        ro = null;
+      }
+      window.removeEventListener("resize", scheduleResize);
+    }
+
+    function getWidth() {
       const wrap = googleWrapRef.current;
-      if (!wrap) return;
-      const w = wrap.clientWidth || BASE_W;
-      const s = Math.min(1, w / BASE_W);
-      const rounded = Math.round(s * 1000) / 1000;
-      setGoogleScale((prev) => (Math.abs(prev - rounded) < 0.001 ? prev : rounded));
+      const w = wrap?.clientWidth || MAX_W;
+      const clamped = Math.max(MIN_W, Math.min(MAX_W, Math.floor(w)));
+      return clamped;
+    }
+
+    function renderAtWidth(w) {
+      const g = window.google?.accounts?.id;
+      if (!g) return;
+      if (!googleBtnRef.current) return;
+
+      // กัน rerender ถี่ ๆ (ลดโอกาสกระพริบ)
+      if (lastW && Math.abs(w - lastW) < RERENDER_THRESHOLD) return;
+
+      lastW = w;
+
+      // ล้างเฉพาะพื้นที่ปุ่ม (มี min-height กัน layout กระดก)
+      googleBtnRef.current.innerHTML = "";
+      g.renderButton(googleBtnRef.current, {
+        theme: "outline",
+        size: "large",
+        shape: "pill",
+        width: w,
+        text: "signin_with",
+        locale: "th",
+      });
+    }
+
+    function scheduleResize() {
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        if (cancelled) return;
+        renderAtWidth(getWidth());
+      });
     }
 
     async function initGoogle() {
@@ -296,7 +338,6 @@ export default function SignIn() {
           return;
         }
 
-        // clear container (เฉพาะตอน init/สลับแท็บ/สลับ step เท่านั้น)
         if (googleBtnRef.current) googleBtnRef.current.innerHTML = "";
 
         g.initialize({
@@ -310,43 +351,26 @@ export default function SignIn() {
           cancel_on_tap_outside: true,
         });
 
-        // ✅ render แค่ครั้งเดียว (ไม่ render ซ้ำตอน resize)
-        if (googleBtnRef.current) {
-          g.renderButton(googleBtnRef.current, {
-            theme: "outline",
-            size: "large",
-            shape: "pill",
-            width: BASE_W,
-            text: "signin_with",
-            locale: "th",
-          });
-        }
+        // render ครั้งแรกด้วยความกว้างจริง
+        scheduleResize();
+        setGoogleReady(true);
 
-        // ✅ คำนวณ scale ให้ responsive โดย "ไม่ rebuild ปุ่ม"
-        requestAnimationFrame(() => {
-          if (!cancelled) applyScale();
-        });
-
+        // เฝ้าดูการเปลี่ยนขนาด (แต่ rerender แบบมี threshold)
         if (googleWrapRef.current && "ResizeObserver" in window) {
-          ro = new ResizeObserver(() => applyScale());
+          ro = new ResizeObserver(() => scheduleResize());
           ro.observe(googleWrapRef.current);
         } else {
-          window.addEventListener("resize", applyScale);
+          window.addEventListener("resize", scheduleResize);
         }
-
-        setGoogleReady(true);
       } catch (e) {
-        if (!cancelled) {
-          setGoogleErr("ไม่สามารถโหลดปุ่ม Google ได้");
-        }
+        if (!cancelled) setGoogleErr("ไม่สามารถโหลดปุ่ม Google ได้");
       }
     }
 
     initGoogle();
     return () => {
       cancelled = true;
-      if (ro) ro.disconnect();
-      window.removeEventListener("resize", applyScale);
+      cleanup();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, step, googleClientId]);
@@ -501,16 +525,14 @@ export default function SignIn() {
                   </div>
                 ) : null}
 
-                {/* ✅ Responsive แบบไม่กระพริบ: scale อย่างเดียว ไม่ rebuild */}
+                {/* ✅ Responsive: กำหนด width ของปุ่มตาม container จริง (ไม่ใช้ scale) */}
                 <div className="w-full flex justify-center">
-                  <div ref={googleWrapRef} className="w-full max-w-[420px] overflow-hidden flex justify-center">
-                    <div style={{ width: 420, transform: `scale(${googleScale})`, transformOrigin: "top center" }}>
-                      <div
-                        ref={googleBtnRef}
-                        className="flex justify-center"
-                        aria-label={`เข้าสู่ระบบด้วย Google (${tab === "store" ? "ร้านค้า" : "ลูกค้า"})`}
-                      />
-                    </div>
+                  <div ref={googleWrapRef} className="w-full max-w-[420px] flex justify-center">
+                    <div
+                      ref={googleBtnRef}
+                      className="w-full flex justify-center min-h-[44px]"
+                      aria-label={`เข้าสู่ระบบด้วย Google (${tab === "store" ? "ร้านค้า" : "ลูกค้า"})`}
+                    />
                   </div>
                 </div>
 
