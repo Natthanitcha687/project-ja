@@ -132,7 +132,7 @@ export default function SignIn() {
   const initial = params.get("role") === "store" ? "store" : "customer";
   const [tab, setTab] = useState(initial);
 
-  // ✅ FIX: เก็บ tab ล่าสุดไว้ใน ref เพื่อไม่ต้อง re-init ปุ่ม Google ตอนสลับแท็บ
+  // ✅ FIX: เก็บ tab ล่าสุดไว้ใน ref เพื่อกัน state ยังไม่อัปเดตทัน แต่กดล็อกอินเร็ว ๆ
   const roleRef = useRef(tab);
   useEffect(() => {
     roleRef.current = tab;
@@ -170,7 +170,7 @@ export default function SignIn() {
   useEffect(() => {
     const q = params.get("role");
     if (q === "customer" || q === "store") {
-      // ✅ FIX: อัปเดต roleRef ทันที กันค่าเก่า
+      // ✅ FIX: ตั้ง roleRef ทันที กัน stale จาก query
       roleRef.current = q;
       setTab(q);
     }
@@ -188,7 +188,7 @@ export default function SignIn() {
   // ✅ helper: ล้าง token ให้หมดจริง (กันเด้งเข้าได้เอง)
   function clearAuth() {
     try {
-      if (setToken) setToken(""); // ให้ auth store เคลียร์ state + localStorage (ถ้า implement ไว้)
+      if (setToken) setToken("");
     } catch {
       // ignore
     }
@@ -202,9 +202,11 @@ export default function SignIn() {
       return;
     }
 
-    // ✅ ตรวจ role ให้ตรงกับแท็บ "ก่อน" เก็บ token (สำคัญมาก)
+    // ✅ FIX (สำคัญที่สุด): ใช้ roleRef.current แทน tab เพื่อกัน “จำค่าเก่า”
+    const selected = roleRef.current === "store" ? "STORE" : "CUSTOMER";
+
     const role = decodeRoleFromToken(token); // "STORE" | "CUSTOMER"
-    const expected = tab === "store" ? "STORE" : "CUSTOMER";
+    const expected = selected;
 
     if (!role || role !== expected) {
       clearAuth();
@@ -212,8 +214,6 @@ export default function SignIn() {
       return;
     }
 
-    // ✅ role ตรงแล้ว ค่อยเก็บ token
-    // (ถ้า setToken ทำหน้าที่ set localStorage+header อยู่แล้ว ก็พอ)
     if (setToken) {
       setToken(token);
     } else {
@@ -221,8 +221,7 @@ export default function SignIn() {
       api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
     }
 
-    // ===== จุดแก้หลัก: คำนวณปลายทาง =====
-    const nextParam = params.get("next"); // เช่น /customer/warranties
+    const nextParam = params.get("next");
     let redirectTo =
       location.state?.from?.pathname ||
       nextParam ||
@@ -238,7 +237,6 @@ export default function SignIn() {
       setGoogleErr("");
       setSubmitting(true);
 
-      // ✅ FIX: ใช้ roleRef (tab ล่าสุด) เพื่อไม่ต้อง re-init ปุ่มตอนสลับแท็บ
       const isStore = roleRef.current === "store";
       const role = isStore ? "STORE" : "CUSTOMER";
 
@@ -247,13 +245,11 @@ export default function SignIn() {
         role,
       });
 
-      // existing -> token login
       if (data?.token) {
         await handleTokenLogin(data.token);
         return;
       }
 
-      // needs profile -> ไปหน้ากรอกข้อมูลเพิ่ม
       if (data?.needsProfile && data?.signupToken) {
         const nextParam = params.get("next") || location.state?.from?.pathname || "";
         const to = isStore ? "/signup/google/store" : "/signup/google/customer";
@@ -315,12 +311,9 @@ export default function SignIn() {
       if (!g) return;
       if (!googleBtnRef.current) return;
 
-      // กัน rerender ถี่ ๆ (ลดโอกาสกระพริบ)
       if (lastW && Math.abs(w - lastW) < RERENDER_THRESHOLD) return;
-
       lastW = w;
 
-      // ล้างเฉพาะพื้นที่ปุ่ม (มี min-height กัน layout กระดก)
       googleBtnRef.current.innerHTML = "";
       g.renderButton(googleBtnRef.current, {
         theme: "outline",
@@ -345,7 +338,6 @@ export default function SignIn() {
         setGoogleErr("");
         setGoogleReady(false);
 
-        // แสดง Google เฉพาะหน้า password
         if (step !== "password") {
           if (googleBtnRef.current) googleBtnRef.current.innerHTML = "";
           return;
@@ -378,11 +370,9 @@ export default function SignIn() {
           cancel_on_tap_outside: true,
         });
 
-        // render ครั้งแรกด้วยความกว้างจริง
         scheduleResize();
         setGoogleReady(true);
 
-        // เฝ้าดูการเปลี่ยนขนาด (แต่ rerender แบบมี threshold)
         if (googleWrapRef.current && "ResizeObserver" in window) {
           ro = new ResizeObserver(() => scheduleResize());
           ro.observe(googleWrapRef.current);
@@ -400,7 +390,7 @@ export default function SignIn() {
       cleanup();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, googleClientId]); // ✅ FIX: เอา tab ออกจาก deps เพื่อไม่ให้ re-init ตอนสลับแท็บ
+  }, [step, googleClientId]);
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -411,9 +401,8 @@ export default function SignIn() {
     const payload = { email: fd.get("email"), password: fd.get("password") };
 
     try {
-      const { data } = await api.post("/auth/login", payload); // ใช้เอ็นด์พอยต์ของคุณ
+      const { data } = await api.post("/auth/login", payload);
 
-      // ✅ OTP required
       if (data?.otpRequired && data?.challengeId) {
         setPendingEmail(String(payload.email || ""));
         setChallengeId(String(data.challengeId));
@@ -529,7 +518,7 @@ export default function SignIn() {
                 value={tab}
                 onChange={(v) => {
                   setError("");
-                  // ✅ FIX: อัปเดต roleRef ทันที กันค่าค้างก่อน render รอบถัดไป
+                  // ✅ FIX: อัปเดต roleRef ทันที กันค่าค้าง
                   roleRef.current = v;
                   setTab(v);
                   resetOtpState();
@@ -618,7 +607,6 @@ export default function SignIn() {
                   สมัครสมาชิก
                 </Link>
               </p>
-              {/* moved forgot-password link to password field header */}
             </form>
           ) : (
             <form onSubmit={onVerifyOtp} className="mt-4 space-y-4">
