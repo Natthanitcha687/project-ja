@@ -132,6 +132,12 @@ export default function SignIn() {
   const initial = params.get("role") === "store" ? "store" : "customer";
   const [tab, setTab] = useState(initial);
 
+  // ✅ FIX: เก็บ tab ล่าสุดไว้ใน ref เพื่อไม่ต้อง re-init ปุ่ม Google ตอนสลับแท็บ
+  const roleRef = useRef(tab);
+  useEffect(() => {
+    roleRef.current = tab;
+  }, [tab]);
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -228,7 +234,9 @@ export default function SignIn() {
       setGoogleErr("");
       setSubmitting(true);
 
-      const role = tab === "store" ? "STORE" : "CUSTOMER";
+      // ✅ FIX: ใช้ roleRef (tab ล่าสุด) เพื่อไม่ต้อง re-init ปุ่มตอนสลับแท็บ
+      const isStore = roleRef.current === "store";
+      const role = isStore ? "STORE" : "CUSTOMER";
 
       const { data } = await api.post("/auth/google/start", {
         credential,
@@ -244,7 +252,7 @@ export default function SignIn() {
       // needs profile -> ไปหน้ากรอกข้อมูลเพิ่ม
       if (data?.needsProfile && data?.signupToken) {
         const nextParam = params.get("next") || location.state?.from?.pathname || "";
-        const to = tab === "store" ? "/signup/google/store" : "/signup/google/customer";
+        const to = isStore ? "/signup/google/store" : "/signup/google/customer";
 
         navigate(to, {
           replace: true,
@@ -388,7 +396,7 @@ export default function SignIn() {
       cleanup();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, step, googleClientId]);
+  }, [step, googleClientId]); // ✅ FIX: เอา tab ออกจาก deps เพื่อไม่ให้ re-init ตอนสลับแท็บ
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -544,17 +552,16 @@ export default function SignIn() {
                 <div className="w-full flex justify-center">
                   <div ref={googleWrapRef} className="w-full max-w-[420px] flex justify-center overflow-visible">
                     <div
-                        ref={googleBtnRef}
-                        className="w-full flex justify-center min-h-[56px] overflow-hidden"
-                        aria-label={`เข้าสู่ระบบด้วย Google (${tab === "store" ? "ร้านค้า" : "ลูกค้า"})`}
-                   />
-                 </div>
+                      ref={googleBtnRef}
+                      className="w-full flex justify-center min-h-[56px] overflow-hidden"
+                      aria-label={`เข้าสู่ระบบด้วย Google (${tab === "store" ? "ร้านค้า" : "ลูกค้า"})`}
+                    />
+                  </div>
                 </div>
 
                 <div className="mt-2 h-4 text-center text-xs text-gray-400">
-                    {!googleReady && !googleErr ? "กำลังโหลดปุ่ม Google..." : ""}
+                  {!googleReady && !googleErr ? "กำลังโหลดปุ่ม Google..." : ""}
                 </div>
-
 
                 <div className="my-4 flex items-center gap-3 text-xs text-gray-400">
                   <div className="h-px bg-gray-200 flex-1" />
