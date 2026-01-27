@@ -809,6 +809,19 @@ export async function googleStart(req, res) {
         return res.status(409).json({ message: msg, existing: true, role: user.role })
       }
 
+      // ✅ NEW: กัน "ล็อกอินผิดฝั่ง" (role mismatch) และ log เป็น Google fail
+      if (desiredRole && user.role !== desiredRole) {
+        await logSecurityEvent(req, 'USER_LOGIN_GOOGLE_ROLE_MISMATCH', {
+          userId: user.id,
+          email: user.email,
+          role: user.role
+        })
+        return res.status(403).json({
+          message: `บัญชีนี้เป็น ${user.role} ไม่ใช่ ${desiredRole}`,
+          role: user.role
+        })
+      }
+
       // ถ้าเคยสมัครแบบ email แต่ยังไม่ verify -> ให้ถือว่า verify ได้ (เพราะ Google ยืนยันอีเมลแล้ว)
       if (!user.emailVerifiedAt) {
         user = await prisma.user.update({
@@ -852,7 +865,13 @@ export async function googleStart(req, res) {
     if (err?.code === 'GOOGLE_CLIENT_ID_MISSING') {
       return res.status(500).json({ message: 'GOOGLE_CLIENT_ID is missing' })
     }
+    // ✅ NEW: log Google fail ตอน token ไม่ถูกต้อง/อีเมลไม่ verify
     if (err?.code === 'GOOGLE_TOKEN_INVALID' || err?.code === 'GOOGLE_EMAIL_NOT_VERIFIED') {
+      const desiredRole = normalizeRole(req.body?.role)
+      await logSecurityEvent(req, 'USER_LOGIN_GOOGLE_FAIL', {
+        email: null,
+        role: desiredRole || null
+      })
       return res.status(401).json({ message: 'Google token ไม่ถูกต้อง' })
     }
     if (err?.code === 'JWT_SECRET_MISSING') {
