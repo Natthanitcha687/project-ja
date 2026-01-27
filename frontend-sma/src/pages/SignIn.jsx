@@ -169,7 +169,11 @@ export default function SignIn() {
 
   useEffect(() => {
     const q = params.get("role");
-    if (q === "customer" || q === "store") setTab(q);
+    if (q === "customer" || q === "store") {
+      // ✅ FIX: อัปเดต roleRef ทันที กันค่าเก่า
+      roleRef.current = q;
+      setTab(q);
+    }
   }, [params]);
 
   function resetOtpState() {
@@ -525,6 +529,8 @@ export default function SignIn() {
                 value={tab}
                 onChange={(v) => {
                   setError("");
+                  // ✅ FIX: อัปเดต roleRef ทันที กันค่าค้างก่อน render รอบถัดไป
+                  roleRef.current = v;
                   setTab(v);
                   resetOtpState();
                 }}
