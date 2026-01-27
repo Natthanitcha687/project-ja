@@ -551,9 +551,10 @@ export default function SignIn() {
                  </div>
                 </div>
 
-                {!googleReady && !googleErr ? (
-                  <div className="mt-2 text-center text-xs text-gray-400">กำลังโหลดปุ่ม Google...</div>
-                ) : null}
+                <div className="mt-2 h-4 text-center text-xs text-gray-400">
+                    {!googleReady && !googleErr ? "กำลังโหลดปุ่ม Google..." : ""}
+                </div>
+
 
                 <div className="my-4 flex items-center gap-3 text-xs text-gray-400">
                   <div className="h-px bg-gray-200 flex-1" />
