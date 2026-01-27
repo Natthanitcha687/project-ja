@@ -545,15 +545,16 @@ export default function SignIn() {
                   <div ref={googleWrapRef} className="w-full max-w-[420px] flex justify-center overflow-visible">
                     <div
                         ref={googleBtnRef}
-                        className="w-full flex justify-center min-h-[56px] overflow-visible origin-center scale-[1.08]"
+                        className="w-full flex justify-center min-h-[56px] overflow-hidden"
                         aria-label={`เข้าสู่ระบบด้วย Google (${tab === "store" ? "ร้านค้า" : "ลูกค้า"})`}
-                    />
+                   />
                  </div>
                 </div>
 
-                {!googleReady && !googleErr ? (
-                  <div className="mt-2 text-center text-xs text-gray-400">กำลังโหลดปุ่ม Google...</div>
-                ) : null}
+                <div className="mt-2 h-4 text-center text-xs text-gray-400">
+                    {!googleReady && !googleErr ? "กำลังโหลดปุ่ม Google..." : ""}
+                </div>
+
 
                 <div className="my-4 flex items-center gap-3 text-xs text-gray-400">
                   <div className="h-px bg-gray-200 flex-1" />
