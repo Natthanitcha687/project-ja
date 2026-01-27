@@ -2,7 +2,7 @@
 // เวอร์ชันเต็ม: ฟอร์มสมัครสมาชิก ลูกค้า/ร้านค้า + ตรวจสอบรหัสผ่าน + ส่ง API
 // ✅ เพิ่มปุ่ม "สมัครด้วย Google" (พาไปหน้าแยก /signup/google/customer|store)
 
-import { useEffect, useRef, useState, forwardRef } from "react";
+import { useEffect, useRef, useState, forwardRef, useMemo } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 
@@ -139,6 +139,33 @@ const TextareaIcon = forwardRef(function TextareaIcon(
   );
 });
 
+/* =========================
+ * Google Identity Services helpers
+ * ========================= */
+function loadGsiScript() {
+  return new Promise((resolve, reject) => {
+    if (typeof window === "undefined") return reject(new Error("No window"));
+    if (window.google?.accounts?.id) return resolve(true);
+
+    const existing = document.querySelector('script[data-gsi="1"]');
+    if (existing) {
+      existing.addEventListener("load", () => resolve(true));
+      existing.addEventListener("error", () => reject(new Error("Load Google script failed")));
+      return;
+    }
+
+    const s = document.createElement("script");
+    s.src = "https://accounts.google.com/gsi/client";
+    s.async = true;
+    s.defer = true;
+    s.setAttribute("data-gsi", "1");
+    s.onload = () => resolve(true);
+    s.onerror = () => reject(new Error("Load Google script failed"));
+    document.head.appendChild(s);
+  });
+}
+
+
 /* ---------------------------------------------
  * Tabs (ลูกค้า/ร้านค้า)
  * -------------------------------------------*/
@@ -186,6 +213,178 @@ export default function Signup() {
   const [tab, setTab] = useState(initial);
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
+
+
+  // ===== Google (ปุ่มจริงในหน้า /signup) =====
+  const googleBtnRef = useRef(null);
+  const googleWrapRef = useRef(null);
+
+  const [googleReady, setGoogleReady] = useState(false);
+  const [googleErr, setGoogleErr] = useState("");
+  const [googleMsg, setGoogleMsg] = useState("");
+  const [googleBusy, setGoogleBusy] = useState(false);
+
+  const tabRef = useRef(tab);
+  useEffect(() => {
+    tabRef.current = tab;
+  }, [tab]);
+
+  const googleBusyRef = useRef(false);
+  useEffect(() => {
+    googleBusyRef.current = googleBusy;
+  }, [googleBusy]);
+
+  const googleClientId = useMemo(
+    () => (import.meta?.env?.VITE_GOOGLE_CLIENT_ID ? String(import.meta.env.VITE_GOOGLE_CLIENT_ID).trim() : ""),
+    []
+  );
+
+  async function startWithGoogleCredential(credential) {
+    try {
+      setGoogleBusy(true);
+      setGoogleMsg("");
+      setGoogleErr("");
+
+      const isStore = tabRef.current === "store";
+      const role = isStore ? "STORE" : "CUSTOMER";
+      const targetPath = isStore ? "/signup/google/store" : "/signup/google/customer";
+
+      const { data } = await api.post("/auth/google/start", {
+        credential,
+        role,
+        mode: "signup",
+      });
+
+      // กันกรณีมีบัญชีอยู่แล้ว -> ให้ไปหน้าเข้าสู่ระบบ
+      if (data?.token || data?.existing) {
+        setGoogleMsg("มีบัญชีอยู่แล้ว กรุณาไปหน้าเข้าสู่ระบบ");
+        return;
+      }
+
+      // ✅ ส่ง state ไปหน้า /signup/google/... เพื่อข้าม STEP 1 (ไม่ต้องกด Google ซ้ำ)
+      if (data?.needsProfile && data?.signupToken) {
+        navigate(targetPath, {
+          state: {
+            signupToken: String(data.signupToken),
+            email: String(data.email || ""),
+            givenName: String(data.givenName || ""),
+            familyName: String(data.familyName || ""),
+          },
+        });
+        return;
+      }
+
+      setGoogleMsg(data?.message || "สมัครด้วย Google ไม่สำเร็จ");
+    } catch (err) {
+      const body = err?.response?.data || {};
+      setGoogleMsg(body?.message || err?.message || "สมัครด้วย Google ไม่สำเร็จ");
+    } finally {
+      setGoogleBusy(false);
+    }
+  }
+
+  // init google button (renderButton ด้วย width จริง แบบ responsive)
+  useEffect(() => {
+    let cancelled = false;
+    let ro = null;
+    let raf = 0;
+
+    const MIN_W = 280;
+    const MAX_W = 420;
+    const RERENDER_THRESHOLD = 24;
+    let lastW = 0;
+
+    function getWidth() {
+      const wrap = googleWrapRef.current;
+      const w = wrap?.clientWidth || MAX_W;
+      return Math.max(MIN_W, Math.min(MAX_W, Math.floor(w)));
+    }
+
+    function renderAtWidth(w) {
+      const g = window.google?.accounts?.id;
+      if (!g) return;
+      if (!googleBtnRef.current) return;
+
+      if (lastW && Math.abs(w - lastW) < RERENDER_THRESHOLD) return;
+      lastW = w;
+
+      googleBtnRef.current.innerHTML = "";
+      g.renderButton(googleBtnRef.current, {
+        theme: "outline",
+        size: "medium",
+        shape: "pill",
+        width: w,
+        text: "signup_with",
+        locale: "th",
+      });
+    }
+
+    function scheduleResize() {
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        if (cancelled) return;
+        renderAtWidth(getWidth());
+      });
+    }
+
+    async function init() {
+      try {
+        setGoogleErr("");
+        setGoogleReady(false);
+
+        if (!googleClientId) {
+          setGoogleErr("ยังไม่ได้ตั้งค่า VITE_GOOGLE_CLIENT_ID");
+          return;
+        }
+
+        await loadGsiScript();
+        if (cancelled) return;
+
+        const g = window.google?.accounts?.id;
+        if (!g) {
+          setGoogleErr("โหลด Google Identity ไม่สำเร็จ");
+          return;
+        }
+
+        if (googleBtnRef.current) googleBtnRef.current.innerHTML = "";
+
+        g.initialize({
+          client_id: googleClientId,
+          callback: (resp) => {
+            const cred = resp?.credential;
+            if (!cred) {
+              setGoogleMsg("ไม่พบ credential จาก Google");
+              return;
+            }
+            if (googleBusyRef.current) return;
+            startWithGoogleCredential(cred);
+          },
+          auto_select: false,
+          cancel_on_tap_outside: true,
+        });
+
+        scheduleResize();
+        setGoogleReady(true);
+
+        if (googleWrapRef.current && "ResizeObserver" in window) {
+          ro = new ResizeObserver(() => scheduleResize());
+          ro.observe(googleWrapRef.current);
+        } else {
+          window.addEventListener("resize", scheduleResize);
+        }
+      } catch {
+        if (!cancelled) setGoogleErr("ไม่สามารถโหลดปุ่ม Google ได้");
+      }
+    }
+
+    init();
+    return () => {
+      cancelled = true;
+      if (raf) cancelAnimationFrame(raf);
+      if (ro) ro.disconnect();
+      window.removeEventListener("resize", scheduleResize);
+    };
+  }, [googleClientId]);
 
   // password states
   const [password, setPassword] = useState("");
@@ -240,6 +439,8 @@ export default function Signup() {
     setConsent(false);
     setShowPwd(false);
     setShowPwd2(false);
+    setGoogleMsg("");
+    setGoogleErr("");
     setSchedule(defaultSchedule);
     // reset address fields when switching between customer/store
     setAddressStreet("");
@@ -608,25 +809,50 @@ export default function Signup() {
               <Tabs value={tab} onChange={setTab} />
             </div>
 
-            {/* ✅ เพิ่ม: ปุ่มสมัครด้วย Google (แยกหน้าตามแท็บ) */}
+                        {/* ✅ Google สมัครครั้งเดียว (ไม่เด้งไปกดซ้ำ) */}
             <div className="mt-5 w-full">
-              <button
-                type="button"
-                onClick={() => navigate(googleSignupPath)}
-                className="w-full h-11 rounded-xl border border-gray-300 bg-white hover:bg-gray-50 text-gray-900 font-semibold shadow-sm transition flex items-center justify-center gap-2"
-              >
-                {/* Google G icon */}
-                <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
-                  <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303C33.66 32.657 29.194 36 24 36c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.958 3.042l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" />
-                  <path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 16.108 19.01 12 24 12c3.059 0 5.842 1.154 7.958 3.042l5.657-5.657C34.046 6.053 29.268 4 24 4c-7.682 0-14.344 4.337-17.694 10.691z" />
-                  <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.197l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.173 0-9.626-3.323-11.284-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z" />
-                  <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.23-2.231 4.155-4.094 5.565l.003-.002 6.19 5.238C36.98 39.14 44 34 44 24c0-1.341-.138-2.65-.389-3.917z" />
-                </svg>
-                สมัครด้วย Google
-                <span className="text-xs text-gray-500 font-medium ml-1">
-                  ({tab === "store" ? "ร้านค้า" : "ลูกค้า"})
-                </span>
-              </button>
+              {googleMsg ? (
+                <div className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                  {googleMsg}
+                </div>
+              ) : null}
+
+              {googleErr ? (
+                <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  {googleErr}
+                </div>
+              ) : null}
+
+              {googleErr ? (
+                <button
+                  type="button"
+                  onClick={() => navigate(googleSignupPath)}
+                  className="w-full h-11 rounded-xl border border-gray-300 bg-white hover:bg-gray-50 text-gray-900 font-semibold shadow-sm transition flex items-center justify-center gap-2"
+                >
+                  สมัครด้วย Google (สำรอง)
+                  <span className="text-xs text-gray-500 font-medium ml-1">
+                    ({tab === "store" ? "ร้านค้า" : "ลูกค้า"})
+                  </span>
+                </button>
+              ) : (
+                <div className="w-full flex justify-center">
+                  <div ref={googleWrapRef} className="w-full max-w-[420px] flex justify-center overflow-visible">
+                    <div
+                      ref={googleBtnRef}
+                      className="w-full flex justify-center min-h-[56px] overflow-visible origin-center scale-[1.08]"
+                      aria-label={`สมัครด้วย Google (${tab === "store" ? "ร้านค้า" : "ลูกค้า"})`}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {!googleReady && !googleErr ? (
+                <div className="mt-2 text-center text-xs text-gray-400">กำลังโหลดปุ่ม Google...</div>
+              ) : null}
+
+              {googleBusy ? (
+                <div className="mt-2 text-center text-xs text-gray-500">กำลังดำเนินการ...</div>
+              ) : null}
 
               <div className="my-4 flex items-center gap-3 text-xs text-gray-400">
                 <div className="h-px bg-gray-200 flex-1" />
@@ -634,6 +860,7 @@ export default function Signup() {
                 <div className="h-px bg-gray-200 flex-1" />
               </div>
             </div>
+
           </div>
 
           {/* ===================== CUSTOMER FORM ===================== */}
