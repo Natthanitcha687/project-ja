@@ -814,7 +814,7 @@ export async function googleStart(req, res) {
         await logSecurityEvent(req, 'USER_LOGIN_GOOGLE_ROLE_MISMATCH', {
           userId: user.id,
           email: user.email,
-          role: user.role
+          meta: { desiredRole, actualRole: user.role }
         })
         return res.status(403).json({
           message: `บัญชีนี้เป็น ${user.role} ไม่ใช่ ${desiredRole}`,
@@ -851,7 +851,10 @@ export async function googleStart(req, res) {
       familyName: g.familyName
     })
 
-    await logSecurityEvent(req, 'USER_GOOGLE_START', { email: g.email, role: desiredRole || null })
+    await logSecurityEvent(req, 'USER_GOOGLE_START', {
+      email: g.email,
+      meta: { desiredRole: desiredRole || null }
+    })
 
     return res.json({
       needsProfile: true,
@@ -870,7 +873,7 @@ export async function googleStart(req, res) {
       const desiredRole = normalizeRole(req.body?.role)
       await logSecurityEvent(req, 'USER_LOGIN_GOOGLE_FAIL', {
         email: null,
-        role: desiredRole || null
+        meta: { reason: err.code, desiredRole: desiredRole || null }
       })
       return res.status(401).json({ message: 'Google token ไม่ถูกต้อง' })
     }
@@ -928,7 +931,11 @@ export async function googleCompleteCustomer(req, res) {
       include: { customerProfile: true }
     })
 
-    await logSecurityEvent(req, 'USER_REGISTER_GOOGLE_SUCCESS', { userId: user.id, email: user.email, role: 'CUSTOMER' })
+    await logSecurityEvent(req, 'USER_REGISTER_GOOGLE_SUCCESS', {
+      userId: user.id,
+      email: user.email,
+      meta: { role: 'CUSTOMER' }
+    })
 
     const token = sign(user)
     return res.status(201).json({ token })
@@ -1011,7 +1018,11 @@ export async function googleCompleteStore(req, res) {
       include: { storeProfile: true }
     })
 
-    await logSecurityEvent(req, 'USER_REGISTER_GOOGLE_SUCCESS', { userId: user.id, email: user.email, role: 'STORE' })
+    await logSecurityEvent(req, 'USER_REGISTER_GOOGLE_SUCCESS', {
+      userId: user.id,
+      email: user.email,
+      meta: { role: 'STORE' }
+    })
 
     const token = sign(user)
     return res.status(201).json({ token })
