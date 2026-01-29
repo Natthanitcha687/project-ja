@@ -459,6 +459,7 @@ export default function WarrantyDashboard() {
   /* ---------- สร้างหลายสินค้าในใบเดียว + auto expiry ---------- */
   const makeItem = (seedSN = null, lockEmail = false) => ({
     customer_email: '',
+    customer_address: '',
     product_name: '',
     model: '', // ✅ เพิ่มฟิลด์รุ่นในโหมดสร้าง
     duration_months: 12,
@@ -482,9 +483,10 @@ export default function WarrantyDashboard() {
     setCreateItems(prev => {
       // pick first non-empty email to seed, if any
       const emailSeed = (prev || []).find(p => p.customer_email)?.customer_email || ''
+      const addrSeed = (prev || []).find(p => p.customer_address)?.customer_address || ''
       const seedSN = generateUniqueSerial(warranties, prev, storeIdResolved)
       // newly added items are locked for email editing
-      return [...prev, { ...makeItem(seedSN, true), customer_email: emailSeed }]
+      return [...prev, { ...makeItem(seedSN, true), customer_email: emailSeed, customer_address: addrSeed }]
     })
 
   const removeItem = (idx) => setCreateItems(prev => prev.filter((_, i) => i !== idx))
@@ -517,6 +519,14 @@ export default function WarrantyDashboard() {
           for (let i = 0; i < next.length; i++) {
             next[i] = { ...next[i], customer_email: email }
           }
+        }
+      }
+
+      // If any item's customer_address changed, sync to all items
+      if ('customer_address' in patch) {
+        const addr = String(patch.customer_address ?? '')
+        for (let i = 0; i < next.length; i++) {
+          next[i] = { ...next[i], customer_address: addr }
         }
       }
       return next
@@ -1094,6 +1104,7 @@ export default function WarrantyDashboard() {
 
           return {
             customer_email: (it.customer_email || '').trim(),
+            customer_address: (it.customer_address || '').trim(),
             product_name: (it.product_name || '').trim(),
             model: (it.model || '').trim() || null, // ✅ ส่งรุ่นไป backend
             purchase_date: (it.purchase_date || '').trim(),
@@ -2078,6 +2089,19 @@ export default function WarrantyDashboard() {
                                   required
                                 />
                           </label>
+
+                          {idx === 0 && (
+                            <label className="mt-3 text-sm text-gray-600 block">
+                              ที่อยู่ลูกค้า
+                              <textarea
+                                value={it.customer_address}
+                                onChange={e => patchItem(idx, { customer_address: e.target.value })}
+                                className="mt-1 w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                                placeholder="เลขที่ ซอย ถนน ตำบล/แขวง อำเภอ/เขต จังหวัด รหัสไปรษณีย์"
+                                rows={2}
+                              />
+                            </label>
+                          )}
 
                           <label className="mt-3 text-sm text-gray-600 block">
                             ชื่อสินค้าที่ทำการซ่อม

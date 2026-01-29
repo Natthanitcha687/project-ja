@@ -169,6 +169,7 @@ function mapWarrantyHeaderForResponse(header, notifyDays) {
     customerEmail: header.customerEmail ?? null,
     customerName: header.customerName ?? null,
     customerPhone: header.customerPhone ?? null,
+    customerAddress: header.customerAddress ?? null, // ✅ เพิ่ม: ที่อยู่ลูกค้า
     createdAt: header.createdAt,
     updatedAt: header.updatedAt,
     items: (header.items || []).map((w) => {
@@ -408,6 +409,14 @@ export async function createWarranty(req, res) {
           select: { id: true },
         });
 
+        // ✅ บังคับ: ถ้ามีการกรอกอีเมล แต่ไม่พบลูกค้าในระบบ -> ไม่ให้ออกใบ
+        if (!user) {
+          throw Object.assign(
+            new Error("ไม่พบอีเมลลูกค้าในระบบ กรุณาให้ลูกค้าสมัครสมาชิกก่อน"),
+            { status: 400 }
+          );
+        }
+
         let name = nameFromPayload ?? null;
         let phone = phoneFromPayload ?? null;
 
@@ -430,6 +439,11 @@ export async function createWarranty(req, res) {
           first.customer_email ?? first.customerEmail,
           first.customer_name ?? first.customerName,
           first.customer_phone ?? first.customerPhone
+        );
+
+        // ✅ เพิ่ม: ที่อยู่ลูกค้า (ร้านกรอกตอนออกใบ) - ยึดจากรายการแรก
+        const customerAddress = trimOrNull(
+          first.customer_address ?? first.customerAddress
         );
 
         const usedSerial = new Set();
@@ -473,6 +487,7 @@ export async function createWarranty(req, res) {
                 customerUserId: userId,
                 customerName: name,
                 customerPhone: phone,
+                customerAddress, // ✅ เพิ่ม: ที่อยู่ลูกค้า
                 items: { create: itemsToCreate },
               },
               include: { items: true },
@@ -504,6 +519,9 @@ export async function createWarranty(req, res) {
         body.customer_phone ?? body.customerPhone
       );
 
+      // ✅ เพิ่ม: ที่อยู่ลูกค้า (ร้านกรอกตอนออกใบ)
+      const customerAddress = trimOrNull(body.customer_address ?? body.customerAddress);
+
       const purchase = body.purchase_date ? new Date(body.purchase_date) : new Date();
       let expiry = body.expiry_date ? new Date(body.expiry_date) : null;
       const dm = Number(body.duration_months ?? body.durationMonths ?? 0);
@@ -521,6 +539,7 @@ export async function createWarranty(req, res) {
               customerUserId: userId,
               customerName: name,
               customerPhone: phone,
+              customerAddress, // ✅ เพิ่ม: ที่อยู่ลูกค้า
               items: {
                 create: [
                   {

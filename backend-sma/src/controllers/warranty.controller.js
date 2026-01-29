@@ -31,11 +31,7 @@ async function auditUpdateWarrantyHeaderBestEffort(req, beforeHeader, afterHeade
     const customerUserId = afterHeader?.customerUserId ?? null;
     const customerEmail = afterHeader?.customerEmail ?? null;
 
-    const targetType = customerUserId
-      ? "User"
-      : customerEmail
-      ? "CustomerEmail"
-      : null;
+    const targetType = customerUserId ? "User" : customerEmail ? "CustomerEmail" : null;
 
     const targetId = customerUserId
       ? String(customerUserId)
@@ -58,7 +54,8 @@ async function auditUpdateWarrantyHeaderBestEffort(req, beforeHeader, afterHeade
       req.ip ||
       null;
 
-    const userAgent = (typeof req.get === "function" ? req.get("user-agent") : null) || null;
+    const userAgent =
+      (typeof req.get === "function" ? req.get("user-agent") : null) || null;
 
     await prisma.auditLog.create({
       data: {
@@ -369,11 +366,9 @@ export async function downloadWarrantyPdf(req, res) {
       }
 
       const infoX = logoX + logoSize + mm(6);
-      const lines = [
-        T(company?.name, ""),
-        T(company?.address, ""),
-        company?.tel ? `โทร. ${company.tel}` : "",
-      ].filter(Boolean);
+      const lines = [T(company?.name, ""), T(company?.address, ""), company?.tel ? `โทร. ${company.tel}` : ""].filter(
+        Boolean
+      );
 
       doc.font("THAI").fontSize(10).fillColor("#000").text(lines.join("\n"), infoX, logoY, {
         width: width - (infoX - left),
@@ -393,9 +388,8 @@ export async function downloadWarrantyPdf(req, res) {
       const top = mm(12);
       const width = pageW - mm(12) * 2;
 
-      drawTopLogo(left, top);              // 👈 โลโก้ด้านบน
-      headerTitle(left + mm(26), top, width - mm(26)); 
-
+      drawTopLogo(left, top); // 👈 โลโก้ด้านบน
+      headerTitle(left + mm(26), top, width - mm(26));
 
       const tableTop = top + mm(22);
       const tableW = width;
@@ -444,28 +438,28 @@ export async function downloadWarrantyPdf(req, res) {
       );
 
       function drawTopLogo(left, top) {
-  const logoSize = mm(20); // ขนาดโลโก้ด้านบน
-  const logoX = left;
-  const logoY = top;
+        const logoSize = mm(20); // ขนาดโลโก้ด้านบน
+        const logoX = left;
+        const logoY = top;
 
-  if (logoPath) {
-    try {
-      const buf = fs.readFileSync(logoPath);
-      doc.image(buf, logoX, logoY, { fit: [logoSize, logoSize] });
-    } catch {
-      doc.save();
-      doc.fillColor("#E11D48").rect(logoX, logoY, logoSize, logoSize).fill();
-      doc.fillColor("#fff")
-        .font(boldPath ? "THAI_BOLD" : "THAI")
-        .fontSize(10)
-        .text("APP", logoX, logoY + mm(6), {
-          width: logoSize,
-          align: "center",
-        });
-      doc.restore();
-    }
-  }
-}
+        if (logoPath) {
+          try {
+            const buf = fs.readFileSync(logoPath);
+            doc.image(buf, logoX, logoY, { fit: [logoSize, logoSize] });
+          } catch {
+            doc.save();
+            doc.fillColor("#E11D48").rect(logoX, logoY, logoSize, logoSize).fill();
+            doc.fillColor("#fff")
+              .font(boldPath ? "THAI_BOLD" : "THAI")
+              .fontSize(10)
+              .text("APP", logoX, logoY + mm(6), {
+                width: logoSize,
+                align: "center",
+              });
+            doc.restore();
+          }
+        }
+      }
 
       drawCellBilingual(left + colL, y, colR, row5, "วันที่ซื้อ", "Purchase Date", purchaseTxt);
 
@@ -473,41 +467,48 @@ export async function downloadWarrantyPdf(req, res) {
       drawBottomBrandArea(left, footerNoteY, width, base.company, base.footerNote);
     }
 
-    const storeAddressThai = await formatThaiAddress(profile?.address || profile?.addressText || profile?.storeAddress);
+    // ✅ ที่อยู่ร้าน (ใช้ในส่วนข้อมูลบริษัท/ร้าน)
+    const storeAddressThai = await formatThaiAddress(
+      profile?.address || profile?.addressText || profile?.storeAddress
+    );
+
+    // ✅ ที่อยู่ลูกค้า (ใช้ในช่อง "ที่อยู่" ของใบรับประกัน)
+    const customerAddressThai = await formatThaiAddress(header.customerAddress);
 
     const base = {
       cardNo: header.code || header.id,
       customerName: header.customerName || "-",
       customerTel: header.customerPhone || "-",
-      address: storeAddressThai || "-",
+      address: customerAddressThai || "-", // ✅ เปลี่ยน: ให้เป็นที่อยู่ลูกค้า
       dealerName: profile?.storeName || "-",
       footerNote: "โปรดนำใบรับประกันฉบับนี้มาแสดงเป็นหลักฐานทุกครั้งเมื่อใช้บริการ",
       company: {
         name: profile?.storeName || "แอปของเรา",
-        address: storeAddressThai || "",
+        address: storeAddressThai || "", // ✅ คงไว้: ที่อยู่ร้าน
         tel: profile?.phone || "",
       },
     };
 
-    const items = (header.items || []).length
-      ? header.items.map((it) => ({
-          productName: it.productName || "-",
-          model: it.model || "-",
-          serialNumber: it.serial || "-",
-          purchaseDate: it.purchaseDate || header.createdAt,
-          expiryDate: it.expiryDate || null,
-          coverageNote: it.coverageNote || null,
-        }))
-      : [
-          {
-            productName: "-",
-            model: "-",
-            serialNumber: "-",
-            purchaseDate: header.createdAt,
-            expiryDate: null,
-            coverageNote: null,
-          },
-        ];
+    const items =
+      (header.items || []).length
+        ? header.items.map((it) => ({
+            productName: it.productName || "-",
+            model: it.model || "-",
+            serialNumber: it.serial || "-",
+            purchaseDate: it.purchaseDate || header.createdAt,
+            expiryDate: it.expiryDate || null,
+            coverageNote: it.coverageNote || null,
+          }))
+        : [
+            {
+              productName: "-",
+              model: "-",
+              serialNumber: "-",
+              purchaseDate: header.createdAt,
+              expiryDate: null,
+              coverageNote: null,
+            },
+          ];
 
     for (const it of items) {
       drawWarrantyPage(base, it);
@@ -578,10 +579,7 @@ export async function updateWarrantyHeader(req, res) {
     let inputName = null;
     if (body.customerName != null && String(body.customerName).trim() !== "") {
       inputName = String(body.customerName).trim();
-    } else if (
-      body.customerFirstName != null ||
-      body.customerLastName != null
-    ) {
+    } else if (body.customerFirstName != null || body.customerLastName != null) {
       const fn = (body.customerFirstName != null ? String(body.customerFirstName) : "").trim();
       const ln = (body.customerLastName != null ? String(body.customerLastName) : "").trim();
       const nm = `${fn} ${ln}`.trim();
