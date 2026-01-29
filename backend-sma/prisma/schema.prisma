@@ -152,6 +152,7 @@ model Warranty {
   customerEmail String?
   customerName  String?
   customerPhone String?
+  customerAddress String? // ✅ เพิ่ม: ที่อยู่ลูกค้า (ร้านกรอกตอนออกใบ)
 
   // ★ FK ไปยังบัญชีลูกค้า (ถ้าเจออีเมลที่เป็น CUSTOMER)
   customerUserId Int?
