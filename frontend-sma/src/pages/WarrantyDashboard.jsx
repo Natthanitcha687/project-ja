@@ -268,6 +268,10 @@ export default function WarrantyDashboard() {
 
   const [storeProfile, setStoreProfile] = useState(initialStoreProfile)
   const [addressParts, setAddressParts] = useState({ street: '', subdistrict: '', district: '', province: '', postcode: '' })
+  // ✅ Customer address (used in create-warranty modal) — structured address selector like SignUp
+  const [customerAddressParts, setCustomerAddressParts] = useState({ street: '', province: '', district: '', subdistrict: '', postcode: '' })
+  const [customerDistrictOptions, setCustomerDistrictOptions] = useState([])
+  const [customerSubdistrictOptions, setCustomerSubdistrictOptions] = useState([])
   const [profileImage, setProfileImage] = useState({ file: null, preview: '' })
   // Dynamic province/district/subdistrict lists (reuse same data as SignUp)
   const PROVINCES_JSON_LOCAL = '/data/api_province.json'
@@ -396,6 +400,62 @@ export default function WarrantyDashboard() {
     }
   }
 
+  // ✅ customer-address helpers (separate options from store profile modal)
+  async function loadCustomerDistrictsForProvince(provinceCode) {
+    try {
+      if (!provinceCode) {
+        setCustomerDistrictOptions([])
+        return
+      }
+      const pid = String(provinceCode)
+      if (districtsMap) {
+        const list = districtsMap[pid] || []
+        setCustomerDistrictOptions(list.map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code })))
+        return
+      }
+
+      let districtsData = districtsCache
+      if (!districtsData) {
+        let res = await fetch(DISTRICTS_JSON_LOCAL)
+        if (!res.ok) res = await fetch(DISTRICTS_JSON_FALLBACK)
+        districtsData = await res.json()
+        setDistrictsCache(districtsData)
+      }
+      const filtered = (districtsData || []).filter((d) => String(d.province_id ?? d.province_code ?? d.provinceId ?? d.province) === pid)
+      setCustomerDistrictOptions(filtered.map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code })))
+    } catch (err) {
+      console.error('loadCustomerDistrictsForProvince error', err)
+      setCustomerDistrictOptions([])
+    }
+  }
+
+  async function loadCustomerSubdistrictsForDistrict(districtCode) {
+    try {
+      if (!districtCode) {
+        setCustomerSubdistrictOptions([])
+        return
+      }
+      const did = String(districtCode)
+      if (subdistrictsMap) {
+        const list = subdistrictsMap[did] || []
+        setCustomerSubdistrictOptions(list.map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip })))
+        return
+      }
+
+      let subs = subdistrictsCache
+      if (!subs) {
+        let res = await fetch(SUBDISTRICTS_JSON_LOCAL)
+        if (!res.ok) res = await fetch(SUBDISTRICTS_JSON_FALLBACK)
+        subs = await res.json()
+        setSubdistrictsCache(subs)
+      }
+      const filtered = (subs || []).filter((s) => String(s.district_id ?? s.district_code ?? s.amphure_id ?? s.district) === did)
+      setCustomerSubdistrictOptions(filtered.map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip })))
+    } catch (err) {
+      console.error('loadCustomerSubdistrictsForDistrict error', err)
+      setCustomerSubdistrictOptions([])
+    }
+  }
   // compact business hours state for profile modal (small responsive control)
   const defaultBusinessSchedule = {
     mon: { on: true, start: '09:00', end: '18:00' },
@@ -529,6 +589,39 @@ export default function WarrantyDashboard() {
           next[i] = { ...next[i], customer_address: addr }
         }
       }
+      return next
+    })
+  }
+
+
+  // ✅ Customer address JSON builder (same shape as SignUp / store profile)
+  function buildCustomerAddressJson(parts) {
+    const prov = provincesList.find((p) => String(p.code) === String(parts?.province))
+    const dist = customerDistrictOptions.find((d) => String(d.code) === String(parts?.district))
+    const sub = customerSubdistrictOptions.find((s) => String(s.code) === String(parts?.subdistrict))
+    const postcode = (parts?.postcode || sub?.zipcode || '').toString()
+
+    return JSON.stringify({
+      street: (parts?.street || '').toString(),
+      province: parts?.province ? { id: parts.province, name: prov?.name || '' } : '',
+      district: parts?.district ? { id: parts.district, name: dist?.name || '' } : '',
+      subdistrict: parts?.subdistrict ? { id: parts.subdistrict, name: sub?.name || '', zipcode: postcode } : '',
+      postcode,
+    })
+  }
+
+  // Keep customer address UI in sync with createItems[0].customer_address (and auto-sync to all items via patchItem)
+  const syncCustomerAddress = (updater) => {
+    setCustomerAddressParts((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : (updater || prev)
+      const hasAny = ['street', 'province', 'district', 'subdistrict', 'postcode'].some((k) => String(next?.[k] || '').trim())
+      try {
+        if (!hasAny) {
+          patchItem(0, { customer_address: '' })
+        } else {
+          patchItem(0, { customer_address: buildCustomerAddressJson(next) })
+        }
+      } catch (e) {}
       return next
     })
   }
@@ -881,6 +974,11 @@ export default function WarrantyDashboard() {
       setEditForm(null)
       setManualExpiry(false)
       setEditHeaderEmail('')
+      // ✅ reset customer address selector when opening create modal
+      setCustomerAddressParts({ street: '', province: '', district: '', subdistrict: '', postcode: '' })
+      setCustomerDistrictOptions([])
+      setCustomerSubdistrictOptions([])
+
     } else if (mode === 'edit' && item) {
       const hasDays = typeof item.durationDays === 'number' && item.durationDays > 0
       const hasMonths = typeof item.durationMonths === 'number' && item.durationMonths > 0
@@ -2091,16 +2189,108 @@ export default function WarrantyDashboard() {
                           </label>
 
                           {idx === 0 && (
-                            <label className="mt-3 text-sm text-gray-600 block">
-                              ที่อยู่ลูกค้า
-                              <textarea
-                                value={it.customer_address}
-                                onChange={e => patchItem(idx, { customer_address: e.target.value })}
-                                className="mt-1 w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
-                                placeholder="เลขที่ ซอย ถนน ตำบล/แขวง อำเภอ/เขต จังหวัด รหัสไปรษณีย์"
-                                rows={2}
-                              />
-                            </label>
+                            <div className="mt-3">
+    <div className="text-sm text-gray-600">ที่อยู่ลูกค้า</div>
+
+    <div className="mt-1 rounded-2xl border border-sky-100 bg-white p-4">
+      <div className="text-xs text-gray-500">เลขที่ / ซอย / ถนน</div>
+      <textarea
+        value={customerAddressParts.street}
+        onChange={(e) => syncCustomerAddress((p) => ({ ...p, street: e.target.value }))}
+        className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+        placeholder="เช่น 123/4 ซ.สุขุมวิท 11"
+        rows={2}
+      />
+
+      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div>
+          <div className="text-xs text-gray-500">จังหวัด</div>
+          <select
+            value={customerAddressParts.province}
+            onChange={async (e) => {
+              const code = e.target.value
+              syncCustomerAddress((p) => ({ ...p, province: code, district: '', subdistrict: '', postcode: '' }))
+              await loadCustomerDistrictsForProvince(code)
+              setCustomerSubdistrictOptions([])
+            }}
+            className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+          >
+            <option value="">เลือกจังหวัด</option>
+            {provincesList.length > 0
+              ? provincesList.map((p) => (
+                  <option key={p.code} value={p.code}>
+                    {p.name}
+                  </option>
+                ))
+              : TH_PROVINCES.map((pv) => (
+                  <option key={pv} value={pv}>
+                    {pv}
+                  </option>
+                ))}
+          </select>
+        </div>
+
+        <div>
+          <div className="text-xs text-gray-500">อำเภอ/เขต</div>
+          <select
+            value={customerAddressParts.district}
+            onChange={async (e) => {
+              const code = e.target.value
+              syncCustomerAddress((p) => ({ ...p, district: code, subdistrict: '', postcode: '' }))
+              await loadCustomerSubdistrictsForDistrict(code)
+            }}
+            disabled={!customerAddressParts.province}
+            className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none disabled:opacity-60"
+          >
+            <option value="">{customerAddressParts.province ? 'เลือกอำเภอ/เขต' : 'เลือกจังหวัดก่อน'}</option>
+            {customerDistrictOptions.map((d) => (
+              <option key={d.code} value={d.code}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <div className="text-xs text-gray-500">ตำบล/แขวง</div>
+          <select
+            value={customerAddressParts.subdistrict}
+            onChange={(e) => {
+              const code = e.target.value
+              const found = customerSubdistrictOptions.find((s) => String(s.code) === String(code))
+              syncCustomerAddress((p) => ({ ...p, subdistrict: code, postcode: found?.zipcode || '' }))
+            }}
+            disabled={!customerAddressParts.district}
+            className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none disabled:opacity-60"
+          >
+            <option value="">{customerAddressParts.district ? 'เลือกตำบล/แขวง' : 'เลือกอำเภอก่อน'}</option>
+            {customerSubdistrictOptions.map((s) => (
+              <option key={s.code} value={s.code}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <div>
+          <div className="text-xs text-gray-500">รหัสไปรษณีย์</div>
+          <input
+            value={customerAddressParts.postcode}
+            onChange={(e) => syncCustomerAddress((p) => ({ ...p, postcode: e.target.value }))}
+            className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+            placeholder="เช่น 10110"
+            type="text"
+            inputMode="numeric"
+          />
+        </div>
+        <div className="flex items-end text-xs text-gray-400">
+          ตัวอย่าง: เลขที่/ซอย/ถนน, ตำบล, อำเภอ, จังหวัด, รหัสไปรษณีย์
+        </div>
+      </div>
+    </div>
+  </div>
                           )}
 
                           <label className="mt-3 text-sm text-gray-600 block">
