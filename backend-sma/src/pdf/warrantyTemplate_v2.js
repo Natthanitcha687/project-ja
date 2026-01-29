@@ -4,8 +4,39 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const mm = (v) => v * 2.83464567;
-const T = (v, fallback = "-") =>
-  v === undefined || v === null || String(v).trim() === "" ? fallback : String(v);
+
+// ✅ FIX: กัน [object Object] ทั่วไฟล์ (ดึงค่าที่เหมาะสมจาก object ก่อน)
+function toText(v) {
+  if (v === undefined || v === null) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+
+  if (typeof v === "object") {
+    const cand =
+      v.name_th ??
+      v.nameTh ??
+      v.name ??
+      v.label ??
+      v.text ??
+      v.title ??
+      v.value ??
+      v.id;
+    if (cand !== undefined && cand !== null && String(cand).trim() !== "") {
+      return String(cand).trim();
+    }
+    try {
+      return JSON.stringify(v);
+    } catch {
+      return "";
+    }
+  }
+  return String(v);
+}
+
+const T = (v, fallback = "-") => {
+  const s = toText(v).trim();
+  return s ? s : fallback;
+};
 
 function resolveFirstExisting(candidates) {
   for (const p of candidates) {
@@ -13,7 +44,9 @@ function resolveFirstExisting(candidates) {
       if (!p) continue;
       const abs = p.startsWith("file:")
         ? fileURLToPath(p)
-        : path.isAbsolute(p) ? p : path.resolve(p);
+        : path.isAbsolute(p)
+        ? p
+        : path.resolve(p);
       if (fs.existsSync(abs)) return abs;
     } catch {}
   }
@@ -46,7 +79,11 @@ function ensureThaiAdminMaps() {
     for (const p of list) {
       try {
         if (!p) continue;
-        const abs = p.startsWith("file:") ? fileURLToPath(p) : path.isAbsolute(p) ? p : path.resolve(p);
+        const abs = p.startsWith("file:")
+          ? fileURLToPath(p)
+          : path.isAbsolute(p)
+          ? p
+          : path.resolve(p);
         if (fs.existsSync(abs)) return JSON.parse(fs.readFileSync(abs, "utf8"));
       } catch {}
     }
@@ -61,10 +98,10 @@ function ensureThaiAdminMaps() {
   for (const p of provinces) provMap.set(String(p.id), p.name_th || p.name || "");
 
   const distMap = new Map();
-  for (const d of districts) distMap.set(String(d.id), (d.name_th || d.name || ""));
+  for (const d of districts) distMap.set(String(d.id), d.name_th || d.name || "");
 
   const subMap = new Map();
-  for (const s of subdistricts) subMap.set(String(s.id), (s.name_th || s.name || ""));
+  for (const s of subdistricts) subMap.set(String(s.id), s.name_th || s.name || "");
 
   _thaiAdminMaps = { provMap, distMap, subMap };
   return _thaiAdminMaps;
@@ -88,6 +125,31 @@ function stripPrefixThaiName(name) {
   return String(name).replace(/^(เขต|อำเภอ|แขวง|ตำบล)\s*/u, "");
 }
 
+// ✅ FIX: ใช้กับ field address ที่เป็น object ได้ เช่น {id,name_th} หรือ {value,label}
+function pickThaiField(v) {
+  if (v == null) return "";
+  if (typeof v === "string" || typeof v === "number") return String(v).trim();
+
+  if (typeof v === "object") {
+    const id = v.id ?? v.value;
+    if (id != null && (typeof id === "string" || typeof id === "number")) {
+      const s = String(id).trim();
+      if (s) return s;
+    }
+    const keys = ["name_th", "nameTh", "name", "label", "title", "text"];
+    for (const k of keys) {
+      const vv = v[k];
+      if (vv != null && (typeof vv === "string" || typeof vv === "number")) {
+        const s = String(vv).trim();
+        if (s) return s;
+      }
+    }
+    return "";
+  }
+
+  return String(v).trim();
+}
+
 export function formatThaiAddress(addr) {
   if (!addr) return "-";
 
@@ -96,13 +158,38 @@ export function formatThaiAddress(addr) {
 
   const maps = ensureThaiAdminMaps();
 
-  const street = (obj.street || obj.address || obj.line1 || obj.line || obj.address_line || "").toString().trim();
+  const street = pickThaiField(obj.street || obj.address || obj.line1 || obj.line || obj.address_line || "");
 
   // try various keys for admin codes/names
-  const rawSub = (obj.subdistrict || obj.subDistrict || obj.tambon || obj.subdistrict_id || obj.subdistrictId || obj.subdistrictCode || obj.subdistrict_code || "").toString().trim();
-  const rawDist = (obj.district || obj.amphoe || obj.district_id || obj.districtId || obj.district_code || obj.district_code || "").toString().trim();
-  const rawProv = (obj.province || obj.state || obj.province_id || obj.provinceId || obj.province_code || obj.provinceCode || "").toString().trim();
-  const postcode = (obj.postcode || obj.zip || obj.zipcode || obj.postalCode || obj.postal_code || "").toString().trim();
+  const rawSub = pickThaiField(
+    obj.subdistrict ||
+      obj.subDistrict ||
+      obj.tambon ||
+      obj.subdistrict_id ||
+      obj.subdistrictId ||
+      obj.subdistrictCode ||
+      obj.subdistrict_code ||
+      ""
+  );
+  const rawDist = pickThaiField(
+    obj.district ||
+      obj.amphoe ||
+      obj.district_id ||
+      obj.districtId ||
+      obj.district_code ||
+      obj.districtCode ||
+      ""
+  );
+  const rawProv = pickThaiField(
+    obj.province ||
+      obj.state ||
+      obj.province_id ||
+      obj.provinceId ||
+      obj.province_code ||
+      obj.provinceCode ||
+      ""
+  );
+  const postcode = pickThaiField(obj.postcode || obj.zip || obj.zipcode || obj.postalCode || obj.postal_code || "");
 
   let subName = rawSub;
   let distName = rawDist;
@@ -110,17 +197,18 @@ export function formatThaiAddress(addr) {
 
   // numeric id -> lookup
   try {
-    if (maps && rawProv && /^\d+$/.test(rawProv)) provName = maps.provMap.get(String(rawProv)) || rawProv;
-    if (maps && rawDist && /^\d+$/.test(rawDist)) distName = (maps.distMap.get(String(rawDist)) || rawDist);
-    if (maps && rawSub && /^\d+$/.test(rawSub)) subName = (maps.subMap.get(String(rawSub)) || rawSub);
+    if (maps && rawProv && /^\d+$/.test(String(rawProv))) provName = maps.provMap.get(String(rawProv)) || rawProv;
+    if (maps && rawDist && /^\d+$/.test(String(rawDist))) distName = maps.distMap.get(String(rawDist)) || rawDist;
+    if (maps && rawSub && /^\d+$/.test(String(rawSub))) subName = maps.subMap.get(String(rawSub)) || rawSub;
   } catch (e) {}
 
-  // if values are present but may contain full strings like 'เขตพระนคร', strip prefix for consistent formatting
   subName = stripPrefixThaiName(subName || "");
   distName = stripPrefixThaiName(distName || "");
   provName = stripPrefixThaiName(provName || "");
 
-  const isBkk = (provName || "").includes("กรุงเทพ") || (String(provName || "").toLowerCase().includes("bangkok"));
+  const isBkk =
+    (provName || "").includes("กรุงเทพ") ||
+    String(provName || "").toLowerCase().includes("bangkok");
 
   const parts = [];
   if (street) parts.push(street);
@@ -172,20 +260,46 @@ function loadThaiFonts(doc) {
 }
 
 function headerTitle(doc, left, top, width, fonts) {
-  doc.font(fonts.bold).fontSize(18).fillColor("#000")
+  doc
+    .font(fonts.bold)
+    .fontSize(18)
+    .fillColor("#000")
     .text("ใบรับประกัน", left, top, { width: width / 2, align: "left" });
-  doc.font(fonts.regular).fontSize(14)
+
+  doc
+    .font(fonts.regular)
+    .fontSize(14)
     .text("WARRANTY", left, top + mm(8), { width: width / 2, align: "left" });
-  doc.font(fonts.regular).fontSize(12)
+
+  doc
+    .font(fonts.regular)
+    .fontSize(12)
     .text("สำหรับผู้ซื้อ", left + width / 2, top, { width: width / 2, align: "right" });
 }
 
 function drawLabeledCell(doc, x, y, w, h, th, en, value, fonts, pad = mm(3.5)) {
   doc.rect(x, y, w, h).stroke();
-  doc.font(fonts.regular).fontSize(10).fillColor("#000").text(th, x + pad, y + pad, { width: w - pad * 2 });
-  doc.font(fonts.regular).fontSize(9).fillColor("#555").text(en, x + pad, y + pad + mm(5), { width: w - pad * 2 });
-  doc.font(fonts.regular).fontSize(11).fillColor("#000")
-    .text(T(value), x + pad, y + pad + mm(11), { width: w - pad * 2, height: h - pad * 2 - mm(11) });
+
+  doc
+    .font(fonts.regular)
+    .fontSize(10)
+    .fillColor("#000")
+    .text(th, x + pad, y + pad, { width: w - pad * 2 });
+
+  doc
+    .font(fonts.regular)
+    .fontSize(9)
+    .fillColor("#555")
+    .text(en, x + pad, y + pad + mm(5), { width: w - pad * 2 });
+
+  doc
+    .font(fonts.regular)
+    .fontSize(11)
+    .fillColor("#000")
+    .text(T(value), x + pad, y + pad + mm(11), {
+      width: w - pad * 2,
+      height: h - pad * 2 - mm(11),
+    });
 }
 
 export function drawWarrantyPage(doc, base, item) {
@@ -194,6 +308,12 @@ export function drawWarrantyPage(doc, base, item) {
   const width = A4.w - margin * 2;
   const left = margin;
   const top = margin;
+
+  // ✅ FIX: ให้ฟังก์ชันนี้สร้างหน้าเอง (รองรับ buildWarrantyPDFStream)
+  doc.addPage({
+    size: [A4.w, A4.h],
+    margins: { top: 0, left: 0, right: 0, bottom: 0 },
+  });
 
   const fonts = loadThaiFonts(doc);
 
@@ -213,6 +333,7 @@ export function drawWarrantyPage(doc, base, item) {
   doc.rect(left, tableTop, tableW, totalH).stroke();
 
   let y = tableTop;
+
   drawLabeledCell(doc, left, y, colL, rowH1, "เลขที่", "Card No.", base.cardNo, fonts);
   drawLabeledCell(doc, left + colL, y, colR, rowH1, "สินค้า", "Product", item.productName, fonts);
   y += rowH1;
@@ -228,8 +349,16 @@ export function drawWarrantyPage(doc, base, item) {
   doc.rect(left, y, tableW, rowH4).stroke();
   doc.font(fonts.regular).fontSize(10).fillColor("#000").text("ที่อยู่", left + mm(3.5), y + mm(3.5));
   doc.font(fonts.regular).fontSize(9).fillColor("#555").text("Address", left + mm(3.5), y + mm(8.5));
+
+  // ✅ FIX: ไม่ให้ที่อยู่ไหลล้นออกนอกช่อง/แตกหน้า
+  const addrTxt = formatThaiAddress(base.customerAddress ?? base.address ?? base.customerAddressThai ?? base.customer_address);
   doc.font(fonts.regular).fontSize(11).fillColor("#000")
-    .text(T(formatThaiAddress(base.customerAddress)), left + mm(3.5), y + mm(14), { width: tableW - mm(7) });
+    .text(T(addrTxt), left + mm(3.5), y + mm(14), {
+      width: tableW - mm(7),
+      height: rowH4 - mm(16),
+      ellipsis: true,
+    });
+
   y += rowH4;
 
   const purchaseDate = item.purchaseDate || base.purchaseDate;
@@ -239,8 +368,14 @@ export function drawWarrantyPage(doc, base, item) {
   drawLabeledCell(doc, left + colL, y, colR, rowH5, "วันที่ซื้อ", "Purchase Date", purchaseTxt, fonts);
   y += rowH5;
 
+  // note
   doc.font(fonts.regular).fontSize(11).fillColor("#000")
-    .text(T(base.footerNote, "โปรดนำใบรับประกันฉบับนี้มาแสดงเป็นหลักฐานทุกครั้งเมื่อใช้บริการ"), left, y + mm(8), { width, align: "left" });
+    .text(
+      T(base.footerNote, "โปรดนำใบรับประกันฉบับนี้มาแสดงเป็นหลักฐานทุกครั้งเมื่อใช้บริการ"),
+      left,
+      y + mm(8),
+      { width, align: "left", height: mm(20), ellipsis: true }
+    );
 
   try {
     const candidates = [
@@ -259,9 +394,14 @@ export function drawWarrantyPage(doc, base, item) {
       .join(" "),
   ].filter(Boolean);
 
+  // ✅ FIX: จำกัดความสูง + กันแตกหน้าใหม่ (ปัญหาที่คุณเจอ)
   if (companyLines.length) {
     doc.font(fonts.regular).fontSize(10).fillColor("#000")
-      .text(companyLines.join("\n"), left + mm(22), A4.h - mm(44), { width: width - mm(22) });
+      .text(companyLines.join("\n"), left + mm(22), A4.h - mm(44), {
+        width: width - mm(22),
+        height: mm(28),
+        ellipsis: true,
+      });
   }
 }
 
