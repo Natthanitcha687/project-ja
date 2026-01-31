@@ -333,7 +333,7 @@ export function drawWarrantyCardPage(doc, base = {}, item = {}, options = {}) {
   y = drawSectionBar(doc, margin, y, contentW, "เงื่อนไขการรับประกัน", fonts);
 
   // ✅ ขยายกล่องให้ใหญ่ขึ้นรองรับเงื่อนไขหลายข้อ
-  const termsBoxH = mm(85);
+  const termsBoxH = mm(70);
 
   // ✅ ใช้ selectedConditions (checkbox) เท่านั้น
   const selectedConds = Array.isArray(item.selectedConditions) ? item.selectedConditions : [];
