@@ -185,6 +185,10 @@ model WarrantyItem {
   documents      Json?
   images         Json?
 
+  // ✅ เพิ่มสำหรับ checkbox เงื่อนไข
+  selectedConditions Json?   // array of selected condition strings
+  customCondition    String? // ข้อความเพิ่มเติมจากช่อง "อื่นๆ"
+
   // ★ หมายเหตุโดย "ลูกค้า"
   customerNote String?
 

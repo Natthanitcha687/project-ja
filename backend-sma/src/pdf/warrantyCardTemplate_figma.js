@@ -49,10 +49,10 @@ function resolveFirstExisting(candidates) {
       const abs = p.startsWith("file:")
         ? fileURLToPath(p)
         : path.isAbsolute(p)
-        ? p
-        : path.resolve(p);
+          ? p
+          : path.resolve(p);
       if (fs.existsSync(abs)) return abs;
-    } catch {}
+    } catch { }
   }
   return null;
 }
@@ -199,20 +199,78 @@ function drawBulletBox(doc, x, y, w, h, bullets, fonts) {
   const r = mm(4);
   const padX = mm(7);
   const padY = mm(6);
+  const bulletIndent = mm(6); // ระยะห่างหลัง bullet
   roundedBox(doc, x, y, w, h, r, { stroke: "#d1d5db", lineWidth: 1 });
 
-  doc.font(fonts.regular).fontSize(11).fillColor("#111827");
+  doc.font(fonts.regular).fontSize(10).fillColor("#111827");
 
-  const lineGap = mm(6);
   let cy = y + padY;
+  const maxY = y + h - padY;
+  const textWidth = w - padX * 2 - bulletIndent;
 
   const list = Array.isArray(bullets) ? bullets : [];
   for (const b of list) {
     if (!b) continue;
-    doc.text("•", x + padX, cy, { width: mm(6) });
-    doc.text(String(b), x + padX + mm(6), cy, { width: w - padX * 2 - mm(6) });
-    cy += lineGap;
-    if (cy > y + h - padY) break;
+    if (cy > maxY) break;
+
+    const text = String(b).trim();
+    // คำนวณความสูงจริงของข้อความที่ wrap
+    const textHeight = doc.heightOfString(text, { width: textWidth });
+
+    // วาด bullet
+    doc.text("•", x + padX, cy, { width: bulletIndent, continued: false });
+    // วาดข้อความ
+    doc.text(text, x + padX + bulletIndent, cy, { width: textWidth });
+
+    cy += textHeight + mm(2); // เว้นระยะห่างระหว่าง item
+  }
+}
+
+// ✅ ฟังก์ชันใหม่สำหรับแสดงข้อความ multiline (รองรับเนื้อหาจาก dropdown)
+// ✅ FIX: จัด indent ให้ข้อความหลัง bullet ตรงกัน
+function drawTextBox(doc, x, y, w, h, text, fonts) {
+  const r = mm(4);
+  const padX = mm(7);
+  const padY = mm(6);
+  roundedBox(doc, x, y, w, h, r, { stroke: "#d1d5db", lineWidth: 1 });
+
+  doc.font(fonts.regular).fontSize(10).fillColor("#111827");
+
+  const lines = String(text || "").split("\n");
+  const lineH = mm(4.5); // ความสูงต่อบรรทัด
+  const bulletIndent = mm(4); // ระยะห่างหลัง bullet
+  let cy = y + padY;
+  const maxY = y + h - padY;
+  const textWidth = w - padX * 2;
+
+  for (const line of lines) {
+    if (cy > maxY) break;
+
+    const trimmed = line.trim();
+    if (!trimmed) {
+      cy += lineH * 0.5; // บรรทัดว่าง
+      continue;
+    }
+
+    // ตรวจสอบว่าเป็นบรรทัด bullet หรือไม่
+    if (trimmed.startsWith("•")) {
+      // วาด bullet
+      doc.text("•", x + padX, cy, { width: bulletIndent, continued: false });
+      // วาดข้อความหลัง bullet (indent ให้ตรงกัน)
+      const bulletText = trimmed.substring(1).trim();
+      const textX = x + padX + bulletIndent;
+      const availableWidth = textWidth - bulletIndent;
+
+      // คำนวณความสูงของข้อความที่ wrap
+      const textHeight = doc.heightOfString(bulletText, { width: availableWidth });
+      doc.text(bulletText, textX, cy, { width: availableWidth });
+      cy += textHeight + mm(1);
+    } else {
+      // ข้อความธรรมดา (ไม่มี bullet)
+      const textHeight = doc.heightOfString(trimmed, { width: textWidth });
+      doc.text(trimmed, x + padX, cy, { width: textWidth });
+      cy += textHeight + mm(1);
+    }
   }
 }
 
@@ -252,7 +310,7 @@ export function drawWarrantyCardPage(doc, base = {}, item = {}, options = {}) {
   let addrText = base.address;
   try {
     addrText = formatThaiAddress(base.address);
-  } catch {}
+  } catch { }
 
   drawField(doc, margin, y, contentW, mm(20), "ที่อยู่ / Address", addrText, fonts, { multiline: true });
   y += mm(20) + mm(8);
@@ -270,35 +328,32 @@ export function drawWarrantyCardPage(doc, base = {}, item = {}, options = {}) {
   drawField(doc, margin + w2 + gap, y, w2, hField, "วันหมดอายุ / Expiry Date", safeDateTH(item.expiryDate), fonts);
   y += hField + gap;
 
-  // Terms
-  const termsDefault =
-    "รับประกันฮาร์ดแวร์ 1 ปี ครอบคลุมความเสียหายจากการผลิต การทำงานผิดปกติของอุปกรณ์ และปัญหาด้านซอฟต์แวร์ที่มาจากโรงงาน ไม่รวมความเสียหายจากการใช้งานผิดวิธี";
-  drawField(doc, margin, y, contentW, mm(28), "เงื่อนไขการรับประกัน / Warranty Terms", item.coverageNote || termsDefault, fonts, { multiline: true });
-  y += mm(28) + mm(8);
-
-  // -------- Exclusion Section --------
+  // -------- Exclusion Section (เงื่อนไขการรับประกัน) --------
+  // ✅ แสดงเฉพาะเงื่อนไขที่ติ๊กเลือกจาก checkbox
   y = drawSectionBar(doc, margin, y, contentW, "เงื่อนไขการรับประกัน", fonts);
 
-  const exclusions =
-    options.exclusions || [
-      "ความเสียหายจากน้ำ ของเหลว หรือความชื้น",
-      "ความเสียหายจากการตกหล่น กระแทก หรืออุบัติเหตุ",
-      "การแกะ ดัดแปลง หรือซ่อมแซมโดยบุคคลที่ไม่ได้รับอนุญาต",
-      "ความเสียหายจากการใช้งานผิดวิธี",
-    ];
+  // ✅ ขยายกล่องให้ใหญ่ขึ้นรองรับเงื่อนไขหลายข้อ
+  const termsBoxH = mm(85);
 
-  // ✅ FIX #1: ช่องเงื่อนไขให้พอดีเท่ากรอบเขียว (คำนวณจากจำนวน bullet จริง)
-  const padYBul = mm(6);
-  const lineGapBul = mm(6);
-  const bulletCount = (Array.isArray(exclusions) ? exclusions.filter(Boolean).length : 0) || 1;
+  // ✅ ใช้ selectedConditions (checkbox) เท่านั้น
+  const selectedConds = Array.isArray(item.selectedConditions) ? item.selectedConditions : [];
+  const customNote = String(item.customCondition || "").trim();
 
-  // สูงพอดีกับจำนวนบรรทัด + padding (ไม่ใช้ mm(50) แล้ว)
-  const bulletBoxH = Math.max(mm(26), padYBul * 2 + lineGapBul * bulletCount + mm(2));
+  if (selectedConds.length > 0 || customNote) {
+    // มี checkbox ที่เลือก → แสดงเป็น bullets
+    const allConditions = [...selectedConds];
+    // ✅ แบ่ง customNote ตามบรรทัด (Enter) เป็นหลาย bullet
+    if (customNote) {
+      const customLines = customNote.split(/\r?\n/).map(l => l.trim()).filter(l => l);
+      allConditions.push(...customLines);
+    }
+    drawBulletBox(doc, margin, y, contentW, termsBoxH, allConditions, fonts);
+  } else {
+    // ไม่มีเงื่อนไขที่เลือก → แสดงข้อความแจ้ง
+    drawTextBox(doc, margin, y, contentW, termsBoxH, "ไม่ได้ระบุเงื่อนไขการรับประกัน", fonts);
+  }
 
-  drawBulletBox(doc, margin, y, contentW, bulletBoxH, exclusions, fonts);
-
-  // ✅ FIX #2: ขยับส่วนล่างขึ้น (ลดช่องว่างหลังกล่อง)
-  y += bulletBoxH + mm(4);
+  y += termsBoxH + mm(4);
 
   // =========================
   // ส่วนล่าง

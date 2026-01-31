@@ -92,14 +92,14 @@ async function auditCreateWarrantyBestEffort(req, storeId, createdHeader) {
     const targetType = customerUserId
       ? "User"
       : customerEmail
-      ? "CustomerEmail"
-      : null;
+        ? "CustomerEmail"
+        : null;
 
     const targetId = customerUserId
       ? String(customerUserId)
       : customerEmail
-      ? String(customerEmail)
-      : null;
+        ? String(customerEmail)
+        : null;
 
     const xf = req.headers["x-forwarded-for"];
     const ip =
@@ -205,6 +205,9 @@ function mapWarrantyHeaderForResponse(header, notifyDays) {
         durationMonths: w.durationMonths ?? null,
         durationDays: w.durationDays ?? null,
         coverageNote: w.coverageNote ?? null,
+        // ✅ เพิ่มสำหรับ checkbox เงื่อนไข
+        selectedConditions: Array.isArray(w.selectedConditions) ? w.selectedConditions : [],
+        customCondition: w.customCondition ?? null,
         note: w.note ?? null,
         images: Array.isArray(w.images) ? w.images : w.images ? w.images : [],
         statusCode,
@@ -472,6 +475,9 @@ export async function createWarranty(req, res) {
             durationDays: expiry ? daysBetween(purchase, expiry) : null,
             coverageNote:
               String(it.warranty_terms || it.coverageNote || "").trim() || null,
+            // ✅ เพิ่มสำหรับ checkbox เงื่อนไข
+            selectedConditions: Array.isArray(it.selectedConditions) ? it.selectedConditions : null,
+            customCondition: String(it.customCondition || "").trim() || null,
             note: String(it.note || "").trim() || null,
             images: [],
           };
@@ -553,6 +559,9 @@ export async function createWarranty(req, res) {
                     durationDays: expiry ? daysBetween(purchase, expiry) : null,
                     coverageNote:
                       String(body.warranty_terms || body.coverageNote || "").trim() || null,
+                    // ✅ เพิ่มสำหรับ checkbox เงื่อนไข
+                    selectedConditions: Array.isArray(body.selectedConditions) ? body.selectedConditions : null,
+                    customCondition: String(body.customCondition || "").trim() || null,
                     note: String(body.note || "").trim() || null,
                     images: [],
                   },
@@ -585,9 +594,8 @@ export async function createWarranty(req, res) {
     // ❌ ตัด notify store ออก แต่ "ลูกค้า" ยังได้เหมือนเดิม (ไม่กระทบลูกค้า)
     try {
       const title = `สร้างใบรับประกัน ${createdHeader.code || ""}`;
-      const bodyText = `สร้างใบรับประกัน ${createdHeader.code || ""} จำนวน ${
-        createdHeader.items?.length || 0
-      } รายการ`;
+      const bodyText = `สร้างใบรับประกัน ${createdHeader.code || ""} จำนวน ${createdHeader.items?.length || 0
+        } รายการ`;
 
       // notify customer user if linked (✅ keep)
       if (createdHeader.customerUserId) {

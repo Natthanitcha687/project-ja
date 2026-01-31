@@ -10,6 +10,7 @@ import ImagePreview from '../components/ImagePreview'
 import AppLogo from '../components/AppLogo'
 import Footer from '../components/Footer' // ✅
 import StoreTabs from '../components/StoreTabs'
+import { getConditionsForStoreType } from '../data/warrantyConditionTemplates'
 
 
 
@@ -34,7 +35,7 @@ const initialStoreProfile = {
 
 // Thailand provinces for select (used in signup and store profile)
 const TH_PROVINCES = [
-  'กระบี่','กรุงเทพมหานคร','กาญจนบุรี','กาฬสินธุ์','กำแพงเพชร','ขอนแก่น','จันทบุรี','ฉะเชิงเทรา','ชลบุรี','ชัยนาท','ชัยภูมิ','ชุมพร','ตรัง','ตราด','ตาก','นครนายก','นครปฐม','นครพนม','นครราชสีมา','นครศรีธรรมราช','นครสวรรค์','นนทบุรี','นราธิวาส','น่าน','บึงกาฬ','บุรีรัมย์','ปทุมธานี','ประจวบคีรีขันธ์','ปราจีนบุรี','ปัตตานี','พระนครศรีอยุธยา','พะเยา','พังงา','พัทลุง','พิจิตร','พิษณุโลก','เพชรบุรี','เพชรบูรณ์','แพร่','ภูเก็ต','มหาสารคาม','มุกดาหาร','แม่ฮ่องสอน','ยโสธร','ยะลา','ร้อยเอ็ด','ระนอง','ระยอง','ราชบุรี','ลพบุรี','ลำปาง','ลำพูน','เลย','ศรีสะเกษ','สกลนคร','สงขลา','สมุทรปราการ','สมุทรสงคราม','สมุทรสาคร','สระแก้ว','สระบุรี','สิงห์บุรี','สุโขทัย','สุพรรณบุรี','สุราษฎร์ธานี','สุรินทร์','หนองคาย','หนองบัวลำภู','อ่างทอง','อุดรธานี','อุทัยธานี','อุตรดิตถ์','อุบลราชธานี'
+  'กระบี่', 'กรุงเทพมหานคร', 'กาญจนบุรี', 'กาฬสินธุ์', 'กำแพงเพชร', 'ขอนแก่น', 'จันทบุรี', 'ฉะเชิงเทรา', 'ชลบุรี', 'ชัยนาท', 'ชัยภูมิ', 'ชุมพร', 'ตรัง', 'ตราด', 'ตาก', 'นครนายก', 'นครปฐม', 'นครพนม', 'นครราชสีมา', 'นครศรีธรรมราช', 'นครสวรรค์', 'นนทบุรี', 'นราธิวาส', 'น่าน', 'บึงกาฬ', 'บุรีรัมย์', 'ปทุมธานี', 'ประจวบคีรีขันธ์', 'ปราจีนบุรี', 'ปัตตานี', 'พระนครศรีอยุธยา', 'พะเยา', 'พังงา', 'พัทลุง', 'พิจิตร', 'พิษณุโลก', 'เพชรบุรี', 'เพชรบูรณ์', 'แพร่', 'ภูเก็ต', 'มหาสารคาม', 'มุกดาหาร', 'แม่ฮ่องสอน', 'ยโสธร', 'ยะลา', 'ร้อยเอ็ด', 'ระนอง', 'ระยอง', 'ราชบุรี', 'ลพบุรี', 'ลำปาง', 'ลำพูน', 'เลย', 'ศรีสะเกษ', 'สกลนคร', 'สงขลา', 'สมุทรปราการ', 'สมุทรสงคราม', 'สมุทรสาคร', 'สระแก้ว', 'สระบุรี', 'สิงห์บุรี', 'สุโขทัย', 'สุพรรณบุรี', 'สุราษฎร์ธานี', 'สุรินทร์', 'หนองคาย', 'หนองบัวลำภู', 'อ่างทอง', 'อุดรธานี', 'อุทัยธานี', 'อุตรดิตถ์', 'อุบลราชธานี'
 ]
 
 const STATUS_CODE_BY_LABEL = {
@@ -79,44 +80,46 @@ function pad3(n) {
 }
 function nextSerialFromList(list) {
   // legacy simple incrementer (kept for fallback)
-                              {[
-                                ['mon','จ.'],
-                                ['tue','อ.'],
-                                ['wed','พ.'],
-                                ['thu','พฤ.'],
-                                ['fri','ศ.'],
-                                ['sat','ส.'],
-                                ['sun','อา.'],
-                              ].map(([d, lbl]) => (
-                                  <div key={d} className="flex flex-col sm:flex-row items-start sm:items-center gap-2 text-xs md:text-sm">
-                                    <div className="flex items-center gap-2">
-                                      <input
-                                        type="checkbox"
-                                        checked={!!businessSchedule[d]?.on}
-                                        onChange={() => setBusinessSchedule((s) => ({ ...s, [d]: { ...s[d], on: !s[d].on } }))}
-                                        className="h-4 w-4 rounded border-gray-300 text-blue-600"
-                                      />
-                                      <div className="w-8 text-xs text-gray-700">{lbl}</div>
-                                    </div>
-                                    <div className="flex items-center gap-2 ml-0 sm:ml-2">
-                                      <input
-                                        type="time"
-                                        value={businessSchedule[d]?.start || '09:00'}
-                                        onChange={(e) => setBusinessSchedule((s) => ({ ...s, [d]: { ...s[d], start: e.target.value } }))}
-                                        className="h-8 w-16 sm:w-20 rounded border border-gray-200 px-2 text-xs"
-                                        disabled={!businessSchedule[d]?.on}
-                                      />
-                                      <span className="text-xs text-gray-400">—</span>
-                                      <input
-                                        type="time"
-                                        value={businessSchedule[d]?.end || '18:00'}
-                                        onChange={(e) => setBusinessSchedule((s) => ({ ...s, [d]: { ...s[d], end: e.target.value } }))}
-                                        className="h-8 w-16 sm:w-20 rounded border border-gray-200 px-2 text-xs"
-                                        disabled={!businessSchedule[d]?.on}
-                                      />
-                                    </div>
-                                  </div>
-                                ))}
+  {
+    [
+      ['mon', 'จ.'],
+      ['tue', 'อ.'],
+      ['wed', 'พ.'],
+      ['thu', 'พฤ.'],
+      ['fri', 'ศ.'],
+      ['sat', 'ส.'],
+      ['sun', 'อา.'],
+    ].map(([d, lbl]) => (
+      <div key={d} className="flex flex-col sm:flex-row items-start sm:items-center gap-2 text-xs md:text-sm">
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={!!businessSchedule[d]?.on}
+            onChange={() => setBusinessSchedule((s) => ({ ...s, [d]: { ...s[d], on: !s[d].on } }))}
+            className="h-4 w-4 rounded border-gray-300 text-blue-600"
+          />
+          <div className="w-8 text-xs text-gray-700">{lbl}</div>
+        </div>
+        <div className="flex items-center gap-2 ml-0 sm:ml-2">
+          <input
+            type="time"
+            value={businessSchedule[d]?.start || '09:00'}
+            onChange={(e) => setBusinessSchedule((s) => ({ ...s, [d]: { ...s[d], start: e.target.value } }))}
+            className="h-8 w-16 sm:w-20 rounded border border-gray-200 px-2 text-xs"
+            disabled={!businessSchedule[d]?.on}
+          />
+          <span className="text-xs text-gray-400">—</span>
+          <input
+            type="time"
+            value={businessSchedule[d]?.end || '18:00'}
+            onChange={(e) => setBusinessSchedule((s) => ({ ...s, [d]: { ...s[d], end: e.target.value } }))}
+            className="h-8 w-16 sm:w-20 rounded border border-gray-200 px-2 text-xs"
+            disabled={!businessSchedule[d]?.on}
+          />
+        </div>
+      </div>
+    ))
+  }
   return set
 }
 
@@ -198,15 +201,15 @@ function formatBusinessHours(raw) {
   try {
     const sched = typeof raw === 'string' ? JSON.parse(raw) : raw
     // show short summary like "จ.-ศ. 09:00-18:00"
-    const days = ['mon','tue','wed','thu','fri','sat','sun']
-    const labels = ['จ.','อ.','พ.','พฤ.','ศ.','ส.','อา.']
+    const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+    const labels = ['จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.', 'อา.']
     const ranges = []
-    for (let i=0;i<days.length;i++){
+    for (let i = 0; i < days.length; i++) {
       const d = days[i]
       const s = sched?.[d]
       if (s && s.on) ranges.push(`${labels[i]} ${s.start}-${s.end}`)
     }
-    return ranges.slice(0,3).join(' • ') || ''
+    return ranges.slice(0, 3).join(' • ') || ''
   } catch (e) {
     return String(raw || '')
   }
@@ -532,6 +535,9 @@ export default function WarrantyDashboard() {
     purchase_date: '',
     expiry_date: '',
     warranty_terms: '',
+    // ✅ เพิ่มสำหรับ checkbox เงื่อนไข
+    selectedConditions: [],       // array of selected condition strings
+    customCondition: '',          // ข้อความเพิ่มเติมจากช่อง "อื่นๆ"
     note: '',
     images: [],
   })
@@ -621,7 +627,7 @@ export default function WarrantyDashboard() {
         } else {
           patchItem(0, { customer_address: buildCustomerAddressJson(next) })
         }
-      } catch (e) {}
+      } catch (e) { }
       return next
     })
   }
@@ -636,16 +642,16 @@ export default function WarrantyDashboard() {
     const token = getToken()
     if (!token) return
     const es = new EventSource(`${API_URL.replace(/\/+$/, '')}/notifications/stream?token=${token}`)
-    
+
     es.addEventListener('notification', (ev) => {
       try {
         const payload = JSON.parse(ev.data)
         setNotifications((p) => [payload, ...(p || [])])
       } catch (e) { }
     })
-    
+
     es.onerror = () => { /* silent close on error */ }
-    
+
     return () => es.close()
   }, [])
 
@@ -661,7 +667,7 @@ export default function WarrantyDashboard() {
 
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [isProfileMenuOpen]) 
+  }, [isProfileMenuOpen])
   // ------------------------------------------
 
   // click outside handler for notifications dropdown
@@ -680,29 +686,29 @@ export default function WarrantyDashboard() {
   }, [user])
 
   async function fetchNotifications() {
-  if (!storeIdResolved) return
-  setNotifLoading(true)
-  try {
-    const res = await api.get(`/notifications`)
-    const data = res?.data?.data || res?.data || []
-    let arr = Array.isArray(data) ? data : []
+    if (!storeIdResolved) return
+    setNotifLoading(true)
+    try {
+      const res = await api.get(`/notifications`)
+      const data = res?.data?.data || res?.data || []
+      let arr = Array.isArray(data) ? data : []
 
-    // ✅ ร้านเห็นเฉพาะ 2 แบบ
-    const allow = new Set(['expiry_daily_summary', 'complaint_created'])
-    arr = arr.filter(n => allow.has(n?.data?.type))
+      // ✅ ร้านเห็นเฉพาะ 2 แบบ
+      const allow = new Set(['expiry_daily_summary', 'complaint_created'])
+      arr = arr.filter(n => allow.has(n?.data?.type))
 
-    arr.sort(
-      (a, b) =>
-        new Date(b.createdAt || b.time || b.created_at || 0) -
-        new Date(a.createdAt || a.time || a.created_at || 0)
-    )
-    setNotifications(arr)
-  } catch (e) {
-    setNotifications([])
-  } finally {
-    setNotifLoading(false)
+      arr.sort(
+        (a, b) =>
+          new Date(b.createdAt || b.time || b.created_at || 0) -
+          new Date(a.createdAt || a.time || a.created_at || 0)
+      )
+      setNotifications(arr)
+    } catch (e) {
+      setNotifications([])
+    } finally {
+      setNotifLoading(false)
+    }
   }
-}
 
 
   async function markAllAsRead() {
@@ -711,7 +717,7 @@ export default function WarrantyDashboard() {
       setNotifLoading(true)
       await api.post('/notifications/mark-all-read')
       // do not re-fetch here; rely on optimistic update and SSE
-    } catch (e) {}
+    } catch (e) { }
     finally { setNotifLoading(false) }
   }
 
@@ -720,7 +726,7 @@ export default function WarrantyDashboard() {
       setNotifications(prev => (prev || []).map(n => (String(n.id) === String(id) ? { ...n, read: true } : n)))
       await api.patch(`/notifications/${id}/read`)
       await fetchNotifications()
-    } catch (e) {}
+    } catch (e) { }
   }
 
   // ====== กรองระดับ "รายการ" แล้วจัดกลุ่มกลับเป็นใบ ======
@@ -813,7 +819,7 @@ export default function WarrantyDashboard() {
           if (prov) await loadDistrictsForProvince(prov)
           const dist = parsed.district?.id ?? parsed.district ?? ''
           if (dist) await loadSubdistrictsForDistrict(dist)
-        } catch (e) {}
+        } catch (e) { }
       } else if (raw && typeof raw === 'object') {
         setAddressParts({
           street: raw.street || '',
@@ -827,7 +833,7 @@ export default function WarrantyDashboard() {
           if (prov) await loadDistrictsForProvince(prov)
           const dist = raw.district?.id ?? raw.district ?? ''
           if (dist) await loadSubdistrictsForDistrict(dist)
-        } catch (e) {}
+        } catch (e) { }
       } else {
         setAddressParts({ street: String(storeProfile.address || '') || '', subdistrict: '', district: '', province: '', postcode: '' })
       }
@@ -849,7 +855,7 @@ export default function WarrantyDashboard() {
       if (params.get('openProfile') === '1') {
         openProfileModal()
       }
-    } catch (e) {}
+    } catch (e) { }
   }, [location.search])
 
   const handleProfileAvatarSelect = (event) => {
@@ -1066,10 +1072,10 @@ export default function WarrantyDashboard() {
             postcode: parsedAddr.postcode || '',
           })
         }
-      } catch (e) {}
+      } catch (e) { }
       try {
         setBusinessSchedule(parseBusinessSchedule(updatedProfile.businessHours))
-      } catch (e) {}
+      } catch (e) { }
       setProfileImage({ file: null, preview: '' })
       setModalError('')
       setProfileModalOpen(false)
@@ -1157,6 +1163,10 @@ export default function WarrantyDashboard() {
 
         fd.append('coverageNote', String(editForm?.warranty_terms || '').trim())
         fd.append('note', String(editForm?.note || '').trim())
+        // ✅ ส่งเงื่อนไขที่เลือกจาก checkbox
+        const selectedConds = Array.isArray(editForm?.selectedConditions) ? editForm.selectedConditions : []
+        fd.append('selectedConditions', JSON.stringify(selectedConds))
+        fd.append('customCondition', String(editForm?.customCondition || '').trim())
 
         await api.patch(`/warranty-items/${selectedItem.id}`, fd, {
           headers: { 'Content-Type': 'multipart/form-data' },
@@ -1211,6 +1221,9 @@ export default function WarrantyDashboard() {
             note: (it.note || '').trim(),
             duration_months: monthsForApi,          // ถ้าเลือก "วัน" จะเป็น 0
             expiry_date: computedExpiry || '',
+            // ✅ ส่งเงื่อนไขที่เลือกจาก checkbox
+            selectedConditions: Array.isArray(it.selectedConditions) ? it.selectedConditions : [],
+            customCondition: (it.customCondition || '').trim(),
           }
         }),
       }
@@ -1298,8 +1311,8 @@ export default function WarrantyDashboard() {
   return (
     <>
       {/* 🟦 BG: ปรับให้เหมือนโค้ด1 */}
-<div className="min-h-screen bg-gradient-to-b from-sky-50 to-sky-100/60 pb-16 overflow-x-hidden">
-  {/* Header provided by shared `/dashboard` layout */}
+      <div className="min-h-screen bg-gradient-to-b from-sky-50 to-sky-100/60 pb-16 overflow-x-hidden">
+        {/* Header provided by shared `/dashboard` layout */}
 
 
         <main className="mx-auto mt-8 max-w-6xl px-2 sm:px-6 lg:px-8">
@@ -1332,7 +1345,7 @@ export default function WarrantyDashboard() {
           </div>
 
           <div className="mb-6 px-2 sm:px-0">
-            
+
           </div>
 
           <div className="rounded-3xl border border-sky-100 bg-gradient-to-b from-white to-sky-50 p-4 sm:p-6 shadow-xl min-w-0">
@@ -1361,7 +1374,7 @@ export default function WarrantyDashboard() {
                   </div>
                 </div>
 
-                
+
 
                 <div className="mb-6 flex flex-wrap items-center gap-2 sm:gap-3">
                   <div className="flex flex-1 min-w-0 items-center rounded-2xl bg-white px-3 py-2 sm:px-4 shadow ring-1 ring-black/5">
@@ -1382,17 +1395,17 @@ export default function WarrantyDashboard() {
                         ? f.value === 'active'
                           ? 'bg-emerald-600 text-white border-emerald-600'
                           : f.value === 'nearing_expiration'
-                          ? 'bg-amber-500 text-white border-amber-500'
-                          : f.value === 'expired'
-                          ? 'bg-rose-600 text-white border-rose-600'
-                          : 'bg-slate-900 text-white border-slate-900'
+                            ? 'bg-amber-500 text-white border-amber-500'
+                            : f.value === 'expired'
+                              ? 'bg-rose-600 text-white border-rose-600'
+                              : 'bg-slate-900 text-white border-slate-900'
                         : f.value === 'active'
-                        ? 'bg-white text-emerald-700 border-emerald-400'
-                        : f.value === 'nearing_expiration'
-                        ? 'bg-white text-amber-700 border-amber-300'
-                        : f.value === 'expired'
-                        ? 'bg-white text-rose-700 border-rose-300'
-                        : 'bg-white text-slate-800 border-slate-300'
+                          ? 'bg-white text-emerald-700 border-emerald-400'
+                          : f.value === 'nearing_expiration'
+                            ? 'bg-white text-amber-700 border-amber-300'
+                            : f.value === 'expired'
+                              ? 'bg-white text-rose-700 border-rose-300'
+                              : 'bg-white text-slate-800 border-slate-300'
 
                       return (
                         <button
@@ -1436,9 +1449,8 @@ export default function WarrantyDashboard() {
                                 type="button"
                                 onClick={() => header && handleDownloadPdf(header.id)}
                                 disabled={!header || downloadingPdfId === header.id}
-                                className={`h-10 min-w-0 sm:min-w-[96px] rounded-full border border-sky-300 px-4 py-2 text-sm font-semibold text-sky-700 bg-white transition ${
-                                  !header || downloadingPdfId === header.id ? 'cursor-not-allowed opacity-70' : 'hover:-translate-y-0.5 hover:bg-sky-50'
-                                }`}
+                                className={`h-10 min-w-0 sm:min-w-[96px] rounded-full border border-sky-300 px-4 py-2 text-sm font-semibold text-sky-700 bg-white transition ${!header || downloadingPdfId === header.id ? 'cursor-not-allowed opacity-70' : 'hover:-translate-y-0.5 hover:bg-sky-50'
+                                  }`}
                               >
                                 {downloadingPdfId === header.id ? 'กำลังดาวน์โหลด…' : 'PDF'}
                               </button>
@@ -1466,7 +1478,7 @@ export default function WarrantyDashboard() {
                                     <div className="flex flex-wrap items-center gap-3">
                                       <div className="text-base font-semibold text-slate-900">{it.productName}</div>
                                       <StatusBadge label={it.statusTag} className={it.statusColor} />
-                                      
+
                                     </div>
                                     <div className="grid gap-2 text-sm text-slate-600 md:grid-cols-2">
                                       <div>Serial No.: <span className="font-medium text-slate-900">{it.serial || '-'}</span></div>
@@ -1565,11 +1577,10 @@ export default function WarrantyDashboard() {
                       <button
                         onClick={() => setPage((p) => Math.max(1, p - 1))}
                         disabled={currentPage === 1}
-                        className={`rounded-full px-3 py-2 text-xs font-medium shadow-sm ${
-                          currentPage === 1
-                            ? 'cursor-not-allowed bg-white text-slate-300 ring-1 ring-black/10'
-                            : 'bg-white text-slate-700 ring-1 ring-black/10 hover:-translate-y-0.5 hover:bg-slate-50 transition'
-                        }`}
+                        className={`rounded-full px-3 py-2 text-xs font-medium shadow-sm ${currentPage === 1
+                          ? 'cursor-not-allowed bg-white text-slate-300 ring-1 ring-black/10'
+                          : 'bg-white text-slate-700 ring-1 ring-black/10 hover:-translate-y-0.5 hover:bg-slate-50 transition'
+                          }`}
                       >
                         ก่อนหน้า
                       </button>
@@ -1577,9 +1588,8 @@ export default function WarrantyDashboard() {
                         <button
                           key={n}
                           onClick={() => setPage(n)}
-                          className={`rounded-full px-3 py-2 text-xs font-medium shadow-sm ${
-                            n === currentPage ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 ring-1 ring-black/10 hover:-translate-y-0.5 hover:bg-slate-50 transition'
-                          }`}
+                          className={`rounded-full px-3 py-2 text-xs font-medium shadow-sm ${n === currentPage ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 ring-1 ring-black/10 hover:-translate-y-0.5 hover:bg-slate-50 transition'
+                            }`}
                         >
                           {n}
                         </button>
@@ -1587,11 +1597,10 @@ export default function WarrantyDashboard() {
                       <button
                         onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                         disabled={currentPage === totalPages}
-                        className={`rounded-full px-3 py-2 text-xs font-medium shadow-sm ${
-                          currentPage === totalPages
-                            ? 'cursor-not-allowed bg-white text-slate-300 ring-1 ring-black/10'
-                            : 'bg-white text-slate-700 ring-1 ring-black/10 hover:-translate-y-0.5 hover:bg-slate-50 transition'
-                        }`}
+                        className={`rounded-full px-3 py-2 text-xs font-medium shadow-sm ${currentPage === totalPages
+                          ? 'cursor-not-allowed bg-white text-slate-300 ring-1 ring-black/10'
+                          : 'bg-white text-slate-700 ring-1 ring-black/10 hover:-translate-y-0.5 hover:bg-slate-50 transition'
+                          }`}
                       >
                         ถัดไป
                       </button>
@@ -1606,8 +1615,8 @@ export default function WarrantyDashboard() {
         {isProfileModalOpen && (
           <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/30 px-4 py-4 sm:py-6">
             {/* Constrain modal height to viewport and allow internal vertical scrolling; hide horizontal overflow */}
-              <div className="w-full max-w-full sm:max-w-lg mx-auto rounded-3xl border border-sky-200 bg-white shadow-2xl max-h-[94vh] overflow-x-hidden overflow-y-auto box-border">
-                <div className="sticky top-0 z-30 flex items-center justify-between border-b border-sky-100 px-6 py-4 bg-white">
+            <div className="w-full max-w-full sm:max-w-lg mx-auto rounded-3xl border border-sky-200 bg-white shadow-2xl max-h-[94vh] overflow-x-hidden overflow-y-auto box-border">
+              <div className="sticky top-0 z-30 flex items-center justify-between border-b border-sky-100 px-6 py-4 bg-white">
                 <div className="flex items-center gap-3">
                   {profileAvatarSrc ? (
                     <img src={profileAvatarSrc} alt="Store profile" className="h-12 w-12 rounded-full object-cover" />
@@ -1651,61 +1660,61 @@ export default function WarrantyDashboard() {
                   </button>
                 </div>
 
-              {profileTab === 'info' ? (
-                <form id="profileForm" onSubmit={handleProfileSubmit} className="px-6 pb-6">
-                  <input ref={profileImageInputRef} accept="image/*" className="sr-only" onChange={handleProfileAvatarSelect} type="file" />
-                  {/* hidden combined fields for compatibility with signup-style submission */}
-                  <input
-                    type="hidden"
-                    name="address"
-                    value={JSON.stringify({
-                      street: addressParts.street,
-                      province: {
-                        id: addressParts.province,
-                        name: (provincesList.find((p) => String(p.code) === String(addressParts.province))?.name) || addressParts.province || '',
-                      },
-                      district: {
-                        id: addressParts.district,
-                        name: (districtOptions.find((d) => String(d.code) === String(addressParts.district))?.name) || addressParts.district || '',
-                      },
-                      subdistrict: {
-                        id: addressParts.subdistrict,
-                        name: (subdistrictOptions.find((s) => String(s.code) === String(addressParts.subdistrict))?.name) || addressParts.subdistrict || '',
-                        zipcode: addressParts.postcode || (subdistrictOptions.find((s) => String(s.code) === String(addressParts.subdistrict))?.zipcode || ''),
-                      },
-                      postcode: addressParts.postcode,
-                    })}
-                  />
-                  <input type="hidden" name="businessHours" value={JSON.stringify(businessSchedule)} />
-                  <div className="mb-4 flex items-center gap-4">
-                    {profileAvatarSrc ? (
-                      <img src={profileAvatarSrc} alt="Store profile" className="h-16 w-16 rounded-full object-cover" />
-                    ) : (
-                      <div className="grid h-16 w-16 place-items-center rounded-full bg-sky-200 text-3xl">🏪</div>
-                    )}
-                    <div>
-                      <button
-                        type="button"
-                        onClick={() => profileImageInputRef.current?.click()}
-                        className="rounded-full bg-sky-500 px-4 py-2 text-xs font-semibold text-white shadow hover:bg-sky-400"
-                      >
-                        อัปโหลดรูปใหม่
-                      </button>
-                      <div className="mt-1 text-xs text-gray-400">รองรับไฟล์ .jpg, .png ขนาดไม่เกิน 2 MB</div>
+                {profileTab === 'info' ? (
+                  <form id="profileForm" onSubmit={handleProfileSubmit} className="px-6 pb-6">
+                    <input ref={profileImageInputRef} accept="image/*" className="sr-only" onChange={handleProfileAvatarSelect} type="file" />
+                    {/* hidden combined fields for compatibility with signup-style submission */}
+                    <input
+                      type="hidden"
+                      name="address"
+                      value={JSON.stringify({
+                        street: addressParts.street,
+                        province: {
+                          id: addressParts.province,
+                          name: (provincesList.find((p) => String(p.code) === String(addressParts.province))?.name) || addressParts.province || '',
+                        },
+                        district: {
+                          id: addressParts.district,
+                          name: (districtOptions.find((d) => String(d.code) === String(addressParts.district))?.name) || addressParts.district || '',
+                        },
+                        subdistrict: {
+                          id: addressParts.subdistrict,
+                          name: (subdistrictOptions.find((s) => String(s.code) === String(addressParts.subdistrict))?.name) || addressParts.subdistrict || '',
+                          zipcode: addressParts.postcode || (subdistrictOptions.find((s) => String(s.code) === String(addressParts.subdistrict))?.zipcode || ''),
+                        },
+                        postcode: addressParts.postcode,
+                      })}
+                    />
+                    <input type="hidden" name="businessHours" value={JSON.stringify(businessSchedule)} />
+                    <div className="mb-4 flex items-center gap-4">
+                      {profileAvatarSrc ? (
+                        <img src={profileAvatarSrc} alt="Store profile" className="h-16 w-16 rounded-full object-cover" />
+                      ) : (
+                        <div className="grid h-16 w-16 place-items-center rounded-full bg-sky-200 text-3xl">🏪</div>
+                      )}
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => profileImageInputRef.current?.click()}
+                          className="rounded-full bg-sky-500 px-4 py-2 text-xs font-semibold text-white shadow hover:bg-sky-400"
+                        >
+                          อัปโหลดรูปใหม่
+                        </button>
+                        <div className="mt-1 text-xs text-gray-400">รองรับไฟล์ .jpg, .png ขนาดไม่เกิน 2 MB</div>
+                      </div>
                     </div>
-                  </div>
-                  {modalError && profileTab === 'info' && (
-                    <div className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600">{modalError}</div>
-                  )}
-                  <div className="grid gap-3 max-w-2xl mx-auto">
-                    {[
-                      ['storeName', 'ชื่อร้าน'],
-                      ['contactName', 'ชื่อผู้ติดต่อ'],
-                      ['email', 'อีเมล'],
-                      ['phone', 'เบอร์ติดต่อ'],
-                      ['address', 'ที่อยู่'],
-                      ['businessHours', 'เวลาทำการ'],
-                    ].map(([key, label]) => (
+                    {modalError && profileTab === 'info' && (
+                      <div className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600">{modalError}</div>
+                    )}
+                    <div className="grid gap-3 max-w-2xl mx-auto">
+                      {[
+                        ['storeName', 'ชื่อร้าน'],
+                        ['contactName', 'ชื่อผู้ติดต่อ'],
+                        ['email', 'อีเมล'],
+                        ['phone', 'เบอร์ติดต่อ'],
+                        ['address', 'ที่อยู่'],
+                        ['businessHours', 'เวลาทำการ'],
+                      ].map(([key, label]) => (
                         <label key={key} className="text-sm text-gray-600">
                           {label}
                           {key === 'address' ? (
@@ -1802,80 +1811,80 @@ export default function WarrantyDashboard() {
                             <div className="flex justify-center">
                               <div className="mt-2 rounded-lg border border-sky-100 bg-white p-2 mx-auto max-w-sm">
                                 <div className="grid grid-cols-1 gap-2">
-                                {[
-                                  ['mon', 'จ.'],
-                                  ['tue', 'อ.'],
-                                  ['wed', 'พ.'],
-                                  ['thu', 'พฤ.'],
-                                  ['fri', 'ศ.'],
-                                  ['sat', 'ส.'],
-                                  ['sun', 'อา.'],
-                                ].map(([d, lbl]) => (
-                                  <div key={d} className="flex flex-col sm:flex-row items-start sm:items-center gap-2 text-xs md:text-sm">
-                                    <div className="flex items-center gap-2">
-                                      <input
-                                        type="checkbox"
-                                        checked={!!businessSchedule[d]?.on}
-                                        onChange={() => setBusinessSchedule((s) => ({ ...s, [d]: { ...s[d], on: !s[d].on } }))}
-                                        className="h-4 w-4 rounded border-gray-300 text-blue-600"
-                                      />
-                                      <div className="w-8 text-xs text-gray-700">{lbl}</div>
+                                  {[
+                                    ['mon', 'จ.'],
+                                    ['tue', 'อ.'],
+                                    ['wed', 'พ.'],
+                                    ['thu', 'พฤ.'],
+                                    ['fri', 'ศ.'],
+                                    ['sat', 'ส.'],
+                                    ['sun', 'อา.'],
+                                  ].map(([d, lbl]) => (
+                                    <div key={d} className="flex flex-col sm:flex-row items-start sm:items-center gap-2 text-xs md:text-sm">
+                                      <div className="flex items-center gap-2">
+                                        <input
+                                          type="checkbox"
+                                          checked={!!businessSchedule[d]?.on}
+                                          onChange={() => setBusinessSchedule((s) => ({ ...s, [d]: { ...s[d], on: !s[d].on } }))}
+                                          className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                                        />
+                                        <div className="w-8 text-xs text-gray-700">{lbl}</div>
+                                      </div>
+                                      <div className="flex items-center gap-2 ml-0 sm:ml-2 flex-wrap min-w-0">
+                                        <input
+                                          type="time"
+                                          value={businessSchedule[d]?.start || '09:00'}
+                                          onChange={(e) => setBusinessSchedule((s) => ({ ...s, [d]: { ...s[d], start: e.target.value } }))}
+                                          className="h-8 w-16 sm:w-20 rounded border border-gray-200 px-2 text-xs min-w-0"
+                                          disabled={!businessSchedule[d]?.on}
+                                        />
+                                        <span className="text-xs text-gray-400">—</span>
+                                        <input
+                                          type="time"
+                                          value={businessSchedule[d]?.end || '18:00'}
+                                          onChange={(e) => setBusinessSchedule((s) => ({ ...s, [d]: { ...s[d], end: e.target.value } }))}
+                                          className="h-8 w-16 sm:w-20 rounded border border-gray-200 px-2 text-xs min-w-0"
+                                          disabled={!businessSchedule[d]?.on}
+                                        />
+                                      </div>
                                     </div>
-                                    <div className="flex items-center gap-2 ml-0 sm:ml-2 flex-wrap min-w-0">
-                                      <input
-                                        type="time"
-                                        value={businessSchedule[d]?.start || '09:00'}
-                                        onChange={(e) => setBusinessSchedule((s) => ({ ...s, [d]: { ...s[d], start: e.target.value } }))}
-                                        className="h-8 w-16 sm:w-20 rounded border border-gray-200 px-2 text-xs min-w-0"
-                                        disabled={!businessSchedule[d]?.on}
-                                      />
-                                      <span className="text-xs text-gray-400">—</span>
-                                      <input
-                                        type="time"
-                                        value={businessSchedule[d]?.end || '18:00'}
-                                        onChange={(e) => setBusinessSchedule((s) => ({ ...s, [d]: { ...s[d], end: e.target.value } }))}
-                                        className="h-8 w-16 sm:w-20 rounded border border-gray-200 px-2 text-xs min-w-0"
-                                        disabled={!businessSchedule[d]?.on}
-                                      />
-                                    </div>
-                                  </div>
-                                ))}
+                                  ))}
+                                </div>
+
                               </div>
-                             
                             </div>
-                          </div>
                           )}
                         </label>
-                    ))}
-                  </div>
-                  {/* button moved to sticky footer */}
-                </form>
-              ) : (
-                <form id="passwordForm" onSubmit={handlePasswordSubmit} className="px-6 pb-6">
-                  {modalError && profileTab === 'password' && (
-                    <div className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600">{modalError}</div>
-                  )}
-                  <div className="grid gap-3">
-                    {[
-                      ['currentPassword', 'รหัสผ่านเก่า'],
-                      ['newPassword', 'รหัสผ่านใหม่'],
-                      ['confirmPassword', 'ยืนยันรหัสผ่านใหม่'],
-                    ].map(([key, label]) => (
-                      <label key={key} className="text-sm text-gray-600">
-                        {label}
-                        <input
-                          required
-                          value={profilePasswords[key]}
-                          onChange={(e) => setProfilePasswords((prev) => ({ ...prev, [key]: e.target.value }))}
-                          className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
-                          type="password"
-                        />
-                      </label>
-                    ))}
-                  </div>
-                  {/* button moved to sticky footer */}
-                </form>
-              )}
+                      ))}
+                    </div>
+                    {/* button moved to sticky footer */}
+                  </form>
+                ) : (
+                  <form id="passwordForm" onSubmit={handlePasswordSubmit} className="px-6 pb-6">
+                    {modalError && profileTab === 'password' && (
+                      <div className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600">{modalError}</div>
+                    )}
+                    <div className="grid gap-3">
+                      {[
+                        ['currentPassword', 'รหัสผ่านเก่า'],
+                        ['newPassword', 'รหัสผ่านใหม่'],
+                        ['confirmPassword', 'ยืนยันรหัสผ่านใหม่'],
+                      ].map(([key, label]) => (
+                        <label key={key} className="text-sm text-gray-600">
+                          {label}
+                          <input
+                            required
+                            value={profilePasswords[key]}
+                            onChange={(e) => setProfilePasswords((prev) => ({ ...prev, [key]: e.target.value }))}
+                            className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                            type="password"
+                          />
+                        </label>
+                      ))}
+                    </div>
+                    {/* button moved to sticky footer */}
+                  </form>
+                )}
               </div>
 
               {/* Sticky footer always visible with submit button for the active tab */}
@@ -1947,7 +1956,7 @@ export default function WarrantyDashboard() {
                         {/* spacer on dark header */}
                       </label>
                       <label className="text-sm text-gray-600 block">
-                        อีเมลลูกค้า 
+                        อีเมลลูกค้า
                         <input
                           value={editHeaderEmail}
                           onChange={e => setEditHeaderEmail(e.target.value)}
@@ -2121,7 +2130,7 @@ export default function WarrantyDashboard() {
                           />
                         </label>
                         <label className="text-sm text-gray-600">
-                          วันหมดอายุ 
+                          วันหมดอายุ
                           <input
                             name="expiry_date"
                             value={editForm?.expiry_date ?? ''}
@@ -2138,17 +2147,48 @@ export default function WarrantyDashboard() {
                         </label>
                       </div>
 
-                      <label className="mt-3 text-sm text-gray-600">
-                        เงื่อนไขการรับประกัน
-                        <textarea
-                          name="warranty_terms"
-                          value={editForm?.warranty_terms ?? ''}
-                          onChange={e => setEditForm(f => ({ ...f, warranty_terms: e.target.value }))}
-                          className="mt-1 min-h-[96px] w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
-                          placeholder="กรอกเงื่อนไขการรับประกัน"
-                          required
-                        />
-                      </label>
+                      {/* ✅ เงื่อนไขการรับประกัน - แบบ Checkbox */}
+                      <div className="mt-3">
+                        <div className="text-sm text-gray-600 mb-2">เงื่อนไขการรับประกัน</div>
+                        <div className="rounded-2xl border border-sky-100 bg-sky-50/60 p-3 max-h-60 overflow-y-auto">
+                          {(() => {
+                            const conditionsData = getConditionsForStoreType(storeProfile.storeType)
+                            return (
+                              <>
+                                <div className="text-xs text-gray-500 mb-2">ประเภท: {conditionsData.label}</div>
+                                {conditionsData.conditions.map((cond, i) => (
+                                  <label key={i} className="flex items-start gap-2 py-1.5 border-b border-sky-100 last:border-0 cursor-pointer hover:bg-sky-100/50 rounded px-1">
+                                    <input
+                                      type="checkbox"
+                                      checked={(editForm?.selectedConditions || []).includes(cond)}
+                                      onChange={e => {
+                                        const selected = editForm?.selectedConditions || []
+                                        if (e.target.checked) {
+                                          setEditForm(f => ({ ...f, selectedConditions: [...selected, cond] }))
+                                        } else {
+                                          setEditForm(f => ({ ...f, selectedConditions: selected.filter(c => c !== cond) }))
+                                        }
+                                      }}
+                                      className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 shrink-0"
+                                    />
+                                    <span className="text-sm text-gray-700">{cond}</span>
+                                  </label>
+                                ))}
+                              </>
+                            )
+                          })()}
+                        </div>
+                        {/* ช่องเงื่อนไขเพิ่มเติม */}
+                        <label className="mt-2 block">
+                          <span className="text-sm text-gray-600">เงื่อนไขเพิ่มเติม (อื่นๆ)</span>
+                          <textarea
+                            value={editForm?.customCondition ?? ''}
+                            onChange={e => setEditForm(f => ({ ...f, customCondition: e.target.value }))}
+                            className="mt-1 min-h-[60px] w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                            placeholder="พิมพ์เงื่อนไขเพิ่มเติม (ถ้ามี)"
+                          />
+                        </label>
+                      </div>
 
                       <div className="mt-3 space-y-2">
                         <label className="text-sm text-gray-600">รูปภาพประกอบ</label>
@@ -2176,121 +2216,121 @@ export default function WarrantyDashboard() {
                           </div>
 
                           <label className="text-sm text-gray-600 block">
-                                อีเมลลูกค้า
-                                <input
-                                  value={it.customer_email}
-                                  onChange={e => patchItem(idx, { customer_email: e.target.value })}
-                                  readOnly={!!it.lockedEmail}
-                                  className={`mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none ${it.lockedEmail ? 'bg-slate-100' : 'bg-white'}`}
-                                  placeholder="กรอกอีเมลลูกค้า"
-                                  type="email"
-                                  required
-                                />
+                            อีเมลลูกค้า
+                            <input
+                              value={it.customer_email}
+                              onChange={e => patchItem(idx, { customer_email: e.target.value })}
+                              readOnly={!!it.lockedEmail}
+                              className={`mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none ${it.lockedEmail ? 'bg-slate-100' : 'bg-white'}`}
+                              placeholder="กรอกอีเมลลูกค้า"
+                              type="email"
+                              required
+                            />
                           </label>
 
                           {idx === 0 && (
                             <div className="mt-3">
-    <div className="text-sm text-gray-600">ที่อยู่ลูกค้า</div>
+                              <div className="text-sm text-gray-600">ที่อยู่ลูกค้า</div>
 
-    <div className="mt-1 rounded-2xl border border-sky-100 bg-white p-4">
-      <div className="text-xs text-gray-500">เลขที่ / ซอย / ถนน</div>
-      <textarea
-        value={customerAddressParts.street}
-        onChange={(e) => syncCustomerAddress((p) => ({ ...p, street: e.target.value }))}
-        className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
-        placeholder="เช่น 123/4 ซ.สุขุมวิท 11"
-        rows={2}
-      />
+                              <div className="mt-1 rounded-2xl border border-sky-100 bg-white p-4">
+                                <div className="text-xs text-gray-500">เลขที่ / ซอย / ถนน</div>
+                                <textarea
+                                  value={customerAddressParts.street}
+                                  onChange={(e) => syncCustomerAddress((p) => ({ ...p, street: e.target.value }))}
+                                  className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                                  placeholder="เช่น 123/4 ซ.สุขุมวิท 11"
+                                  rows={2}
+                                />
 
-      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
-        <div>
-          <div className="text-xs text-gray-500">จังหวัด</div>
-          <select
-            value={customerAddressParts.province}
-            onChange={async (e) => {
-              const code = e.target.value
-              syncCustomerAddress((p) => ({ ...p, province: code, district: '', subdistrict: '', postcode: '' }))
-              await loadCustomerDistrictsForProvince(code)
-              setCustomerSubdistrictOptions([])
-            }}
-            className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
-          >
-            <option value="">เลือกจังหวัด</option>
-            {provincesList.length > 0
-              ? provincesList.map((p) => (
-                  <option key={p.code} value={p.code}>
-                    {p.name}
-                  </option>
-                ))
-              : TH_PROVINCES.map((pv) => (
-                  <option key={pv} value={pv}>
-                    {pv}
-                  </option>
-                ))}
-          </select>
-        </div>
+                                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                                  <div>
+                                    <div className="text-xs text-gray-500">จังหวัด</div>
+                                    <select
+                                      value={customerAddressParts.province}
+                                      onChange={async (e) => {
+                                        const code = e.target.value
+                                        syncCustomerAddress((p) => ({ ...p, province: code, district: '', subdistrict: '', postcode: '' }))
+                                        await loadCustomerDistrictsForProvince(code)
+                                        setCustomerSubdistrictOptions([])
+                                      }}
+                                      className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                                    >
+                                      <option value="">เลือกจังหวัด</option>
+                                      {provincesList.length > 0
+                                        ? provincesList.map((p) => (
+                                          <option key={p.code} value={p.code}>
+                                            {p.name}
+                                          </option>
+                                        ))
+                                        : TH_PROVINCES.map((pv) => (
+                                          <option key={pv} value={pv}>
+                                            {pv}
+                                          </option>
+                                        ))}
+                                    </select>
+                                  </div>
 
-        <div>
-          <div className="text-xs text-gray-500">อำเภอ/เขต</div>
-          <select
-            value={customerAddressParts.district}
-            onChange={async (e) => {
-              const code = e.target.value
-              syncCustomerAddress((p) => ({ ...p, district: code, subdistrict: '', postcode: '' }))
-              await loadCustomerSubdistrictsForDistrict(code)
-            }}
-            disabled={!customerAddressParts.province}
-            className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none disabled:opacity-60"
-          >
-            <option value="">{customerAddressParts.province ? 'เลือกอำเภอ/เขต' : 'เลือกจังหวัดก่อน'}</option>
-            {customerDistrictOptions.map((d) => (
-              <option key={d.code} value={d.code}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-        </div>
+                                  <div>
+                                    <div className="text-xs text-gray-500">อำเภอ/เขต</div>
+                                    <select
+                                      value={customerAddressParts.district}
+                                      onChange={async (e) => {
+                                        const code = e.target.value
+                                        syncCustomerAddress((p) => ({ ...p, district: code, subdistrict: '', postcode: '' }))
+                                        await loadCustomerSubdistrictsForDistrict(code)
+                                      }}
+                                      disabled={!customerAddressParts.province}
+                                      className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none disabled:opacity-60"
+                                    >
+                                      <option value="">{customerAddressParts.province ? 'เลือกอำเภอ/เขต' : 'เลือกจังหวัดก่อน'}</option>
+                                      {customerDistrictOptions.map((d) => (
+                                        <option key={d.code} value={d.code}>
+                                          {d.name}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
 
-        <div>
-          <div className="text-xs text-gray-500">ตำบล/แขวง</div>
-          <select
-            value={customerAddressParts.subdistrict}
-            onChange={(e) => {
-              const code = e.target.value
-              const found = customerSubdistrictOptions.find((s) => String(s.code) === String(code))
-              syncCustomerAddress((p) => ({ ...p, subdistrict: code, postcode: found?.zipcode || '' }))
-            }}
-            disabled={!customerAddressParts.district}
-            className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none disabled:opacity-60"
-          >
-            <option value="">{customerAddressParts.district ? 'เลือกตำบล/แขวง' : 'เลือกอำเภอก่อน'}</option>
-            {customerSubdistrictOptions.map((s) => (
-              <option key={s.code} value={s.code}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+                                  <div>
+                                    <div className="text-xs text-gray-500">ตำบล/แขวง</div>
+                                    <select
+                                      value={customerAddressParts.subdistrict}
+                                      onChange={(e) => {
+                                        const code = e.target.value
+                                        const found = customerSubdistrictOptions.find((s) => String(s.code) === String(code))
+                                        syncCustomerAddress((p) => ({ ...p, subdistrict: code, postcode: found?.zipcode || '' }))
+                                      }}
+                                      disabled={!customerAddressParts.district}
+                                      className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none disabled:opacity-60"
+                                    >
+                                      <option value="">{customerAddressParts.district ? 'เลือกตำบล/แขวง' : 'เลือกอำเภอก่อน'}</option>
+                                      {customerSubdistrictOptions.map((s) => (
+                                        <option key={s.code} value={s.code}>
+                                          {s.name}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                </div>
 
-      <div className="mt-3 grid gap-2 sm:grid-cols-2">
-        <div>
-          <div className="text-xs text-gray-500">รหัสไปรษณีย์</div>
-          <input
-            value={customerAddressParts.postcode}
-            onChange={(e) => syncCustomerAddress((p) => ({ ...p, postcode: e.target.value }))}
-            className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
-            placeholder="เช่น 10110"
-            type="text"
-            inputMode="numeric"
-          />
-        </div>
-        <div className="flex items-end text-xs text-gray-400">
-          ตัวอย่าง: เลขที่/ซอย/ถนน, ตำบล, อำเภอ, จังหวัด, รหัสไปรษณีย์
-        </div>
-      </div>
-    </div>
-  </div>
+                                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                                  <div>
+                                    <div className="text-xs text-gray-500">รหัสไปรษณีย์</div>
+                                    <input
+                                      value={customerAddressParts.postcode}
+                                      onChange={(e) => syncCustomerAddress((p) => ({ ...p, postcode: e.target.value }))}
+                                      className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                                      placeholder="เช่น 10110"
+                                      type="text"
+                                      inputMode="numeric"
+                                    />
+                                  </div>
+                                  <div className="flex items-end text-xs text-gray-400">
+                                    ตัวอย่าง: เลขที่/ซอย/ถนน, ตำบล, อำเภอ, จังหวัด, รหัสไปรษณีย์
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
                           )}
 
                           <label className="mt-3 text-sm text-gray-600 block">
@@ -2319,7 +2359,7 @@ export default function WarrantyDashboard() {
 
                           <div className="mt-3 grid gap-3 md:grid-cols-2">
                             <label className="text-sm text-gray-600 block">
-                              ระยะเวลาการรับประกัน 
+                              ระยะเวลาการรับประกัน
                               <select
                                 value={it.duration_mode === 'preset' ? it.duration_months : 'other'}
                                 onChange={e => {
@@ -2332,7 +2372,7 @@ export default function WarrantyDashboard() {
                                 }}
                                 className="mt-1 w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                               >
-                                {[1,3,6, 12, 18, 24].map(month => (
+                                {[1, 3, 6, 12, 18, 24].map(month => (
                                   <option key={month} value={month}>{month} เดือน</option>
                                 ))}
                                 <option value="other">อื่นๆ (ระบุเอง)</option>
@@ -2340,7 +2380,7 @@ export default function WarrantyDashboard() {
                             </label>
 
                             <label className="text-sm text-gray-600 block">
-                              Serial No. 
+                              Serial No.
                               <input
                                 value={it.serial}
                                 // serial is generated for create-mode items and should not be edited by default
@@ -2405,7 +2445,7 @@ export default function WarrantyDashboard() {
                               />
                             </label>
                             <label className="text-sm text-gray-600 block">
-                              วันหมดอายุ 
+                              วันหมดอายุ
                               <input
                                 value={it.expiry_date}
                                 onChange={e => patchItem(idx, { expiry_date: e.target.value })}
@@ -2415,16 +2455,48 @@ export default function WarrantyDashboard() {
                             </label>
                           </div>
 
-                          <label className="mt-3 text-sm text-gray-600 block">
-                            เงื่อนไขการรับประกัน
-                            <textarea
-                              value={it.warranty_terms}
-                              onChange={e => patchItem(idx, { warranty_terms: e.target.value })}
-                              className="mt-1 min-h-[96px] w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
-                              placeholder="กรอกเงื่อนไขการรับประกัน"
-                              required
-                            />
-                          </label>
+                          {/* ✅ เงื่อนไขการรับประกัน - แบบ Checkbox */}
+                          <div className="mt-3">
+                            <div className="text-sm text-gray-600 mb-2">เงื่อนไขการรับประกัน</div>
+                            <div className="rounded-2xl border border-sky-100 bg-white p-3 max-h-60 overflow-y-auto">
+                              {(() => {
+                                const conditionsData = getConditionsForStoreType(storeProfile.storeType)
+                                return (
+                                  <>
+                                    <div className="text-xs text-gray-500 mb-2">ประเภท: {conditionsData.label}</div>
+                                    {conditionsData.conditions.map((cond, i) => (
+                                      <label key={i} className="flex items-start gap-2 py-1.5 border-b border-sky-100 last:border-0 cursor-pointer hover:bg-sky-100/50 rounded px-1">
+                                        <input
+                                          type="checkbox"
+                                          checked={(it.selectedConditions || []).includes(cond)}
+                                          onChange={e => {
+                                            const selected = it.selectedConditions || []
+                                            if (e.target.checked) {
+                                              patchItem(idx, { selectedConditions: [...selected, cond] })
+                                            } else {
+                                              patchItem(idx, { selectedConditions: selected.filter(c => c !== cond) })
+                                            }
+                                          }}
+                                          className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 shrink-0"
+                                        />
+                                        <span className="text-sm text-gray-700">{cond}</span>
+                                      </label>
+                                    ))}
+                                  </>
+                                )
+                              })()}
+                            </div>
+                            {/* ช่องเงื่อนไขเพิ่มเติม */}
+                            <label className="mt-2 block">
+                              <span className="text-sm text-gray-600">เงื่อนไขเพิ่มเติม (อื่นๆ)</span>
+                              <textarea
+                                value={it.customCondition || ''}
+                                onChange={e => patchItem(idx, { customCondition: e.target.value })}
+                                className="mt-1 min-h-[60px] w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                                placeholder="พิมพ์เงื่อนไขเพิ่มเติม (ถ้ามี)"
+                              />
+                            </label>
+                          </div>
 
                           {/* แนบรูปตอนสร้างเลย */}
                           <div className="mt-3">
