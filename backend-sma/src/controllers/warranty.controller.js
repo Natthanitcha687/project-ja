@@ -39,16 +39,16 @@ async function auditUpdateWarrantyHeaderBestEffort(req, beforeHeader, afterHeade
     const targetId = customerUserId
       ? String(customerUserId)
       : customerEmail
-      ? String(customerEmail)
-      : null;
+        ? String(customerEmail)
+        : null;
 
     const xf = req.headers["x-forwarded-for"];
     const ipFromXf =
       typeof xf === "string"
         ? xf.split(",")[0].trim()
         : Array.isArray(xf)
-        ? String(xf[0]).split(",")[0].trim()
-        : null;
+          ? String(xf[0]).split(",")[0].trim()
+          : null;
 
     const ip =
       ipFromXf ||
@@ -183,7 +183,7 @@ export async function downloadWarrantyPdf(req, res) {
       for (const p of paths) {
         try {
           if (p && fs.existsSync(p)) return p;
-        } catch {}
+        } catch { }
       }
       return null;
     }
@@ -307,25 +307,28 @@ export async function downloadWarrantyPdf(req, res) {
     const items =
       (header.items || []).length
         ? header.items.map((it) => ({
-            productName: it.productName || "-",
-            model: it.model || "-",
-            serialNumber: it.serial || "-",
-            serial: it.serial || "-", // เผื่อเรียกชื่อ field แบบอื่น
-            purchaseDate: it.purchaseDate || header.createdAt,
-            expiryDate: it.expiryDate || null,
-            coverageNote: it.coverageNote || null,
-          }))
+          productName: it.productName || "-",
+          model: it.model || "-",
+          serialNumber: it.serial || "-",
+          serial: it.serial || "-", // เผื่อเรียกชื่อ field แบบอื่น
+          purchaseDate: it.purchaseDate || header.createdAt,
+          expiryDate: it.expiryDate || null,
+          coverageNote: it.coverageNote || null,
+          // ✅ สำหรับ checkbox เงื่อนไข (ใช้ใน PDF template)
+          selectedConditions: Array.isArray(it.selectedConditions) ? it.selectedConditions : [],
+          customCondition: it.customCondition || null,
+        }))
         : [
-            {
-              productName: "-",
-              model: "-",
-              serialNumber: "-",
-              serial: "-",
-              purchaseDate: header.createdAt,
-              expiryDate: null,
-              coverageNote: null,
-            },
-          ];
+          {
+            productName: "-",
+            model: "-",
+            serialNumber: "-",
+            serial: "-",
+            purchaseDate: header.createdAt,
+            expiryDate: null,
+            coverageNote: null,
+          },
+        ];
 
     // ✅ ใช้เทมเพลตใหม่ (ข้อ 1) เพื่อให้หน้า PDF เหมือนรูปมากที่สุด
     for (const it of items) {

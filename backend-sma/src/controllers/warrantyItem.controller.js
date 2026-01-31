@@ -108,22 +108,22 @@ async function auditWarrantyItemBestEffort(req, action, itemWithWarranty, meta =
     const targetType = customerUserId
       ? 'User'
       : customerEmail
-      ? 'CustomerEmail'
-      : null;
+        ? 'CustomerEmail'
+        : null;
 
     const targetId = customerUserId
       ? String(customerUserId)
       : customerEmail
-      ? String(customerEmail)
-      : null;
+        ? String(customerEmail)
+        : null;
 
     const xf = req.headers['x-forwarded-for'];
     const ipFromXf =
       typeof xf === 'string'
         ? xf.split(',')[0].trim()
         : Array.isArray(xf)
-        ? String(xf[0]).split(',')[0].trim()
-        : null;
+          ? String(xf[0]).split(',')[0].trim()
+          : null;
 
     const ip =
       ipFromXf ||
@@ -295,15 +295,15 @@ export async function updateItem(req, res) {
       b.model !== undefined
         ? (String(b.model).trim() || null)
         : (b.productModel !== undefined
-            ? (String(b.productModel).trim() || null)
-            : (item.model ?? null));
+          ? (String(b.productModel).trim() || null)
+          : (item.model ?? null));
 
     const serial =
       b.serial !== undefined
         ? (String(b.serial).trim() || null)
         : (b.serialNo !== undefined
-            ? (String(b.serialNo).trim() || null)
-            : item.serial);
+          ? (String(b.serialNo).trim() || null)
+          : item.serial);
 
     const purchaseDate =
       toDateOnly(b.purchaseDate) ??
@@ -319,8 +319,8 @@ export async function updateItem(req, res) {
       b.durationMonths !== undefined
         ? Number(b.durationMonths)
         : (b.duration_months !== undefined
-            ? Number(b.duration_months)
-            : item.durationMonths);
+          ? Number(b.duration_months)
+          : item.durationMonths);
     if (Number.isNaN(durationMonths)) durationMonths = item.durationMonths ?? null;
 
     // ถ้าไม่ได้ส่ง expiry แต่มี purchase + durationMonths → คำนวณให้
@@ -337,6 +337,25 @@ export async function updateItem(req, res) {
         : (b.terms !== undefined ? String(b.terms).trim() : item.coverageNote);
 
     const note = b.note !== undefined ? String(b.note).trim() : item.note;
+
+    // ✅ รองรับ checkbox เงื่อนไข
+    let selectedConditions = item.selectedConditions ?? null;
+    if (b.selectedConditions !== undefined) {
+      // Frontend ส่งมาเป็น JSON string (เพราะใช้ FormData)
+      if (typeof b.selectedConditions === 'string') {
+        try {
+          selectedConditions = JSON.parse(b.selectedConditions);
+        } catch {
+          selectedConditions = [];
+        }
+      } else if (Array.isArray(b.selectedConditions)) {
+        selectedConditions = b.selectedConditions;
+      }
+    }
+    const customCondition =
+      b.customCondition !== undefined
+        ? String(b.customCondition).trim() || null
+        : (item.customCondition ?? null);
 
     // รูปภาพแนบเพิ่ม (ต่อท้าย images เดิม หากมีไฟล์)
     const existedImages = Array.isArray(item.images) ? item.images : [];
@@ -358,6 +377,9 @@ export async function updateItem(req, res) {
       durationDays,
       coverageNote,
       note,
+      // ✅ บันทึก checkbox เงื่อนไข
+      selectedConditions: Array.isArray(selectedConditions) ? selectedConditions : null,
+      customCondition,
     };
     if (newImages.length) data.images = [...existedImages, ...newImages];
 
@@ -419,19 +441,21 @@ export async function updateItem(req, res) {
         const code = item.warranty?.code || ''
         const title = `ใบรับประกัน ${code} มีการอัปเดต`
         const body = `ร้านค้าได้อัปเดตข้อมูลรายการ "${updated.productName || '-'}" (Serial: ${updated.serial || '-'})`
-        await createAndPublish({ prisma, attrs: {
-          userId: item.warranty.customerUserId,
-          title,
-          body,
-          data: {
-            type: 'warranty_updated',
-            warrantyId: updated.warrantyId,
-            warrantyItemId: updated.id,
-            oldStatus: typeof beforeStatus !== 'undefined' ? beforeStatus : null,
-            newStatus: typeof afterStatus !== 'undefined' ? afterStatus : null,
-          },
-          sendEmail: true
-        } })
+        await createAndPublish({
+          prisma, attrs: {
+            userId: item.warranty.customerUserId,
+            title,
+            body,
+            data: {
+              type: 'warranty_updated',
+              warrantyId: updated.warrantyId,
+              warrantyItemId: updated.id,
+              oldStatus: typeof beforeStatus !== 'undefined' ? beforeStatus : null,
+              newStatus: typeof afterStatus !== 'undefined' ? afterStatus : null,
+            },
+            sendEmail: true
+          }
+        })
       }
     } catch (e) {
       console.warn('notify customer warranty_updated failed', e?.message || e)
