@@ -295,6 +295,12 @@ model Complaint {
 
   images    String[]        @default([]) // ✅ เพิ่ม: เก็บ path รูปแนบหลายรูป
 
+  // ✅ เพิ่ม: อ้างอิงใบรับประกัน (สำหรับหมวด "ปัญหาใบรับประกัน")
+  warrantyId         String?   // ID ของใบรับประกัน
+  warrantyItemId     String?   // ID ของสินค้าใน item
+  warrantyCode       String?   // รหัสใบประกัน (เพื่อแสดงผล)
+  warrantyItemSerial String?   // Serial ของสินค้า (เพื่อแสดงผล)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

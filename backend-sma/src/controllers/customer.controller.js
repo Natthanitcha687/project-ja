@@ -1,8 +1,8 @@
-// backend-sma/src/controllers/customer.controller.js
 import bcrypt from 'bcryptjs'
 import { prisma } from '../db/prisma.js'
 import * as warrantyCtrl from './warranty.controller.js'
 import { createAndPublish as createNotification } from '../routes/notifications.routes.js'
+import { verifyRecaptcha } from "../utils/recaptcha.js";
 
 /* =========================
  * Utilities
@@ -216,17 +216,17 @@ export async function getMyWarranties(req, res, next) {
 
     const where = q
       ? {
-          AND: [
-            customerCond,
-            {
-              OR: [
-                { code: { contains: q, mode: 'insensitive' } },
-                { items: { some: { productName: { contains: q, mode: 'insensitive' } } } },
-                { store: { storeProfile: { storeName: { contains: q, mode: 'insensitive' } } } },
-              ],
-            },
-          ],
-        }
+        AND: [
+          customerCond,
+          {
+            OR: [
+              { code: { contains: q, mode: 'insensitive' } },
+              { items: { some: { productName: { contains: q, mode: 'insensitive' } } } },
+              { store: { storeProfile: { storeName: { contains: q, mode: 'insensitive' } } } },
+            ],
+          },
+        ],
+      }
       : customerCond
 
     const list = await prisma.warranty.findMany({
@@ -348,19 +348,60 @@ export async function createMyComplaint(req, res, next) {
       return res.status(404).json({ message: 'ไม่พบบัญชีลูกค้า' })
     }
 
-    const body = req.body ?? {}
+    const body = req.body || {}
     const category = trimOrNull(body.category)
     const subject = trimOrNull(body.subject)
     const message = trimOrNull(body.message)
+    const captchaToken = body.captchaToken;
 
     if (!subject) return res.status(400).json({ message: 'กรุณากรอกหัวข้อ (subject)' })
     if (!message) return res.status(400).json({ message: 'กรุณากรอกรายละเอียด (message)' })
+
+    // ✅ Verify CAPTCHA
+    const isHuman = await verifyRecaptcha(captchaToken);
+    if (!isHuman) {
+      return res.status(400).json({ message: "กรุณายืนยันตัวตน (CAPTCHA Failed)" });
+    }
 
     if (subject.length > 200) {
       return res.status(400).json({ message: 'subject ยาวเกินไป (สูงสุด 200 ตัวอักษร)' })
     }
     if (message.length > 5000) {
       return res.status(400).json({ message: 'message ยาวเกินไป (สูงสุด 5000 ตัวอักษร)' })
+    }
+
+    // ✅ เพิ่ม: รับ warranty fields (สำหรับหมวด "ปัญหาใบรับประกัน")
+    const warrantyId = trimOrNull(body.warrantyId)
+    const warrantyItemId = trimOrNull(body.warrantyItemId)
+    let warrantyCode = null
+    let warrantyItemSerial = null
+
+    // Validate warranty ownership ถ้ามีการเลือก
+    if (warrantyId) {
+      const warranty = await prisma.warranty.findUnique({
+        where: { id: warrantyId },
+        include: { items: true },
+      })
+      if (!warranty) {
+        return res.status(400).json({ message: 'ไม่พบใบรับประกันที่เลือก' })
+      }
+      // ตรวจสอบว่าเป็นของ user จริง
+      const isOwner =
+        warranty.customerUserId === me.id ||
+        (warranty.customerEmail && warranty.customerEmail === me.email)
+      if (!isOwner) {
+        return res.status(403).json({ message: 'ใบรับประกันนี้ไม่ใช่ของคุณ' })
+      }
+      warrantyCode = warranty.code || null
+
+      // Validate item ถ้ามีการเลือก
+      if (warrantyItemId) {
+        const item = warranty.items?.find((it) => it.id === warrantyItemId)
+        if (!item) {
+          return res.status(400).json({ message: 'ไม่พบสินค้าในใบรับประกัน' })
+        }
+        warrantyItemSerial = item.serial || item.productName || null
+      }
     }
 
     // ✅ เพิ่ม: รับไฟล์แนบจาก multer (field: images)
@@ -387,13 +428,19 @@ export async function createMyComplaint(req, res, next) {
           subject,
           message,
           images: imagePaths, // ✅ เพิ่ม
+          // ✅ เพิ่ม: warranty reference
+          warrantyId,
+          warrantyItemId,
+          warrantyCode,
+          warrantyItemSerial,
         },
       })
     } catch (err) {
-      // Fallback: ถ้า prisma client ยังไม่ได้ generate/migrate field images
+      // Fallback: ถ้า prisma client ยังไม่ได้ generate/migrate field images หรือ warranty fields
       const msg = String(err?.message || '')
       if (
         msg.includes('images') ||
+        msg.includes('warranty') ||
         msg.includes('Unknown argument') ||
         msg.includes('Invalid `prisma.complaint.create()` invocation')
       ) {

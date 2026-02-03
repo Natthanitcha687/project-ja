@@ -2,6 +2,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, API_URL, getToken } from "../lib/api";
 import { useAuth } from "../store/auth";
+import ReCAPTCHA from "react-google-recaptcha";
+
+const TEST_SITE_KEY = "6LfOUV8sAAAAAC1x_toJ4Fj-9Z8AQU1QaP_k1zTO";
+//const TEST_SITE_KEY = "6LfBBV8sAAAAAKDz6Ke5jy76-YfOQ7UbCfcqg2WC"; // Production Key
 // Header is provided by the shared DashboardLayout for /dashboard routes
 import StoreTabs from "../components/StoreTabs";
 
@@ -40,7 +44,7 @@ function StatusPill({ status }) {
       cls: "bg-slate-100 text-slate-700 ring-1 ring-slate-200",
     };
   return (
-    <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${meta.cls}`}>
+    <span className={`inline - flex items - center rounded - full px - 3 py - 1 text - xs font - semibold ${meta.cls} `}>
       {meta.label}
     </span>
   );
@@ -62,6 +66,42 @@ export default function StoreComplaints() {
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [attachments, setAttachments] = useState([]);
+
+  // ✅ เพิ่ม: warranty dropdown สำหรับหมวด "ปัญหาใบรับประกัน"
+  const [warranties, setWarranties] = useState([]);
+  const [warrantiesLoading, setWarrantiesLoading] = useState(false);
+  const [selectedWarrantyId, setSelectedWarrantyId] = useState("");
+  const [selectedItemId, setSelectedItemId] = useState("");
+
+  // ✅ เพิ่ม: reCAPTCHA state
+  const [captchaToken, setCaptchaToken] = useState(null);
+  const captchaRef = useRef(null);
+
+  // ✅ เพิ่ม: fetch warranties เมื่อเลือก "ปัญหาใบรับประกัน"
+  useEffect(() => {
+    if (category === "ปัญหาใบรับประกัน" && storeIdResolved) {
+      setWarrantiesLoading(true);
+      api.get(`/store/${storeIdResolved}/dashboard`)
+        .then((res) => {
+          // sendSuccess wraps data in { data: ... }
+          const list = res.data?.data?.warranties || [];
+          setWarranties(list);
+        })
+        .catch((e) => {
+          console.warn("fetch warranties failed", e);
+          setWarranties([]);
+        })
+        .finally(() => setWarrantiesLoading(false));
+    } else {
+      // reset selections
+      setSelectedWarrantyId("");
+      setSelectedItemId("");
+    }
+  }, [category, storeIdResolved]);
+
+  // ✅ เพิ่ม: หา items ของ warranty ที่เลือก
+  const selectedWarranty = warranties.find((w) => w.id === selectedWarrantyId);
+  const warrantyItems = selectedWarranty?.items || [];
 
   // ===== list / ui =====
   const [items, setItems] = useState([]);
@@ -150,6 +190,13 @@ export default function StoreComplaints() {
     if (s.length > 200) return setErr("หัวข้อยาวเกินไป (สูงสุด 200 ตัวอักษร)");
     if (m.length > 5000) return setErr("รายละเอียด ยาวเกินไป (สูงสุด 5000 ตัวอักษร)");
 
+
+    // ✅ Check CAPTCHA
+    if (!captchaToken) {
+      setErr("กรุณายืนยันตัวตน (I'm not a robot)");
+      return;
+    }
+
     setSubmitting(true);
     try {
       if (attachments && attachments.length > 0) {
@@ -157,6 +204,12 @@ export default function StoreComplaints() {
         form.append("category", (category || "").trim() || "");
         form.append("subject", s);
         form.append("message", m);
+        // ✅ เพิ่ม warranty fields
+        if (selectedWarrantyId) form.append("warrantyId", selectedWarrantyId);
+        if (selectedItemId) form.append("warrantyItemId", selectedItemId);
+        // ✅ เพิ่ม captchaToken
+        form.append("captchaToken", captchaToken);
+
         attachments.forEach((f) => form.append("images", f));
 
         await api.post(`/store/${storeIdResolved}/complaints`, form, {
@@ -167,6 +220,11 @@ export default function StoreComplaints() {
           category: (category || "").trim() || null,
           subject: s,
           message: m,
+          // ✅ เพิ่ม warranty fields
+          warrantyId: selectedWarrantyId || null,
+          warrantyItemId: selectedItemId || null,
+          // ✅ เพิ่ม captchaToken
+          captchaToken,
         });
       }
 
@@ -174,6 +232,11 @@ export default function StoreComplaints() {
       setSubject("");
       setMessage("");
       setAttachments([]);
+      // ✅ รีเซ็ต warranty selections & captcha
+      setSelectedWarrantyId("");
+      setSelectedItemId("");
+      setCaptchaToken(null);
+      captchaRef.current?.reset();
 
       await fetchComplaints();
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -283,6 +346,63 @@ export default function StoreComplaints() {
                 </select>
               </div>
 
+              {/* ✅ เพิ่ม: Dropdown เลือกใบรับประกัน (แสดงเมื่อเลือก "ปัญหาใบรับประกัน") */}
+              {category === "ปัญหาใบรับประกัน" && (
+                <>
+                  <div className="md:col-span-1">
+                    <label className="mb-1 block text-sm font-medium text-slate-700">
+                      เลือกใบรับประกัน
+                    </label>
+                    {warrantiesLoading ? (
+                      <div className="rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-3 text-sm text-slate-500">
+                        กำลังโหลด...
+                      </div>
+                    ) : warranties.length === 0 ? (
+                      <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                        ยังไม่มีใบรับประกัน
+                      </div>
+                    ) : (
+                      <select
+                        value={selectedWarrantyId}
+                        onChange={(e) => {
+                          setSelectedWarrantyId(e.target.value);
+                          setSelectedItemId(""); // reset item selection
+                        }}
+                        className="w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-sky-200"
+                      >
+                        <option value="">-- เลือกใบรับประกัน --</option>
+                        {warranties.map((w) => (
+                          <option key={w.id} value={w.id}>
+                            {w.code || w.id} - {w.items?.[0]?.productName || "ไม่มีชื่อสินค้า"}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+
+                  {/* Dropdown เลือก Serial/Product */}
+                  {selectedWarrantyId && warrantyItems.length > 0 && (
+                    <div className="md:col-span-1">
+                      <label className="mb-1 block text-sm font-medium text-slate-700">
+                        เลือกสินค้า (Serial)
+                      </label>
+                      <select
+                        value={selectedItemId}
+                        onChange={(e) => setSelectedItemId(e.target.value)}
+                        className="w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-sky-200"
+                      >
+                        <option value="">-- เลือกสินค้า --</option>
+                        {warrantyItems.map((it) => (
+                          <option key={it.id} value={it.id}>
+                            {it.serial || "-"} - {it.productName || "ไม่มีชื่อ"}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </>
+              )}
+
               <div className="md:col-span-1">
                 <label className="mb-1 block text-sm font-medium text-slate-700">
                   หัวข้อ (subject) <span className="text-rose-500">*</span>
@@ -336,6 +456,16 @@ export default function StoreComplaints() {
                   </div>
                 )}
                 <div className="mt-1 text-xs text-slate-500">รองรับรูปภาพเท่านั้น (เลือกได้หลายรูป)</div>
+              </div>
+
+
+              {/* ✅ ReCAPTCHA Widget */}
+              <div className="md:col-span-2 mt-2">
+                <ReCAPTCHA
+                  ref={captchaRef}
+                  sitekey={TEST_SITE_KEY}
+                  onChange={(token) => setCaptchaToken(token)}
+                />
               </div>
 
               <div className="md:col-span-2 flex flex-wrap items-center justify-between gap-3 pt-2">
