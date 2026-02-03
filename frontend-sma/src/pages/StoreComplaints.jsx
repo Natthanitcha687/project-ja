@@ -3,8 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, API_URL, getToken } from "../lib/api";
 import { useAuth } from "../store/auth";
 import ReCAPTCHA from "react-google-recaptcha";
-const SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6LebWF8sAAAAAXjv7QYDcmx7yXUQjOD38Pd8-70";
-//const TEST_SITE_KEY = "6LebWF8sAAAAAXjv7QYDcmx7yXUQjOD38Pd8-70";
+
+const TEST_SITE_KEY = "6LebWF8sAAAAAXjv7QYDcmx7yXUQjOD38Pd8-70";
 //const TEST_SITE_KEY = "6LfOUV8sAAAAAC1x_toJ4Fj-9Z8AQU1QaP_k1zTO";
 //const TEST_SITE_KEY = "6LfBBV8sAAAAAKDz6Ke5jy76-YfOQ7UbCfcqg2WC"; // Production Key
 // Header is provided by the shared DashboardLayout for /dashboard routes
