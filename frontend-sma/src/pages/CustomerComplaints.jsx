@@ -6,7 +6,9 @@ import { useAuth } from "../store/auth";
 import ReCAPTCHA from "react-google-recaptcha";
 
 //const TEST_SITE_KEY = "6LfBBV8sAAAAAKDz6Ke5jy76-YfOQ7UbCfcqg2WC"; // Production Key
-const TEST_SITE_KEY = "6LfOUV8sAAAAAC1x_toJ4Fj-9Z8AQU1QaP_k1zTO";
+//const TEST_SITE_KEY = "6LfOUV8sAAAAAC1x_toJ4Fj-9Z8AQU1QaP_k1zTO";
+const TEST_SITE_KEY = "6LebWF8sAAAAAXjv7QYDcmx7yXUQjOD38Pd8-70";
+
 const CATEGORY_OPTIONS = [
   "การใช้งานระบบ",
   "ปัญหาใบรับประกัน",
