@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "../db/prisma.js";
 import { createAndPublish as createNotification } from "../routes/notifications.routes.js";
 import { sendError, sendSuccess } from "../utils/http.js";
+import { verifyRecaptcha } from "../utils/recaptcha.js";
 
 const DEFAULT_NOTIFY_DAYS = 14;
 
@@ -660,6 +661,44 @@ export async function createStoreComplaint(req, res) {
     const category = trimOrNull(body.category);
     const subject = trimOrNull(body.subject);
     const message = trimOrNull(body.message);
+    const captchaToken = body.captchaToken;
+
+    // ✅ Verify CAPTCHA
+    const isHuman = await verifyRecaptcha(captchaToken);
+    if (!isHuman) {
+      return sendError(res, 400, "กรุณายืนยันตัวตน (CAPTCHA Failed)");
+    }
+
+    // ✅ เพิ่ม: รับ warranty fields
+    const warrantyId = trimOrNull(body.warrantyId);
+    const warrantyItemId = trimOrNull(body.warrantyItemId);
+    let warrantyCode = null;
+    let warrantyItemSerial = null;
+
+    // Validate warranty ownership ถ้ามีการเลือก
+    if (warrantyId) {
+      const warranty = await prisma.warranty.findUnique({
+        where: { id: warrantyId },
+        include: { items: true },
+      });
+      if (!warranty) {
+        return sendError(res, 400, "ไม่พบใบรับประกันที่เลือก");
+      }
+      // ตรวจสอบว่าเป็นของ store นี้จริงหรือไม่
+      if (warranty.storeId !== Number(storeId)) {
+        return sendError(res, 403, "ใบรับประกันนี้ไม่ใช่ของร้านค้านี้");
+      }
+      warrantyCode = warranty.code || null;
+
+      // Validate item ถ้ามีการเลือก
+      if (warrantyItemId) {
+        const item = warranty.items?.find((it) => it.id === warrantyItemId);
+        if (!item) {
+          return sendError(res, 400, "ไม่พบสินค้าในใบรับประกัน");
+        }
+        warrantyItemSerial = item.serial || item.productName || null;
+      }
+    }
 
     if (!subject) return sendError(res, 400, "กรุณากรอกหัวข้อ (subject)");
     if (!message) return sendError(res, 400, "กรุณากรอกรายละเอียด (message)");
@@ -695,13 +734,19 @@ export async function createStoreComplaint(req, res) {
           subject,
           message,
           images: imagePaths,
+          // ✅ เพิ่ม: warranty reference
+          warrantyId,
+          warrantyItemId,
+          warrantyCode,
+          warrantyItemSerial,
         },
       });
     } catch (err) {
-      // Fallback: ถ้า prisma client ยังไม่ได้ generate/migrate field images
+      // Fallback: ถ้า prisma client ยังไม่ได้ generate/migrate field images หรือ warranty
       const msg = String(err?.message || "");
       if (
         msg.includes("images") ||
+        msg.includes("warranty") ||
         msg.includes("Unknown argument") ||
         msg.includes("Invalid `prisma.complaint.create()` invocation")
       ) {
