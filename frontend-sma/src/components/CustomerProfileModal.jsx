@@ -159,8 +159,8 @@ export default function CustomerProfileModal({ open, onClose, initialTab = 'info
           <div className="flex items-center gap-3">
             <div className="grid h-12 w-12 place-items-center rounded-full bg-sky-200 text-2xl">👤</div>
             <div>
-              <div className="text-base font-semibold text-gray-900">แก้ไขข้อมูลโปรไฟล์</div>
-              <div className="text-xs text-sky-600">ข้อมูลจะใช้แสดงในหน้าโปรไฟล์ลูกค้า</div>
+              <div className="text-base font-semibold text-gray-900">แก้ไขข้อมูลส่วนตัว</div>
+              <div className="text-xs text-sky-600">ข้อมูลจะใช้แสดงในใบรับประกัน</div>
             </div>
           </div>
           <button onClick={onClose} className="text-2xl text-gray-400 hover:text-gray-600" aria-label="close">
@@ -204,7 +204,7 @@ export default function CustomerProfileModal({ open, onClose, initialTab = 'info
               </div>
 
               <div>
-                <label className="mb-1 block text-sm text-gray-600">อีเมล (อ่านอย่างเดียว)</label>
+                <label className="mb-1 block text-sm text-gray-600">อีเมล </label>
                 <input className="mt-1 w-full rounded-2xl border border-slate-300 px-4 py-2 text-sm text-gray-500 bg-slate-200 cursor-not-allowed"
                   value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@example.com" disabled />
 
