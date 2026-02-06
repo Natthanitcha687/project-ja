@@ -22,9 +22,9 @@ export default function CustomerProfileModal({ open, onClose, initialTab = 'info
 
   // ---- ฟอร์ม ข้อมูลส่วนตัว ----
   const [firstName, setFirstName] = useState("");
-  const [lastName,  setLastName]  = useState("");
-  const [email,     setEmail]     = useState(""); // read-only (backend ไม่รองรับแก้)
-  const [phone,     setPhone]     = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState(""); // read-only (backend ไม่รองรับแก้)
+  const [phone, setPhone] = useState("");
   const [isConsent, setIsConsent] = useState(false);
   const profileImageInputRef = useRef(null)
   const [profileImage, setProfileImage] = useState({ file: null, preview: '' })
@@ -32,15 +32,15 @@ export default function CustomerProfileModal({ open, onClose, initialTab = 'info
   // ---- ฟอร์ม เปลี่ยนรหัสผ่าน ----
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [confirmNew,  setConfirmNew]  = useState("");
+  const [confirmNew, setConfirmNew] = useState("");
 
   const canSaveInfo = useMemo(() => {
-    // มีค่าใดค่าหนึ่งเปลี่ยนก็ให้กดได้
+    // ต้องกดยืนยัน (ติ๊ก checkbox) จึงจะบันทึกได้
     return (
-      (firstName?.trim() !== "") ||
-      (lastName?.trim()  !== "") ||
-      (phone?.trim()     !== "") ||
-      typeof isConsent === "boolean"
+      isConsent === true &&
+      ((firstName?.trim() !== "") ||
+        (lastName?.trim() !== "") ||
+        (phone?.trim() !== ""))
     );
   }, [firstName, lastName, phone, isConsent]);
 
@@ -90,8 +90,8 @@ export default function CustomerProfileModal({ open, onClose, initialTab = 'info
       // If avatar selected, send avatarUrl as dataURL; backend may accept it
       const payload = {
         firstName: firstName?.trim(),
-        lastName : lastName?.trim(),
-        phone    : phone?.trim(),
+        lastName: lastName?.trim(),
+        phone: phone?.trim(),
         isConsent: !!isConsent,
       }
       if (profileImage.preview) payload.avatarUrl = profileImage.preview
@@ -152,8 +152,8 @@ export default function CustomerProfileModal({ open, onClose, initialTab = 'info
           <div className="flex items-center gap-3">
             <div className="grid h-12 w-12 place-items-center rounded-full bg-sky-200 text-2xl">👤</div>
             <div>
-              <div className="text-base font-semibold text-gray-900">แก้ไขข้อมูลโปรไฟล์</div>
-              <div className="text-xs text-sky-600">ข้อมูลจะใช้แสดงในหน้าโปรไฟล์ลูกค้า</div>
+              <div className="text-base font-semibold text-gray-900">แก้ไขข้อมูลส่วนตัว</div>
+              <div className="text-xs text-sky-600">ข้อมูลจะใช้แสดงในใบรับประกัน</div>
             </div>
           </div>
           <button onClick={onClose} className="text-2xl text-gray-400 hover:text-gray-600" aria-label="close">
@@ -183,60 +183,44 @@ export default function CustomerProfileModal({ open, onClose, initialTab = 'info
         <div className="px-6 py-5 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 220px)' }}>
           {tab === "info" && (
             <div className="space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="h-20 w-20 shrink-0 overflow-hidden rounded-full bg-sky-100">
-                  {profileImage.preview ? (
-                    <img src={profileImage.preview} alt="avatar" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-2xl">👤</div>
-                  )}
-                </div>
-                <div className="flex flex-col gap-2">
-                  <input ref={profileImageInputRef} type="file" accept="image/*" className="hidden" onChange={handleProfileAvatarSelect} />
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => profileImageInputRef.current?.click()} className="rounded-md border border-sky-100 bg-sky-50 px-3 py-1 text-sm text-sky-700">อัปโหลดรูปใหม่</button>
-                    {profileImage.preview && (
-                      <button type="button" onClick={() => setProfileImage({ file: null, preview: '' })} className="rounded-md px-3 py-1 text-sm text-rose-600">ลบรูป</button>
-                    )}
-                  </div>
-                  <div className="text-xs text-slate-400">ไฟล์ภาพที่รองรับ: JPG, PNG (ขนาดไม่เกิน 2MB)</div>
-                </div>
-              </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-sm text-gray-600">ชื่อ</label>
                   <input className="mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none bg-sky-50/60"
-                         value={firstName} onChange={(e)=>setFirstName(e.target.value)} placeholder="ชื่อ" />
+                    value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="ชื่อ" />
                 </div>
                 <div>
                   <label className="mb-1 block text-sm text-gray-600">นามสกุล</label>
                   <input className="mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none bg-sky-50/60"
-                         value={lastName} onChange={(e)=>setLastName(e.target.value)} placeholder="นามสกุล" />
+                    value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="นามสกุล" />
                 </div>
               </div>
 
               <div>
-                <label className="mb-1 block text-sm text-gray-600">อีเมล (อ่านอย่างเดียว)</label>
-                <input className="mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-500 bg-slate-100 cursor-not-allowed"
-                       value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="email@example.com" disabled />
-                
+                <label className="mb-1 block text-sm text-gray-600">อีเมล </label>
+                <input className="mt-1 w-full rounded-2xl border border-slate-300 px-4 py-2 text-sm text-gray-500 bg-slate-200 cursor-not-allowed"
+                  value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@example.com" disabled />
+
               </div>
 
               <div>
                 <label className="mb-1 block text-sm text-gray-600">เบอร์โทรศัพท์</label>
                 <input className="mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none bg-sky-50/60"
-                       value={phone} onChange={(e)=>setPhone(e.target.value)} placeholder="08xxxxxxxx" />
+                  value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="08xxxxxxxx" />
               </div>
 
               <label className="flex items-center gap-2 text-sm text-slate-700">
                 <input
                   type="checkbox"
                   checked={!!isConsent}
-                  onChange={(e)=>setIsConsent(e.target.checked)}
+                  onChange={(e) => setIsConsent(e.target.checked)}
                   className="h-4 w-4 rounded border-gray-300 text-blue-600"
                 />
-                ยินยอมรับข่าวสาร/การติดต่อ (แก้ไขได้)
+                <span>ยืนยันข้อมูลถูกต้อง <span className="text-rose-500">*</span></span>
               </label>
+              {!isConsent && (
+                <p className="text-xs text-rose-500 mt-1">กรุณาติ๊กยืนยันเพื่อดำเนินการต่อ</p>
+              )}
             </div>
           )}
 
@@ -245,17 +229,17 @@ export default function CustomerProfileModal({ open, onClose, initialTab = 'info
               <div>
                 <label className="mb-1 block text-sm text-gray-600">รหัสผ่านเดิม</label>
                 <input type="password" className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2"
-                       value={oldPassword} onChange={(e)=>setOldPassword(e.target.value)} placeholder="••••••••" />
+                  value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} placeholder="••••••••" />
               </div>
               <div>
                 <label className="mb-1 block text-sm text-gray-600">รหัสผ่านใหม่ (อย่างน้อย 8 ตัวอักษร)</label>
                 <input type="password" className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2"
-                       value={newPassword} onChange={(e)=>setNewPassword(e.target.value)} placeholder="••••••••" />
+                  value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" />
               </div>
               <div>
                 <label className="mb-1 block text-sm text-gray-600">ยืนยันรหัสผ่านใหม่</label>
                 <input type="password" className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2"
-                       value={confirmNew} onChange={(e)=>setConfirmNew(e.target.value)} placeholder="••••••••" />
+                  value={confirmNew} onChange={(e) => setConfirmNew(e.target.value)} placeholder="••••••••" />
                 {newPassword && confirmNew && newPassword !== confirmNew && (
                   <p className="pt-1 text-sm text-rose-600">รหัสผ่านใหม่และยืนยันไม่ตรงกัน</p>
                 )}

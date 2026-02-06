@@ -512,6 +512,9 @@ export default function WarrantyDashboard() {
 
   const [imagePreview, setImagePreview] = useState({ open: false, images: [], index: 0 })
 
+  // ✅ Modal สำหรับแสดงเงื่อนไขการรับประกัน
+  const [conditionsModal, setConditionsModal] = useState({ open: false, conditions: [], custom: '' })
+
   // ✅ สำหรับแก้ไขอีเมลลูกค้าระดับใบ
   const [editHeaderEmail, setEditHeaderEmail] = useState('')
 
@@ -1487,7 +1490,23 @@ export default function WarrantyDashboard() {
                                       <div>จำนวนวันคงเหลือ: <span className="font-medium text-slate-900">{it.daysLeft ?? 0} วัน</span></div>
                                       <div>รุ่น: <span className="font-medium text-slate-900">{it.model || '-'}</span></div>
                                     </div>
-                                    <p className="rounded-xl bg-sky-50 p-3 text-sm text-sky-800">{it.coverageNote || '-'}</p>
+                                    {/* ✅ ปุ่มดูเงื่อนไขการรับประกัน */}
+                                    {(Array.isArray(it.selectedConditions) && it.selectedConditions.length > 0) || it.customCondition ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => setConditionsModal({
+                                          open: true,
+                                          conditions: it.selectedConditions || [],
+                                          custom: it.customCondition || ''
+                                        })}
+                                        className="rounded-xl border border-sky-400 bg-sky-500 px-4 py-2.5 text-sm text-white font-medium shadow-sm hover:bg-sky-600 hover:-translate-y-0.5 transition flex items-center gap-2"
+                                      >
+                                        <span>📋</span>
+                                        <span>ดูเงื่อนไข ({(it.selectedConditions?.length || 0) + (it.customCondition ? 1 : 0)})</span>
+                                      </button>
+                                    ) : (
+                                      <p className="rounded-xl bg-gray-50 p-3 text-sm text-gray-400">- ไม่มีเงื่อนไข -</p>
+                                    )}
 
                                     {it.images && it.images.length > 0 && (
                                       <div className="space-y-2">
@@ -1624,8 +1643,8 @@ export default function WarrantyDashboard() {
                     <div className="grid h-12 w-12 place-items-center rounded-full bg-sky-200 text-2xl">🏪</div>
                   )}
                   <div>
-                    <div className="text-base font-semibold text-gray-900">แก้ไขข้อมูลโปรไฟล์</div>
-                    <div className="text-xs text-sky-600">ข้อมูลจะใช้โชว์ในหัวหน้า dashboard</div>
+                    <div className="text-base font-semibold text-gray-900">แก้ไขข้อมูลร้านค้า</div>
+                    <div className="text-xs text-sky-600">ข้อมูลจะใช้แสดงในใบรับประกัน</div>
                   </div>
                 </div>
                 <button
@@ -1686,23 +1705,7 @@ export default function WarrantyDashboard() {
                       })}
                     />
                     <input type="hidden" name="businessHours" value={JSON.stringify(businessSchedule)} />
-                    <div className="mb-4 flex items-center gap-4">
-                      {profileAvatarSrc ? (
-                        <img src={profileAvatarSrc} alt="Store profile" className="h-16 w-16 rounded-full object-cover" />
-                      ) : (
-                        <div className="grid h-16 w-16 place-items-center rounded-full bg-sky-200 text-3xl">🏪</div>
-                      )}
-                      <div>
-                        <button
-                          type="button"
-                          onClick={() => profileImageInputRef.current?.click()}
-                          className="rounded-full bg-sky-500 px-4 py-2 text-xs font-semibold text-white shadow hover:bg-sky-400"
-                        >
-                          อัปโหลดรูปใหม่
-                        </button>
-                        <div className="mt-1 text-xs text-gray-400">รองรับไฟล์ .jpg, .png ขนาดไม่เกิน 2 MB</div>
-                      </div>
-                    </div>
+
                     {modalError && profileTab === 'info' && (
                       <div className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600">{modalError}</div>
                     )}
@@ -1804,7 +1807,7 @@ export default function WarrantyDashboard() {
                               value={storeProfile[key] ?? ''}
                               onChange={(e) => setStoreProfile((prev) => ({ ...prev, [key]: e.target.value }))}
                               readOnly={key === 'email'}
-                              className={`mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none ${key === 'email' ? 'bg-slate-100' : 'bg-sky-50/60'}`}
+                              className={`mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none ${key === 'email' ? 'bg-slate-200 border-slate-300' : 'bg-sky-50/60'}`}
                               type="text"
                             />
                           ) : (
@@ -2554,6 +2557,54 @@ export default function WarrantyDashboard() {
                   </div>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* ✅ Modal แสดงเงื่อนไขการรับประกัน */}
+        {conditionsModal.open && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+            <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden">
+              <div className="flex items-center justify-between bg-sky-600 px-5 py-4">
+                <div className="text-base font-semibold text-white">📋 เงื่อนไขการรับประกัน</div>
+                <button
+                  type="button"
+                  onClick={() => setConditionsModal({ open: false, conditions: [], custom: '' })}
+                  className="text-2xl text-white/80 hover:text-white"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="max-h-[60vh] overflow-y-auto p-5">
+                {conditionsModal.conditions.length > 0 ? (
+                  <ul className="space-y-2">
+                    {conditionsModal.conditions.map((cond, idx) => (
+                      <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
+                        <span className="text-sky-600">•</span>
+                        <span>{cond}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-gray-400">ไม่มีเงื่อนไขที่เลือก</p>
+                )}
+
+                {conditionsModal.custom && (
+                  <div className="mt-4 border-t border-gray-100 pt-4">
+                    <div className="text-xs font-medium text-gray-500 mb-2">เงื่อนไขเพิ่มเติม:</div>
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{conditionsModal.custom}</p>
+                  </div>
+                )}
+              </div>
+              <div className="border-t border-gray-100 px-5 py-3 bg-gray-50">
+                <button
+                  type="button"
+                  onClick={() => setConditionsModal({ open: false, conditions: [], custom: '' })}
+                  className="w-full rounded-xl bg-sky-600 py-2.5 text-sm font-medium text-white hover:bg-sky-500 transition"
+                >
+                  ปิด
+                </button>
+              </div>
             </div>
           </div>
         )}

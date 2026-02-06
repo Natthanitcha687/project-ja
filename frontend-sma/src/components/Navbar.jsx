@@ -15,8 +15,8 @@ export default function Navbar() {
     role === 'STORE'
       ? '/dashboard/warranty'
       : role === 'CUSTOMER'
-      ? '/customer/warranties'
-      : '/signin?next=/customer/warranties';
+        ? '/customer/warranties'
+        : '/signin?next=/customer/warranties';
 
   const displayName =
     user?.store?.name || user?.storeName || user?.name || user?.email || 'บัญชีของฉัน';
@@ -35,7 +35,7 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-black/10">
       <nav className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        
+
         {/* โลโก้ */}
         <Link to="/" className="flex items-center gap-2">
           <img
@@ -88,12 +88,16 @@ export default function Navbar() {
             >
               ไปที่แดชบอร์ด
             </Link>
-            <div className="flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-sm text-blue-700">
+            <Link
+              to={dashHref}
+              className="flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-sm text-blue-700 hover:bg-blue-100 transition"
+              title="ไปที่แดชบอร์ด"
+            >
               <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white">
                 {displayName.charAt(0).toUpperCase()}
               </span>
               <span className="hidden sm:inline">{displayName}</span>
-            </div>
+            </Link>
             <button
               type="button"
               onClick={handleLogout}

@@ -470,7 +470,7 @@ export default function CustomerNavbar() {
                 }}
                 className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
               >
-                โปรไฟล์ของฉัน
+                ข้อมูลส่วนตัว
               </Link>
 
               <div className="border-t border-slate-100 mt-1" />
