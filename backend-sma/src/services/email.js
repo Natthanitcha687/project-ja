@@ -48,6 +48,16 @@ function inferWarrantyCta({ subject, text }) {
   if (!base) return null;
 
   const s = `${subject || ""} ${text || ""}`;
+
+  // ตรวจจับว่าเป็นอีเมลสำหรับร้านค้า (สรุปรายวัน)
+  const looksLikeStoreSummary = /สรุปแจ้งเตือน|ประจำวัน|nearing|expired.*รายการ/i.test(s);
+  if (looksLikeStoreSummary) {
+    return {
+      url: `${base}/dashboard/warranty`,
+      text: "ไปที่แดชบอร์ด",
+    };
+  }
+
   // heuristic: ถ้าเนื้อหามีคำเกี่ยวกับใบรับประกัน/หมดประกัน/ใกล้หมดประกัน/รหัส WRxxx
   const looksLikeWarranty =
     /ใบรับประกัน|หมดประกัน|ใกล้หมดประกัน|WR\d{3,}/i.test(s);
@@ -61,11 +71,12 @@ function inferWarrantyCta({ subject, text }) {
   };
 }
 
+
 function buildEmailShell({ title, messageHtml, ctaUrl, ctaText, footerNote }) {
   const safeTitle = escapeHtml(title || "การแจ้งเตือน");
   const safeFooter = escapeHtml(
     footerNote ||
-      "หากคุณไม่ได้เป็นผู้ทำรายการนี้ สามารถละเว้นอีเมลนี้ได้"
+    "หากคุณไม่ได้เป็นผู้ทำรายการนี้ สามารถละเว้นอีเมลนี้ได้"
   );
 
   const hasCta = !!(ctaUrl && ctaText);
@@ -73,18 +84,19 @@ function buildEmailShell({ title, messageHtml, ctaUrl, ctaText, footerNote }) {
   const ctaBlock = hasCta
     ? `
       <tr>
-        <td style="padding: 8px 28px 0 28px;">
+        <td style="padding: 20px 28px 0 28px;" align="center">
           <a href="${escapeHtml(ctaUrl)}"
-             style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;
-                    padding:12px 18px;border-radius:10px;font-weight:700;">
+             style="display:inline-block;background:linear-gradient(135deg,#2563eb 0%,#0ea5e9 100%);
+                    color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:12px;
+                    font-weight:700;font-size:15px;box-shadow:0 4px 14px rgba(37,99,235,0.25);">
             ${escapeHtml(ctaText)}
           </a>
         </td>
       </tr>
       <tr>
-        <td style="padding: 14px 28px 0 28px; font-size: 12px; color: #6b7280; line-height: 1.6;">
+        <td style="padding: 14px 28px 0 28px; font-size: 12px; color: #6b7280; line-height: 1.6;" align="center">
           ถ้าปุ่มกดไม่ได้ ให้คัดลอกลิงก์นี้ไปวางในเบราว์เซอร์:<br>
-          <a href="${escapeHtml(ctaUrl)}" style="color:#2563eb; text-decoration:underline;">
+          <a href="${escapeHtml(ctaUrl)}" style="color:#2563eb; text-decoration:underline; word-break:break-all;">
             ${escapeHtml(ctaUrl)}
           </a>
         </td>
@@ -92,34 +104,66 @@ function buildEmailShell({ title, messageHtml, ctaUrl, ctaText, footerNote }) {
     `
     : "";
 
+  // Logo URL - ใช้จาก FRONTEND_URL แต่ถ้าเป็น localhost ให้ใช้ emoji แทน (email clients ไม่สามารถเข้าถึง localhost ได้)
+  const frontendBase = getFrontendBaseUrl();
+  const isLocalhost = frontendBase && /localhost|127\.0\.0\.1/i.test(frontendBase);
+  const logoUrl = (frontendBase && !isLocalhost) ? `${frontendBase}/home-assets/logo.png` : '';
+  const logoBlock = logoUrl
+    ? `<img src="${escapeHtml(logoUrl)}" alt="Warranty" style="height:40px;width:auto;display:block;" />`
+    : `<span style="font-size:28px;">🛡️</span>`;
+
   // ใช้ table layout เพื่อให้แสดงผลใน email client ได้เสถียรกว่า
   return `
-    <div style="margin:0;padding:0;background:#f3f4f6;">
+    <div style="margin:0;padding:0;background:linear-gradient(180deg,#e0f2fe 0%,#f3f4f6 100%);">
       <span style="display:none!important;opacity:0;color:transparent;height:0;width:0;overflow:hidden;mso-hide:all;">
         ${safeTitle}
       </span>
 
       <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%"
-             style="background:#f3f4f6;padding:24px 0;">
+             style="background:linear-gradient(180deg,#e0f2fe 0%,#f3f4f6 100%);padding:32px 16px;">
         <tr>
           <td align="center">
             <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600"
-                   style="width:600px;max-width:600px;background:#ffffff;border-radius:16px;
-                          overflow:hidden;border:1px solid #e5e7eb;">
+                   style="width:600px;max-width:600px;background:#ffffff;border-radius:20px;
+                          overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.08);">
+              
+              <!-- Logo Header -->
               <tr>
-                <td style="padding:22px 28px 10px 28px;">
+                <td style="background:linear-gradient(135deg,#0ea5e9 0%,#2563eb 100%);padding:24px 28px;" align="center">
+                  <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                    <tr>
+                      <td style="padding-right:12px;">
+                        ${logoBlock}
+                      </td>
+                      <td>
+                        <span style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+                                     font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">
+                          Warranty Platform
+                        </span>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+
+              <!-- Title -->
+              <tr>
+                <td style="padding:28px 28px 12px 28px;">
                   <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;">
-                    <div style="font-size:18px;font-weight:800;color:#111827;line-height:1.3;">
+                    <div style="font-size:20px;font-weight:800;color:#111827;line-height:1.4;">
                       ${safeTitle}
                     </div>
                   </div>
                 </td>
               </tr>
 
+              <!-- Content -->
               <tr>
-                <td style="padding: 0 28px 8px 28px;">
+                <td style="padding: 0 28px 16px 28px;">
                   <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-                              font-size:14px;color:#111827;line-height:1.7;">
+                              font-size:15px;color:#374151;line-height:1.8;
+                              background:#f8fafc;border-radius:12px;padding:16px 20px;
+                              border-left:4px solid #2563eb;">
                     ${messageHtml}
                   </div>
                 </td>
@@ -127,26 +171,35 @@ function buildEmailShell({ title, messageHtml, ctaUrl, ctaText, footerNote }) {
 
               ${ctaBlock}
 
+              <!-- Footer Note -->
               <tr>
-                <td style="padding: 18px 28px 22px 28px;">
+                <td style="padding: 24px 28px 28px 28px;">
                   <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-                              font-size:12px;color:#6b7280;line-height:1.6;">
+                              font-size:12px;color:#9ca3af;line-height:1.6;text-align:center;">
                     ${safeFooter}
                   </div>
                 </td>
               </tr>
             </table>
 
-            <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-                        font-size:12px;color:#9ca3af;margin-top:14px;">
-              © ${new Date().getFullYear()} No-Reply
-            </div>
+            <!-- Brand Footer -->
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-top:20px;">
+              <tr>
+                <td align="center">
+                  <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+                              font-size:12px;color:#6b7280;">
+                    © ${new Date().getFullYear()} <strong style="color:#2563eb;">Warranty Platform</strong> — ระบบจัดการใบรับประกันอัจฉริยะ
+                  </div>
+                </td>
+              </tr>
+            </table>
           </td>
         </tr>
       </table>
     </div>
   `;
 }
+
 
 /* =========================
  * Existing emails

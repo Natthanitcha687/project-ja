@@ -256,7 +256,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
                   }}
                   className="flex w-full items-center justify-between rounded-xl bg-sky-50 px-3 py-2 text-slate-700 hover:bg-sky-100"
                 >
-                  <span>แก้ไขโปรไฟล์</span>
+                  <span>แก้ไขข้อมูลร้านค้า</span>
                   <span aria-hidden>✏️</span>
                 </button>
                 <button

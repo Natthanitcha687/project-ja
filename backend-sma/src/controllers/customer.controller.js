@@ -68,6 +68,7 @@ export async function getMyProfile(req, res, next) {
       phone: p?.phone ?? '',
       isConsent: !!p?.isConsent,
       avatarUrl: p?.avatarUrl ?? '',
+      notifyDaysArray: p?.notifyDaysArray ?? [],
     })
   } catch (err) {
     next(err)
@@ -88,12 +89,24 @@ export async function updateMyProfile(req, res, next) {
       return res.status(404).json({ message: 'ไม่พบบัญชีลูกค้า' })
     }
 
+    // ✅ Parse notifyDaysArray - validate and sanitize
+    let notifyDaysArray = exist?.notifyDaysArray ?? []
+    if (Array.isArray(body.notifyDaysArray)) {
+      // Filter valid days (1-90) and remove duplicates
+      notifyDaysArray = [...new Set(
+        body.notifyDaysArray
+          .map(d => parseInt(d, 10))
+          .filter(d => !isNaN(d) && d >= 1 && d <= 90)
+      )].sort((a, b) => b - a) // Sort descending (15, 7, 3, 1)
+    }
+
     const data = {
       firstName: trimOrNull(body.firstName) ?? (exist?.firstName ?? ''),
       lastName: trimOrNull(body.lastName) ?? (exist?.lastName ?? ''),
       phone: trimOrNull(body.phone) ?? (exist?.phone ?? ''),
       isConsent: bool(body.isConsent, exist?.isConsent ?? false),
       avatarUrl: trimOrNull(body.avatarUrl) ?? (exist?.avatarUrl ?? ''),
+      notifyDaysArray,
     }
 
     let saved
@@ -119,33 +132,6 @@ export async function updateMyProfile(req, res, next) {
       }
     }
 
-    // Notify stores that have warranties linked to this customer (by userId or email)
-    try {
-      const linked = await prisma.warranty.findMany({
-        where: {
-          OR: [{ customerUserId: me.id }, { customerEmail: me.email }],
-        },
-        select: { storeId: true },
-      })
-      const storeIds = [...new Set(linked.map((l) => l.storeId).filter(Boolean))]
-      for (const sid of storeIds) {
-        try {
-          await createNotification({
-            prisma,
-            attrs: {
-              storeId: sid,
-              title: 'ลูกค้ามีการอัปเดตโปรไฟล์',
-              body: `ลูกค้า ${saved.firstName || ''} ${saved.lastName || ''} ได้อัปเดตโปรไฟล์`,
-              data: { type: 'customer_profile_updated', userId: me.id },
-            },
-          })
-        } catch (e) {
-          console.warn('notify store of customer profile update failed', e?.message || e)
-        }
-      }
-    } catch (e) {
-      console.warn('find linked stores for profile update failed', e?.message || e)
-    }
 
     return res.json({
       message: 'บันทึกโปรไฟล์เรียบร้อย',

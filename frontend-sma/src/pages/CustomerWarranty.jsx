@@ -73,7 +73,7 @@ function calcDaysLeft(expiryDate) {
         todayUTC.getUTCMonth(),
         todayUTC.getUTCDate()
       )) /
-      (24 * 3600 * 1000)
+    (24 * 3600 * 1000)
   );
 }
 
@@ -107,18 +107,18 @@ function StatusPill({ code }) {
     code === "active"
       ? "bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200"
       : code === "nearing_expiration"
-      ? "bg-amber-100 text-amber-700 ring-1 ring-amber-200"
-      : code === "expired"
-      ? "bg-rose-100 text-rose-700 ring-1 ring-rose-200"
-      : "bg-slate-100 text-slate-700 ring-1 ring-slate-200";
+        ? "bg-amber-100 text-amber-700 ring-1 ring-amber-200"
+        : code === "expired"
+          ? "bg-rose-100 text-rose-700 ring-1 ring-rose-200"
+          : "bg-slate-100 text-slate-700 ring-1 ring-slate-200";
   const label =
     code === "active"
       ? "ใช้งานได้"
       : code === "nearing_expiration"
-      ? "ใกล้หมดอายุ"
-      : code === "expired"
-      ? "หมดอายุ"
-      : "—";
+        ? "ใกล้หมดอายุ"
+        : code === "expired"
+          ? "หมดอายุ"
+          : "—";
   return (
     <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${cls}`}>
       {label}
@@ -148,6 +148,8 @@ export default function CustomerWarranty() {
     name: "",
     note: "",
   });
+  // ✅ Modal สำหรับแสดงเงื่อนไขการรับประกัน
+  const [conditionsModal, setConditionsModal] = useState({ open: false, conditions: [], custom: '' });
   const PAGE_SIZE = 5;
   const [page, setPage] = useState(1);
 
@@ -265,7 +267,7 @@ export default function CustomerWarranty() {
         </div>
 
         {/* Search + Filters */}
-          <div className="mt-6 flex flex-col items-stretch gap-3 md:flex-row md:items-center">
+        <div className="mt-6 flex flex-col items-stretch gap-3 md:flex-row md:items-center">
           <div className="flex-1">
             <div className="flex items-center rounded-2xl bg-white px-4 py-2 shadow ring-1 ring-black/5">
               <span className="text-slate-400">🔍</span>
@@ -285,17 +287,17 @@ export default function CustomerWarranty() {
                 ? f.value === "active"
                   ? "bg-emerald-600 text-white border-emerald-600"
                   : f.value === "nearing_expiration"
-                  ? "bg-amber-500 text-white border-amber-500"
-                  : f.value === "expired"
-                  ? "bg-rose-600 text-white border-rose-600"
-                  : "bg-slate-900 text-white border-slate-900"
+                    ? "bg-amber-500 text-white border-amber-500"
+                    : f.value === "expired"
+                      ? "bg-rose-600 text-white border-rose-600"
+                      : "bg-slate-900 text-white border-slate-900"
                 : f.value === "active"
-                ? "bg-white text-emerald-700 border-emerald-400"
-                : f.value === "nearing_expiration"
-                ? "bg-white text-amber-700 border-amber-300"
-                : f.value === "expired"
-                ? "bg-white text-rose-700 border-rose-300"
-                : "bg-white text-slate-800 border-slate-300";
+                  ? "bg-white text-emerald-700 border-emerald-400"
+                  : f.value === "nearing_expiration"
+                    ? "bg-white text-amber-700 border-amber-300"
+                    : f.value === "expired"
+                      ? "bg-white text-rose-700 border-rose-300"
+                      : "bg-white text-slate-800 border-slate-300";
               return (
                 <button
                   key={f.value}
@@ -404,7 +406,7 @@ export default function CustomerWarranty() {
                                       ({daysLeft} วัน)
                                     </span>
                                   )}
-                                  
+
                                 </div>
 
                                 <div className="grid gap-2 text-sm text-slate-600 md:grid-cols-2">
@@ -428,9 +430,23 @@ export default function CustomerWarranty() {
                                   </div>
                                   <div>
                                     เงื่อนไขรับประกัน:{" "}
-                                    <span className="font-medium text-slate-900">
-                                      {it.coverageNote || "-"}
-                                    </span>
+                                    {/* ✅ ปุ่มดูเงื่อนไขการรับประกัน */}
+                                    {(Array.isArray(it.selectedConditions) && it.selectedConditions.length > 0) || it.customCondition ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => setConditionsModal({
+                                          open: true,
+                                          conditions: it.selectedConditions || [],
+                                          custom: it.customCondition || ''
+                                        })}
+                                        className="rounded-xl border border-sky-400 bg-sky-500 px-3 py-1.5 text-xs text-white font-medium shadow-sm hover:bg-sky-600 transition inline-flex items-center gap-1"
+                                      >
+                                        <span>📋</span>
+                                        <span>ดูเงื่อนไข ({(it.selectedConditions?.length || 0) + (it.customCondition ? 1 : 0)})</span>
+                                      </button>
+                                    ) : (
+                                      <span className="font-medium text-slate-400">- ไม่มีเงื่อนไข -</span>
+                                    )}
                                   </div>
                                 </div>
 
@@ -508,11 +524,10 @@ export default function CustomerWarranty() {
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className={`rounded-full px-3 py-2 text-xs font-medium shadow-sm ${
-                  currentPage === 1
+                className={`rounded-full px-3 py-2 text-xs font-medium shadow-sm ${currentPage === 1
                     ? "cursor-not-allowed bg-white text-slate-300 ring-1 ring-black/10"
                     : "bg-white text-slate-700 ring-1 ring-black/10 hover:bg-slate-50"
-                }`}
+                  }`}
               >
                 ก่อนหน้า
               </button>
@@ -520,11 +535,10 @@ export default function CustomerWarranty() {
                 <button
                   key={n}
                   onClick={() => setPage(n)}
-                  className={`rounded-full px-3 py-2 text-xs font-medium shadow-sm ${
-                    n === currentPage
+                  className={`rounded-full px-3 py-2 text-xs font-medium shadow-sm ${n === currentPage
                       ? "bg-slate-900 text-white"
                       : "bg-white text-slate-700 ring-1 ring-black/10 hover:bg-slate-50"
-                  }`}
+                    }`}
                 >
                   {n}
                 </button>
@@ -532,11 +546,10 @@ export default function CustomerWarranty() {
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
-                className={`rounded-full px-3 py-2 text-xs font-medium shadow-sm ${
-                  currentPage === totalPages
+                className={`rounded-full px-3 py-2 text-xs font-medium shadow-sm ${currentPage === totalPages
                     ? "cursor-not-allowed bg-white text-slate-300 ring-1 ring-black/10"
                     : "bg-white text-slate-700 ring-1 ring-black/10 hover:bg-slate-50"
-                }`}
+                  }`}
               >
                 ถัดไป
               </button>
@@ -597,6 +610,54 @@ export default function CustomerWarranty() {
                   บันทึก
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ Modal แสดงเงื่อนไขการรับประกัน */}
+      {conditionsModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between bg-sky-600 px-5 py-4">
+              <div className="text-base font-semibold text-white">📋 เงื่อนไขการรับประกัน</div>
+              <button
+                type="button"
+                onClick={() => setConditionsModal({ open: false, conditions: [], custom: '' })}
+                className="text-2xl text-white/80 hover:text-white"
+              >
+                ×
+              </button>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto p-5">
+              {conditionsModal.conditions.length > 0 ? (
+                <ul className="space-y-2">
+                  {conditionsModal.conditions.map((cond, idx) => (
+                    <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
+                      <span className="text-sky-600">•</span>
+                      <span>{cond}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-gray-400">ไม่มีเงื่อนไขที่เลือก</p>
+              )}
+
+              {conditionsModal.custom && (
+                <div className="mt-4 border-t border-gray-100 pt-4">
+                  <div className="text-xs font-medium text-gray-500 mb-2">เงื่อนไขเพิ่มเติม:</div>
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{conditionsModal.custom}</p>
+                </div>
+              )}
+            </div>
+            <div className="border-t border-gray-100 px-5 py-3 bg-gray-50">
+              <button
+                type="button"
+                onClick={() => setConditionsModal({ open: false, conditions: [], custom: '' })}
+                className="w-full rounded-xl bg-sky-600 py-2.5 text-sm font-medium text-white hover:bg-sky-500 transition"
+              >
+                ปิด
+              </button>
             </div>
           </div>
         </div>

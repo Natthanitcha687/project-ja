@@ -47,7 +47,13 @@ export async function runExpiryScanJob() {
         expiryDate: { lte: maxFuture }
       },
       include: {
-        warranty: { include: { store: { include: { storeProfile: true } } } }
+        warranty: {
+          include: {
+            store: { include: { storeProfile: true } },
+            // ✅ เพิ่ม: ดึง customerProfile เพื่อใช้ notifyDaysArray
+            customer: { include: { customerProfile: true } }
+          }
+        }
       }
     })
 
@@ -68,9 +74,10 @@ export async function runExpiryScanJob() {
       // ---------- ✅ Accumulate store daily summary (NO per-item store notification anymore) ----------
       if (storeId) {
         const s = storeSummary.get(storeId) || { storeId, nearingCount: 0, expiredCount: 0 }
-        if (daysLeft < 0) {
+        // ✅ cutoff 1 วัน: นับ expired เฉพาะวันแรกที่หมด (daysLeft >= -1)
+        if (daysLeft < 0 && daysLeft >= -1) {
           s.expiredCount += 1
-        } else if (daysLeft <= notifyDays) {
+        } else if (daysLeft >= 0 && daysLeft <= notifyDays) {
           s.nearingCount += 1
         }
         storeSummary.set(storeId, s)
@@ -80,12 +87,12 @@ export async function runExpiryScanJob() {
       // If already expired (daysLeft < 0) → create an 'expired' notification for CUSTOMER (once in ~7 days)
       if (daysLeft < 0) {
         if (it.warranty?.customerUserId) {
-          const since = addDaysUTC(today, -7)
+          // ✅ เช็คว่าเคยส่ง notification "expired" ของ item นี้ไปแล้วหรือยัง (ตลอดกาล)
           const existsCustomerExpired = await prisma.notification.findFirst({
             where: {
               userId: it.warranty.customerUserId,
               data: { path: ['warrantyItemId'], equals: it.id },
-              AND: [{ data: { path: ['type'], equals: 'expired' } }, { createdAt: { gte: since } }]
+              AND: [{ data: { path: ['type'], equals: 'expired' } }]
             }
           })
 
@@ -113,15 +120,25 @@ export async function runExpiryScanJob() {
         continue
       }
 
-      // nearing expiration → notify CUSTOMER (avoid duplicates similar window)
-      if (daysLeft <= notifyDays) {
-        if (it.warranty?.customerUserId) {
-          const since = addDaysUTC(today, -(notifyDays + 1))
+      // ✅ nearing expiration → notify CUSTOMER based on their preferred days
+      // ถ้าลูกค้าไม่ได้ตั้งค่า → ใช้ default [15] (ครั้งเดียวตอน 15 วันก่อนหมด)
+      if (it.warranty?.customerUserId) {
+        const customerProfile = it.warranty?.customer?.customerProfile
+        const customerNotifyDays = customerProfile?.notifyDaysArray?.length > 0
+          ? customerProfile.notifyDaysArray
+          : [15] // default: แจ้ง 15 วันก่อนหมด (ครั้งเดียว)
+
+        // เช็คว่า daysLeft ตรงกับวันที่ลูกค้าต้องการแจ้งเตือนหรือไม่
+        if (customerNotifyDays.includes(daysLeft)) {
+          // เช็คว่าเคยส่ง notification ของ item นี้ + วันนี้หรือยัง
           const existsCustomerNearing = await prisma.notification.findFirst({
             where: {
               userId: it.warranty.customerUserId,
               data: { path: ['warrantyItemId'], equals: it.id },
-              AND: [{ data: { path: ['type'], equals: 'nearing_expiration' } }, { createdAt: { gte: since } }]
+              AND: [
+                { data: { path: ['type'], equals: 'nearing_expiration' } },
+                { data: { path: ['daysLeft'], equals: daysLeft } }
+              ]
             }
           })
 
