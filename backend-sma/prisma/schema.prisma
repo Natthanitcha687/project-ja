@@ -76,6 +76,10 @@ model CustomerProfile {
   phone     String
   isConsent Boolean @default(false)
   avatarUrl String?
+  
+  // ✅ Custom notification days (e.g., [15, 7, 3, 1])
+  // ถ้าว่าง → ใช้ค่า default 15 วัน (ครั้งเดียว)
+  notifyDaysArray Int[] @default([])
 }
 
 model StoreProfile {
