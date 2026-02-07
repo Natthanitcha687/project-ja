@@ -27,14 +27,15 @@ function fmtDateTime(v) {
 function StatusBadge({ status }) {
   const meta =
     status === "ACTIVE"
-      ? { label: "ใช้งานอยู่", cls: "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200" }
+      ? { label: "ใช้งานอยู่", dot: "bg-emerald-500" }
       : status === "SUSPENDED"
-      ? { label: "ถูกระงับ", cls: "bg-rose-100 text-rose-800 ring-1 ring-rose-200" }
-      : { label: status || "—", cls: "bg-slate-100 text-slate-700 ring-1 ring-slate-200" };
+        ? { label: "ถูกระงับ", dot: "bg-rose-500" }
+        : { label: status || "—", dot: "bg-slate-400" };
 
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${meta.cls}`}>
-      {meta.label}
+    <span className="inline-flex items-center gap-2" title={meta.label}>
+      <span className={`h-2.5 w-2.5 rounded-full ${meta.dot}`} aria-hidden="true" />
+      <span className="text-xs font-semibold text-slate-800">{meta.label}</span>
     </span>
   );
 }
@@ -334,7 +335,7 @@ export default function Stores() {
           <button
             type="button"
             onClick={load}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-sky-200"
+            className="rounded-xl border border-slate-200 bg-white px-6 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-sky-200"
             aria-describedby={HELP_ID}
           >
             รีเฟรช
@@ -428,16 +429,19 @@ export default function Stores() {
                     <button
                       type="button"
                       onClick={() => openPortalModal(s.id)}
-                      className="rounded-lg border border-sky-200 bg-white px-3 py-2 text-xs font-extrabold text-sky-700 hover:bg-sky-50 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                      className="rounded-lg border border-sky-300 bg-sky-100 px-3 py-2 text-xs font-extrabold text-sky-900 hover:bg-sky-200 focus:outline-none focus:ring-2 focus:ring-sky-200"
                       aria-label={`เปิด Portal ของร้าน ${name}`}
                     >
-                      🧩 Portal
+                    รายละเอียด
                     </button>
 
                     <button
                       type="button"
                       onClick={() => openSuspendModal(s)}
-                      className="rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs font-extrabold text-amber-700 hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                      className={`rounded-lg border px-3 py-2 text-xs font-extrabold focus:outline-none focus:ring-2 focus:ring-sky-200 ${s.status === "SUSPENDED"
+                        ? "bg-emerald-100 text-emerald-900 border-emerald-300 hover:bg-emerald-200"
+                        : "bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200"
+                        }`}
                       aria-label={`${s.status === "SUSPENDED" ? "ปลดระงับ" : "ระงับ"} ร้าน ${name}`}
                     >
                       {s.status === "SUSPENDED" ? "ปลดระงับ" : "ระงับบัญชี"}
@@ -446,7 +450,7 @@ export default function Stores() {
                     <button
                       type="button"
                       onClick={() => openDeleteModal(s)}
-                      className="rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-extrabold text-rose-700 hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                      className="rounded-lg border border-rose-300 bg-rose-100 px-3 py-2 text-xs font-extrabold text-rose-900 hover:bg-rose-200 focus:outline-none focus:ring-2 focus:ring-sky-200"
                       aria-label={`ลบบัญชีร้าน ${name}`}
                     >
                       ลบบัญชี

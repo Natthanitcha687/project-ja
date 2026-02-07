@@ -1,5 +1,5 @@
 // admin-sma/src/pages/Security.jsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../lib/api";
 
 function fmtDT(v) {
@@ -57,13 +57,53 @@ export default function Security() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [page, setPage] = useState(1);
+  const [selectedEvent, setSelectedEvent] = useState(null); // modal สำหรับดู User-Agent
+
+  // a11y focus management
+  const lastActiveElRef = useRef(null);
+  const closeBtnRef = useRef(null);
+
+  // Modal IDs
+  const MODAL_TITLE_ID = "security-modal-title";
+  const MODAL_BODY_ID = "security-modal-body";
+
+  function openModal(e) {
+    lastActiveElRef.current = document.activeElement;
+    setSelectedEvent(e);
+  }
+
+  function closeModal() {
+    setSelectedEvent(null);
+    if (lastActiveElRef.current) {
+      lastActiveElRef.current.focus();
+    }
+  }
+
+  // Trap focus & ESC key for modal
+  useEffect(() => {
+    if (!selectedEvent) return;
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") closeModal();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    if (closeBtnRef.current) closeBtnRef.current.focus();
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [selectedEvent]);
 
   async function load() {
     setErr("");
     setLoading(true);
     try {
       const r = await api.get("/admin/security/events");
-      setEvents(r.data.events || []);
+      // ✅ Filter out SUCCESS / SENT events to focus on Abnormal/Failures
+      const allEvents = r.data.events || [];
+      const abnormalEvents = allEvents.filter((e) => {
+        const t = (e.type || "").toUpperCase();
+        if (t.includes("_SUCCESS")) return false;
+        if (t.includes("_SENT")) return false; // OTP SENT
+        return true;
+      });
+      setEvents(abnormalEvents);
       setPage(1);
     } catch (e) {
       setEvents([]);
@@ -96,7 +136,6 @@ export default function Security() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="text-xl font-semibold text-slate-900">ตรวจสอบความปลอดภัย</div>
-          {/* ✅ เพิ่ม contrast */}
           <div className="mt-1 text-sm text-slate-700">
             แสดงเหตุการณ์ด้านความปลอดภัย เช่น login fail, การเข้าถึงผิดปกติ
           </div>
@@ -106,7 +145,7 @@ export default function Security() {
           type="button"
           onClick={load}
           disabled={loading}
-          className="rounded-xl bg-sky-700 text-white px-4 py-2 text-sm font-semibold shadow-sm hover:bg-sky-800 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200"
+          className="rounded-xl bg-white border border-slate-200 text-slate-700 px-6 py-2.5 text-sm font-semibold shadow-sm hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200"
           aria-label="รีเฟรชรายการเหตุการณ์ความปลอดภัย"
         >
           รีเฟรช
@@ -122,9 +161,8 @@ export default function Security() {
         </div>
       )}
 
-      {/* Summary (pagination อยู่ใต้ตาราง) */}
+      {/* Summary */}
       <div className="mt-4">
-        {/* ✅ เพิ่ม contrast (แก้ text-slate-500/400) */}
         <div className="text-sm text-slate-700">
           {loading ? (
             <span role="status" aria-live="polite">
@@ -148,20 +186,23 @@ export default function Security() {
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 {/* ✅ เพิ่ม contrast */}
-                <div className="text-xs text-slate-700">Time</div>
+                <div className="text-xs text-slate-700">เวลา</div>
                 <div className="text-sm font-semibold text-slate-900">{fmtDT(e.createdAt)}</div>
               </div>
 
               {/* ✅ Type: ตัวหนาอย่างเดียว (ไม่เป็น pill) */}
-              <div className="shrink-0 max-w-[55%] text-xs font-bold text-slate-900 truncate" title={e.type}>
-                {e.type}
+              <div className="shrink-0 max-w-[55%] flex items-center justify-end gap-2">
+                <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0" />
+                <span className="truncate text-xs font-medium text-slate-700" title={e.type}>
+                  {e.type}
+                </span>
               </div>
             </div>
 
             <div className="mt-3 grid grid-cols-1 gap-3">
               <div>
                 {/* ✅ เพิ่ม contrast */}
-                <div className="text-xs text-slate-700">Email</div>
+                <div className="text-xs text-slate-700">อีเมล</div>
                 <div className="text-sm text-slate-900 break-words">{e.email || "—"}</div>
               </div>
 
@@ -169,6 +210,24 @@ export default function Security() {
                 {/* ✅ เพิ่ม contrast */}
                 <div className="text-xs text-slate-700">IP</div>
                 <div className="text-sm text-slate-900 break-words">{e.ip || "—"}</div>
+              </div>
+
+              <div>
+                {/* ✅ เพิ่ม: User Agent (Mobile) */}
+                <div className="text-xs text-slate-700">อุปกรณ์</div>
+                <div className="flex items-center gap-2">
+                  {e.userAgent ? (
+                    <button
+                      type="button"
+                      onClick={() => openModal(e)}
+                      className="shrink-0 rounded-lg bg-sky-50 text-sky-700 px-3 py-1.5 text-xs font-semibold hover:bg-sky-100 border border-sky-200"
+                    >
+                      ดูรายละเอียด
+                    </button>
+                  ) : (
+                    <span className="text-slate-400 text-sm">—</span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -191,19 +250,22 @@ export default function Security() {
       <div className="mt-4 hidden md:block rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
         <table className="w-full text-sm table-fixed">
           {/* ✅ เพิ่ม contrast */}
-          <thead className="bg-slate-50 text-slate-700">
+          <thead className="bg-slate-100 text-slate-800 font-semibold">
             <tr>
-              <th className="p-3 text-left w-[220px]" scope="col">
-                Time
-              </th>
-              <th className="p-3 text-left w-[240px]" scope="col">
-                Type
-              </th>
-              <th className="p-3 text-left" scope="col">
-                Email
-              </th>
               <th className="p-3 text-left w-[180px]" scope="col">
+                เวลา
+              </th>
+              <th className="p-3 text-left w-[200px]" scope="col">
+                ประเภทเหตุการณ์
+              </th>
+              <th className="p-3 text-left w-[200px]" scope="col">
+                อีเมล
+              </th>
+              <th className="p-3 text-left w-[140px]" scope="col">
                 IP
+              </th>
+              <th className="p-3 text-left w-[120px]" scope="col">
+                ข้อมูลอุปกรณ์
               </th>
             </tr>
           </thead>
@@ -213,10 +275,13 @@ export default function Security() {
               <tr key={e.id} className="border-t border-slate-200 hover:bg-slate-50/70">
                 <td className="p-3 whitespace-nowrap">{fmtDT(e.createdAt)}</td>
 
-                {/* ✅ Type: ตัวหนาอย่างเดียว */}
+                {/* ✅ Type: ตัวหนา + สีแดงเพื่อแสดงความผิดปกติ */}
                 <td className="p-3">
-                  <div className="truncate font-bold text-slate-900" title={e.type}>
-                    {e.type}
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0" />
+                    <span className="truncate font-medium text-slate-700" title={e.type}>
+                      {e.type}
+                    </span>
                   </div>
                 </td>
 
@@ -231,12 +296,26 @@ export default function Security() {
                     {e.ip || "—"}
                   </div>
                 </td>
+
+                <td className="p-3">
+                  {e.userAgent ? (
+                    <button
+                      type="button"
+                      onClick={() => openModal(e)}
+                      className="rounded-lg bg-sky-50 text-sky-700 px-3 py-1.5 text-xs font-semibold hover:bg-sky-100 border border-sky-200"
+                    >
+                      ดูรายละเอียด
+                    </button>
+                  ) : (
+                    <span className="text-slate-400">—</span>
+                  )}
+                </td>
               </tr>
             ))}
 
             {!pageEvents.length && !loading && (
               <tr>
-                <td className="p-3 text-slate-700" colSpan={4}>
+                <td className="p-3 text-slate-700" colSpan={5}>
                   ยังไม่มีเหตุการณ์
                 </td>
               </tr>
@@ -300,6 +379,59 @@ export default function Security() {
           ถ้าต้องการดูเก่ากว่านี้ต้องเพิ่ม pagination ที่ backend (skip/take)
         </div>
       )}
-    </div>
+
+      {/* Modal ดู User-Agent เต็มๆ (Theme Dark เหมือน Complaints) */}
+      {
+        selectedEvent && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/70" onClick={closeModal} aria-hidden="true" />
+
+            <div
+              className="relative w-full max-w-lg rounded-2xl border border-white/10 bg-zinc-900 text-white shadow-2xl overflow-hidden"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={MODAL_TITLE_ID}
+              aria-describedby={MODAL_BODY_ID}
+            >
+              <div className="bg-white/5 px-5 py-4 flex items-center justify-between">
+                <h3 id={MODAL_TITLE_ID} className="text-lg font-semibold text-white">
+                  รายละเอียดอุปกรณ์ (User Agent)
+                </h3>
+                <button
+                  ref={closeBtnRef}
+                  type="button"
+                  onClick={closeModal}
+                  className="rounded-xl bg-white/10 px-3 py-1.5 text-sm hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-white/30"
+                >
+                  ปิด
+                </button>
+              </div>
+
+              <div className="p-5">
+                <div id={MODAL_BODY_ID}>
+                  <div className="text-sm font-semibold text-white/80 mb-2">Full User Agent String:</div>
+                  <div className="rounded-xl border border-white/10 bg-black/30 p-4 text-sm font-mono text-emerald-400 break-all leading-relaxed">
+                    {selectedEvent.userAgent || "—"}
+                  </div>
+                </div>
+
+                <div className="mt-4 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(selectedEvent.userAgent || "");
+                      alert("คัดลอกเรียบร้อย!");
+                    }}
+                    className="rounded-xl bg-sky-600/20 text-sky-400 px-4 py-2 text-sm hover:bg-sky-600/30 border border-sky-500/30"
+                  >
+                    คัดลอก
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      }
+    </div >
   );
 }

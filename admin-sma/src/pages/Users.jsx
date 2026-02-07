@@ -328,7 +328,7 @@ export default function Users() {
           <button
             type="button"
             onClick={load}
-            className="w-[110px] rounded-xl border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200"
+            className="rounded-xl border border-slate-200 bg-white px-6 py-2.5 font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200"
             disabled={loading}
             title="รีเฟรชรายการ"
             aria-describedby={HELP_ID}
@@ -367,7 +367,7 @@ export default function Users() {
           <div key={u.id} className="rounded-2xl border border-slate-200 bg-white shadow-sm p-4">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-xs text-slate-600">ID</div>
+                <div className="text-xs text-slate-600">รหัส</div>
                 <div className="font-semibold text-slate-900">{u.id}</div>
               </div>
 
@@ -375,7 +375,7 @@ export default function Users() {
             </div>
 
             <div className="mt-3">
-              <div className="text-xs text-slate-600">Email</div>
+              <div className="text-xs text-slate-600">อีเมล</div>
               <div className="font-medium text-slate-900 break-words">{u.email}</div>
             </div>
 
@@ -384,7 +384,7 @@ export default function Users() {
                 <button
                   type="button"
                   onClick={() => openSuspendModal(u)}
-                  className="rounded-xl bg-amber-50 text-amber-800 border border-amber-200 px-3 py-2 text-sm font-semibold hover:bg-amber-100 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                  className="rounded-xl bg-amber-100 text-amber-900 border border-amber-300 px-3 py-2 text-sm font-semibold hover:bg-amber-200 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-sky-200"
                   disabled={loading}
                 >
                   ระงับ
@@ -393,7 +393,7 @@ export default function Users() {
                 <button
                   type="button"
                   onClick={() => openUnsuspendModal(u)}
-                  className="rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-2 text-sm font-semibold hover:bg-emerald-100 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                  className="rounded-xl bg-emerald-100 text-emerald-900 border border-emerald-300 px-3 py-2 text-sm font-semibold hover:bg-emerald-200 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-sky-200"
                   disabled={loading}
                 >
                   ปลดระงับ
@@ -403,7 +403,7 @@ export default function Users() {
               <button
                 type="button"
                 onClick={() => openDeleteModal(u)}
-                className="rounded-xl bg-rose-50 text-rose-700 border border-rose-200 px-3 py-2 text-sm font-semibold hover:bg-rose-100 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                className="rounded-xl bg-rose-100 text-rose-900 border border-rose-300 px-3 py-2 text-sm font-semibold hover:bg-rose-200 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-sky-200"
                 disabled={loading}
               >
                 ลบ
@@ -431,19 +431,19 @@ export default function Users() {
           <thead className="bg-slate-50 text-slate-700">
             <tr>
               <th scope="col" className="p-3 text-left w-[80px]">
-                ID
+                รหัส
               </th>
               <th scope="col" className="p-3 text-left">
-                Email
+                อีเมล
               </th>
               <th scope="col" className="p-3 text-left w-[180px]">
-                Status
+                สถานะ
               </th>
               <th scope="col" className="p-3 text-left w-[220px]">
-                Suspended Until
+                ระงับถึงวันที่
               </th>
               <th scope="col" className="p-3 text-left w-[240px]">
-                Action
+                จัดการ
               </th>
             </tr>
           </thead>
@@ -471,7 +471,7 @@ export default function Users() {
                       <button
                         type="button"
                         onClick={() => openSuspendModal(u)}
-                        className="rounded-lg bg-amber-50 text-amber-800 border border-amber-200 px-3 py-1 font-semibold hover:bg-amber-100 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200"
+                        className="rounded-lg bg-amber-100 text-amber-900 border border-amber-300 px-3 py-1 font-semibold hover:bg-amber-200 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200"
                         disabled={loading}
                       >
                         ระงับ
@@ -480,7 +480,7 @@ export default function Users() {
                       <button
                         type="button"
                         onClick={() => openUnsuspendModal(u)}
-                        className="rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1 font-semibold hover:bg-emerald-100 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200"
+                        className="rounded-lg bg-emerald-100 text-emerald-900 border border-emerald-300 px-3 py-1 font-semibold hover:bg-emerald-200 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200"
                         disabled={loading}
                       >
                         ปลดระงับ
@@ -490,7 +490,7 @@ export default function Users() {
                     <button
                       type="button"
                       onClick={() => openDeleteModal(u)}
-                      className="rounded-lg bg-rose-50 text-rose-700 border border-rose-200 px-3 py-1 font-semibold hover:bg-rose-100 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200"
+                      className="rounded-lg bg-rose-100 text-rose-900 border border-rose-300 px-3 py-1 font-semibold hover:bg-rose-200 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200"
                       disabled={loading}
                     >
                       ลบ

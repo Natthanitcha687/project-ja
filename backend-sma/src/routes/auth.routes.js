@@ -15,11 +15,13 @@ import {
   // ✅ เพิ่ม: Google signup/login flow
   googleStart,
   googleCompleteCustomer,
-  googleCompleteStore
+  googleCompleteStore,
+  submitAppeal
 } from '../controllers/auth.controller.js'
 
 // ✅ ใช้ middleware ตัวจริงที่เช็ค DB (กัน token เก่า + กันบัญชี SUSPENDED)
 import { requireAuth } from '../middleware/requireAuth.js'
+import { uploadWarrantyImages as uploadImages } from '../middleware/uploadImages.js'
 
 const router = Router()
 
@@ -280,5 +282,8 @@ router.post('/forgot', requestPasswordReset)
  *         description: โทเคนไม่ถูกต้อง/หมดอายุ
  */
 router.post('/reset', resetPassword)
+
+// ✅ Appeal (Suspended users)
+router.post('/appeal', uploadImages, submitAppeal)
 
 export default router

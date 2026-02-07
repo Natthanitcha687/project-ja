@@ -34,17 +34,20 @@ function StatusPill({ status, className = "" }) {
     status === "OPEN"
       ? "bg-amber-500"
       : status === "IN_PROGRESS"
-      ? "bg-sky-500"
-      : status === "RESOLVED"
-      ? "bg-emerald-500"
-      : status === "REJECTED"
-      ? "bg-rose-500"
-      : "bg-slate-400";
+        ? "bg-sky-500"
+        : status === "RESOLVED"
+          ? "bg-emerald-500"
+          : status === "REJECTED"
+            ? "bg-rose-500"
+            : "bg-slate-400";
+
+  // ✅ Use default text color if none provided, but allow override
+  const defaultText = className.includes("text-") ? "" : "text-slate-800";
 
   return (
-    <span className={["inline-flex items-center gap-2 text-xs font-semibold text-slate-800", className].join(" ")}>
+    <span className={["inline-flex items-center gap-2 text-xs font-semibold", defaultText, className].join(" ")}>
       <span className={["h-2.5 w-2.5 rounded-full", dotCls].join(" ")} aria-hidden="true" />
-      <span className="text-slate-800">{meta.label}</span>
+      <span>{meta.label}</span>
     </span>
   );
 }
@@ -73,8 +76,8 @@ function senderSub(user) {
     user.role === "CUSTOMER"
       ? user.customerProfile?.phone || ""
       : user.role === "STORE"
-      ? user.storeProfile?.phone || ""
-      : "";
+        ? user.storeProfile?.phone || ""
+        : "";
   const parts = [email, phone].filter(Boolean);
   return parts.join(" • ");
 }
@@ -309,7 +312,7 @@ export default function Complaints() {
           type="button"
           onClick={load}
           aria-describedby={HELP_ID}
-          className="w-full rounded-xl bg-sky-700 text-white px-4 py-2 font-semibold shadow-sm hover:bg-sky-800 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200"
+          className="w-full rounded-xl bg-white border border-slate-200 text-slate-700 px-6 py-2.5 font-semibold shadow-sm hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200"
           disabled={loading}
         >
           รีเฟรช
@@ -358,8 +361,8 @@ export default function Complaints() {
                   <div className="text-xs text-slate-600">{fmtDT(c.createdAt)}</div>
                   <div className="mt-1 font-semibold text-slate-900 break-words">{c.subject}</div>
                 </div>
-                {/* ✅ status เป็นจุดสี */}
-                <StatusPill status={c.status} className="shrink-0" />
+                {/* ✅ status เป็นจุดสี (force dark text for card) */}
+                <StatusPill status={c.status} className="shrink-0 text-slate-800" />
               </div>
 
               <div className="mt-3">
@@ -488,9 +491,9 @@ export default function Complaints() {
                     </div>
                   </td>
 
-                  {/* ✅ status เป็นจุดสี */}
+                  {/* ✅ status เป็นจุดสี (force dark text for table) */}
                   <td className="p-3">
-                    <StatusPill status={c.status} />
+                    <StatusPill status={c.status} className="text-slate-800" />
                   </td>
 
                   {/* ✅ ลดปุ่ม: เหลือแค่ “รายละเอียด” */}
@@ -668,21 +671,21 @@ export default function Complaints() {
                   onClick={() => setSt(selected.id, "IN_PROGRESS")}
                   className="rounded-xl bg-white/10 px-4 py-2 text-sm hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-white/30"
                 >
-                  รับเรื่อง
+                  เริ่มดำเนินการ
                 </button>
                 <button
                   type="button"
                   onClick={() => setSt(selected.id, "RESOLVED")}
                   className="rounded-xl bg-emerald-500/20 px-4 py-2 text-sm hover:bg-emerald-500/25 focus:outline-none focus:ring-2 focus:ring-emerald-300/30"
                 >
-                  ปิดเคส
+                  แก้ไขเสร็จสิ้น
                 </button>
                 <button
                   type="button"
                   onClick={() => setSt(selected.id, "REJECTED")}
                   className="rounded-xl bg-red-500/20 px-4 py-2 text-sm hover:bg-red-500/25 focus:outline-none focus:ring-2 focus:ring-red-300/30"
                 >
-                  ปฏิเสธ
+                  ปฏิเสธคำร้อง
                 </button>
               </div>
 
