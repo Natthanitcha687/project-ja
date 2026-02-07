@@ -583,7 +583,7 @@ export default function Complaints() {
           <div className="absolute inset-0 bg-black/70" onClick={closeModal} aria-hidden="true" />
 
           <div
-            className="relative mx-auto mt-10 w-[min(980px,92vw)] rounded-2xl border border-white/10 bg-zinc-950 text-white shadow-2xl overflow-hidden"
+            className="relative mx-auto mt-10 w-[min(980px,92vw)] rounded-2xl border border-white/10 bg-zinc-950 text-white shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
             role="dialog"
             aria-modal="true"
             aria-labelledby={MODAL_TITLE_ID}
@@ -626,7 +626,7 @@ export default function Complaints() {
               </div>
             </div>
 
-            <div className="p-5 space-y-4">
+            <div className="p-5 space-y-4 max-h-[85vh] overflow-y-auto custom-scrollbar">
               <div id={MODAL_BODY_ID}>
                 <div className="text-sm font-semibold text-white/90">รายละเอียด</div>
                 <div className="mt-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-white/90 whitespace-pre-wrap">
