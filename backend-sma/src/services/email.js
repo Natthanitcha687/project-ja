@@ -338,3 +338,37 @@ export async function sendLoginOtpEmail({ to, code, minutes = 10 }) {
 
   return transport.sendMail({ from, to, subject, text, html });
 }
+
+/**
+ * Account locked email (เมื่อ login ผิด 5 ครั้ง)
+ */
+export async function sendAccountLockedEmail({ to }) {
+  const transport = await getTransport();
+  const from = getFrom();
+
+  const subject = "🔒 บัญชีของคุณถูกระงับชั่วคราว";
+  const text = `บัญชีอีเมล ${to} ถูกระงับ 24 ชั่วโมง เนื่องจากมีการเข้าสู่ระบบผิดพลาด 5 ครั้งติดต่อกัน`;
+
+  const html = buildEmailShell({
+    title: "บัญชีถูกระงับ 24 ชั่วโมง",
+    messageHtml: `
+      <p style="margin:0 0 12px;font-size:15px;color:#374151;">
+        บัญชีอีเมล <strong>${escapeHtml(to)}</strong> ถูกระงับชั่วคราว
+      </p>
+      <p style="margin:0 0 12px;font-size:15px;color:#374151;">
+        เนื่องจากมีการเข้าสู่ระบบผิดพลาด <strong>5 ครั้ง</strong>ติดต่อกันภายใน 1 ชั่วโมง
+      </p>
+      <p style="margin:0 0 12px;font-size:15px;color:#374151;">
+        คุณจะสามารถเข้าสู่ระบบได้อีกครั้งหลังจาก <strong>24 ชั่วโมง</strong>
+      </p>
+      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px;margin:16px 0;">
+        <p style="margin:0;font-size:14px;color:#b91c1c;">
+          ⚠️ หากไม่ใช่คุณเป็นผู้พยายามเข้าสู่ระบบ กรุณาเปลี่ยนรหัสผ่านทันทีหลังจากหมดเวลาระงับ
+        </p>
+      </div>
+    `,
+    footerNote: "อีเมลนี้ส่งโดยอัตโนมัติเพื่อแจ้งเตือนเรื่องความปลอดภัยบัญชีของคุณ"
+  });
+
+  return transport.sendMail({ from, to, subject, text, html });
+}

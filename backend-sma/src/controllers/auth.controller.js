@@ -2,7 +2,7 @@
 import { prisma } from '../db/prisma.js'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
-import { sendVerificationEmail, sendPasswordResetEmail, sendLoginOtpEmail } from '../services/email.js'
+import { sendVerificationEmail, sendPasswordResetEmail, sendLoginOtpEmail, sendAccountLockedEmail } from '../services/email.js'
 import crypto from 'crypto'
 
 // ✅ เพิ่มสำหรับ Google ID token verify
@@ -160,7 +160,32 @@ function normalizeRole(v) {
 }
 
 async function guardSuspendedUser(req, user) {
-  // ใช้ logic เดียวกับ login()
+  // ✅ เช็ค lockedUntil (จาก login ผิด 5 ครั้ง)
+  if (user.lockedUntil && user.lockedUntil > new Date()) {
+    await logSecurityEvent(req, 'USER_LOGIN_BLOCKED_LOCKED', {
+      userId: user.id,
+      email: user.email,
+      meta: { lockedUntil: user.lockedUntil }
+    })
+    return {
+      ok: false,
+      status: 423,
+      body: {
+        message: 'บัญชีถูกระงับชั่วคราว 24 ชั่วโมง เนื่องจากเข้าสู่ระบบผิดพลาดหลายครั้ง',
+        lockedUntil: user.lockedUntil
+      }
+    }
+  }
+
+  // ✅ ถ้า lockedUntil หมดแล้ว → reset
+  if (user.lockedUntil && user.lockedUntil <= new Date()) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lockedUntil: null, failedLoginAttempts: 0, failedLoginAt: null }
+    })
+  }
+
+  // ใช้ logic เดียวกับ login() สำหรับ suspended
   if (user.status === 'SUSPENDED') {
     if (user.suspendedUntil && user.suspendedUntil <= new Date()) {
       await prisma.user.update({
@@ -482,6 +507,27 @@ export async function login(req, res) {
       return res.status(401).json({ message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' })
     }
 
+    // ✅ เช็คว่าถูก lock จาก failed login หรือไม่
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      await logSecurityEvent(req, 'USER_LOGIN_BLOCKED_LOCKED', {
+        userId: user.id,
+        email: user.email,
+        meta: { lockedUntil: user.lockedUntil }
+      })
+      return res.status(423).json({
+        message: 'บัญชีถูกระงับชั่วคราว 24 ชั่วโมง เนื่องจากเข้าสู่ระบบผิดพลาดหลายครั้ง',
+        lockedUntil: user.lockedUntil
+      })
+    }
+
+    // ✅ ถ้า lockedUntil หมดแล้ว → reset
+    if (user.lockedUntil && user.lockedUntil <= new Date()) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { lockedUntil: null, failedLoginAttempts: 0, failedLoginAt: null }
+      })
+    }
+
     // ✅ กันผู้ใช้ถูกระงับ
     if (user.status === 'SUSPENDED') {
       if (user.suspendedUntil && user.suspendedUntil <= new Date()) {
@@ -509,8 +555,68 @@ export async function login(req, res) {
 
     const ok = await bcrypt.compare(password, user.passwordHash)
     if (!ok) {
-      await logSecurityEvent(req, 'USER_LOGIN_FAIL', { userId: user.id, email: user.email })
+      // ✅ นับ failed login attempts
+      const now = new Date()
+      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000)
+
+      let attempts = user.failedLoginAttempts || 0
+      // Reset counter ถ้าเกิน 1 ชั่วโมง
+      if (!user.failedLoginAt || new Date(user.failedLoginAt) < oneHourAgo) {
+        attempts = 0
+      }
+      attempts += 1
+
+      const updateData = { failedLoginAttempts: attempts }
+      if (attempts === 1) {
+        updateData.failedLoginAt = now
+      }
+
+      // ✅ ครั้งที่ 5 → ล็อค 24 ชม. + ส่ง email
+      if (attempts >= 5) {
+        updateData.lockedUntil = new Date(now.getTime() + 24 * 60 * 60 * 1000)
+
+        // ส่งอีเมลแจ้งเตือน (best-effort)
+        try {
+          await sendAccountLockedEmail({ to: user.email })
+        } catch (e) {
+          console.warn('sendAccountLockedEmail failed:', e?.message || e)
+        }
+
+        await logSecurityEvent(req, 'USER_LOGIN_LOCKED', {
+          userId: user.id,
+          email: user.email,
+          meta: { attempts, lockedUntil: updateData.lockedUntil }
+        })
+      }
+
+      await prisma.user.update({ where: { id: user.id }, data: updateData })
+
+      await logSecurityEvent(req, 'USER_LOGIN_FAIL', { userId: user.id, email: user.email, meta: { attempts } })
+
+      // ✅ Response ตามจำนวน attempts
+      if (attempts === 4) {
+        return res.status(401).json({
+          message: 'รหัสผ่านไม่ถูกต้อง (เหลืออีก 1 ครั้ง ก่อนบัญชีจะถูกระงับ 24 ชม.)',
+          warning: true,
+          attemptsLeft: 1
+        })
+      }
+      if (attempts >= 5) {
+        return res.status(423).json({
+          message: 'บัญชีถูกระงับ 24 ชั่วโมง เนื่องจากเข้าสู่ระบบผิดพลาด 5 ครั้ง',
+          lockedUntil: updateData.lockedUntil
+        })
+      }
+
       return res.status(401).json({ message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' })
+    }
+
+    // ✅ Login สำเร็จ → Reset failed attempts
+    if (user.failedLoginAttempts > 0 || user.failedLoginAt || user.lockedUntil) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { failedLoginAttempts: 0, failedLoginAt: null, lockedUntil: null }
+      })
     }
 
     // ✅ บล็อคผู้ใช้ที่ยังไม่ยืนยันอีเมล

@@ -36,6 +36,11 @@ model User {
   suspendedUntil   DateTime?
   lastLoginAt      DateTime?
 
+  // ✅ เพิ่ม: Login rate limiting (ป้องกัน brute force)
+  failedLoginAttempts  Int       @default(0)    // จำนวนครั้งที่ login ผิด
+  failedLoginAt        DateTime?               // เวลาที่เริ่มนับ
+  lockedUntil          DateTime?               // เวลาหมดล็อค
+
   customerProfile CustomerProfile?
   storeProfile    StoreProfile?
 
