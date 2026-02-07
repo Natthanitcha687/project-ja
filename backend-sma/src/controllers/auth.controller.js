@@ -861,7 +861,8 @@ export async function submitAppeal(req, res) {
     // จัดการไฟล์รูป
     let images = []
     if (req.files && req.files.length > 0) {
-      images = req.files.map((f) => `/uploads/${f.filename}`)
+      // ✅ Fix: ต้องมี /warranty-images ตามที่ middleware ตั้งไว้
+      images = req.files.map((f) => `/uploads/warranty-images/${f.filename}`)
     }
 
     // สร้าง Complaint
