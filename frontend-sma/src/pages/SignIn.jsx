@@ -164,7 +164,7 @@ export default function SignIn() {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const { setToken } = useAuth?.() ?? { setToken: () => {} };
+  const { setToken } = useAuth?.() ?? { setToken: () => { } };
   // const [showPwd, setShowPwd] = useState(false); // **ถูกลบออก**
 
   useEffect(() => {
@@ -528,7 +528,14 @@ export default function SignIn() {
           </div>
 
           {error ? (
-            <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            <div className={`mt-4 rounded-xl border px-3 py-2 text-sm ${error.includes('เหลืออีก') || error.includes('ก่อนบัญชีจะถูกระงับ')
+                ? 'border-amber-300 bg-amber-50 text-amber-800'
+                : error.includes('ถูกระงับ') || error.includes('24')
+                  ? 'border-red-300 bg-red-100 text-red-800 font-medium'
+                  : 'border-rose-200 bg-rose-50 text-rose-700'
+              }`}>
+              {error.includes('ถูกระงับ') && '🔒 '}
+              {error.includes('เหลืออีก') && '⚠️ '}
               {error}
             </div>
           ) : null}
