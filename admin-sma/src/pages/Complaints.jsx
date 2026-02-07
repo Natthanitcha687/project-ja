@@ -93,6 +93,12 @@ function absolutize(p) {
 
   const b = String(base).replace(/\/+$/, "");
   const tail = s.startsWith("/") ? s : `/${s}`;
+
+  // ✅ ถ้าเป็น /uploads ให้เติม base URL เสมอ
+  if (tail.startsWith('/uploads')) {
+    return `${b}${tail}`;
+  }
+
   return `${b}${tail}`;
 }
 
