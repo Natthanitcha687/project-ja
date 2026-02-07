@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { sendVerificationEmail, sendPasswordResetEmail, sendLoginOtpEmail, sendAccountLockedEmail } from '../services/email.js'
 import crypto from 'crypto'
+import { logAudit, clientInfo } from '../services/audit.service.js'
 
 // ✅ เพิ่มสำหรับ Google ID token verify
 import { OAuth2Client } from 'google-auth-library'
@@ -24,16 +25,6 @@ function addHours(date, hours) {
 
 function newRandomToken() {
   return crypto.randomBytes(24).toString('hex')
-}
-
-function clientInfo(req) {
-  const ip =
-    req.headers['x-forwarded-for']?.toString()?.split(',')[0]?.trim() ||
-    req.ip ||
-    null
-
-  const userAgent = req.get('user-agent') || null
-  return { ip, userAgent }
 }
 
 async function logSecurityEvent(req, type, payload = {}) {
@@ -677,6 +668,9 @@ export async function login(req, res) {
       data: { lastLoginAt: new Date() }
     })
 
+    // ✅ Audit Log
+    await logAudit(req, 'USER_LOGIN', 'User', user.id, { method: 'password', role: user.role, result: 'SUCCESS' })
+
     const token = sign(user)
     res.json({ token })
   } catch (err) {
@@ -739,6 +733,9 @@ export async function verifyLoginOtp(req, res) {
     ])
 
     await logSecurityEvent(req, 'USER_LOGIN_OTP_SUCCESS', { userId: row.userId, email: row.user?.email })
+
+    // ✅ Audit Log
+    await logAudit(req, 'USER_LOGIN', 'User', row.userId, { method: 'otp', role: row.user?.role, result: 'SUCCESS' })
 
     const token = sign(row.user)
     return res.json({ token })
@@ -804,13 +801,91 @@ export async function resendLoginOtp(req, res) {
       otpRequired: true,
       challengeId: newChallengeId,
       expiresInSec: OTP_EXPIRES_MIN * 60,
-      message: 'ส่ง OTP ใหม่แล้ว'
+      message: 'ส่งรหัส OTP รอบใหม่ไปที่อีเมลแล้ว'
     })
   } catch (err) {
     console.error('resendLoginOtp error:', err)
     return res.status(500).json({ message: 'เกิดข้อผิดพลาด' })
   }
 }
+
+import fs from 'fs'
+
+// ✅ Public Appeal (สำหรับคนโดนระงับ)
+export async function submitAppeal(req, res) {
+  try {
+    const { email, reason } = req.body
+    if (!email || !reason) {
+      return res.status(400).json({ message: 'กรุณากรอกอีเมลและเหตุผล' })
+    }
+
+    const user = await prisma.user.findUnique({ where: { email } })
+    if (!user) {
+      // return 200 เพื่อความปลอดภัย (ไม่ให้ harvest email) หรือ 404 แล้วแต่นโยบาย
+      // แต่เคสนี้เป็น appeal ถ้าระบบบอกว่า "ส่งแล้ว" แต่จริงๆ ไม่ส่ง ผู้ใช้อาจงง
+      // เอาแบบตรงไปตรงมา:
+      return res.status(404).json({ message: 'ไม่พบอีเมลในระบบ' })
+    }
+
+    if (user.status !== 'SUSPENDED') {
+      // ลบไฟล์ทิ้งถ้ามี
+      if (req.files) {
+        req.files.forEach((f) => {
+          try {
+            fs.unlinkSync(f.path)
+          } catch { }
+        })
+      }
+      return res.status(400).json({ message: 'บัญชีนี้ไม่ได้ถูกระงับการใช้งาน' })
+    }
+
+    // ✅ เช็คว่ามีคำร้องที่ "อยู่ระหว่างการดำเนินการ" อยู่แล้วหรือไม่ (กัน Spam)
+    const existingAppeal = await prisma.complaint.findFirst({
+      where: {
+        userId: user.id,
+        status: 'OPEN',
+        // อาจจะเช็ค category ด้วยก็ได้ แต่เอาแค่ "มีเรื่องค้างอยู่" ก็พอ
+      }
+    })
+
+    if (existingAppeal) {
+      // ลบไฟล์ที่เพิ่งอัปโหลดมาทิ้ง (ถ้ามี) เพราะไม่ได้ใช้
+      if (req.files) {
+        req.files.forEach((f) => {
+          try { fs.unlinkSync(f.path) } catch { }
+        })
+      }
+      return res.status(400).json({ message: 'คุณมีคำร้องที่อยู่ระหว่างการดำเนินการแล้ว กรุณารอเจ้าหน้าที่ตรวจสอบ' })
+    }
+
+    // จัดการไฟล์รูป
+    let images = []
+    if (req.files && req.files.length > 0) {
+      images = req.files.map((f) => `/uploads/${f.filename}`)
+    }
+
+    // สร้าง Complaint
+    await prisma.complaint.create({
+      data: {
+        userId: user.id,
+        subject: 'ยื่นอุทธรณ์/ขอปลดระงับ (จากระบบอัตโนมัติ)',
+        message: `[Appeal] ผู้ใช้ขอยื่นอุทธรณ์\n\nเหตุผล: ${reason}\n\nสถานะปัจจุบัน: ถูกระงับ\nวันหมดระงับ: ${user.suspendedUntil ? user.suspendedUntil.toISOString() : 'ไม่มีกำหนด'}`,
+        category: 'ยื่นอุทธรณ์',
+        status: 'OPEN',
+        images: images.length > 0 ? images : undefined
+      }
+    })
+
+    // (Optional) อาจจะส่งเมลแจ้ง admin หรือแจ้ง user กลับว่าได้รับเรื่องแล้ว
+
+    res.json({ ok: true, message: 'ส่งคำร้องสำเร็จ เจ้าหน้าที่จะพิจารณาและแจ้งผลทางอีเมล' })
+  } catch (e) {
+    console.error('submitAppeal error:', e)
+    res.status(500).json({ message: 'เกิดข้อผิดพลาด' })
+  }
+}
+
+
 
 export async function me(req, res) {
   try {
@@ -944,6 +1019,9 @@ export async function googleStart(req, res) {
 
       await logSecurityEvent(req, 'USER_LOGIN_GOOGLE_SUCCESS', { userId: user.id, email: user.email })
 
+      // ✅ Audit Log
+      await logAudit(req, 'USER_LOGIN', 'User', user.id, { method: 'google', role: user.role, result: 'SUCCESS' })
+
       const token = sign(user)
       return res.json({ token, existing: true, role: user.role })
     }
@@ -1043,6 +1121,9 @@ export async function googleCompleteCustomer(req, res) {
       meta: { role: 'CUSTOMER' }
     })
 
+    // ✅ Audit Log
+    await logAudit(req, 'USER_LOGIN', 'User', user.id, { method: 'google-signup', role: 'CUSTOMER', result: 'SUCCESS' })
+
     const token = sign(user)
     return res.status(201).json({ token })
   } catch (err) {
@@ -1129,6 +1210,9 @@ export async function googleCompleteStore(req, res) {
       email: user.email,
       meta: { role: 'STORE' }
     })
+
+    // ✅ Audit Log
+    await logAudit(req, 'USER_LOGIN', 'User', user.id, { method: 'google-signup', role: 'STORE', result: 'SUCCESS' })
 
     const token = sign(user)
     return res.status(201).json({ token })

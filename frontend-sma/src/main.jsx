@@ -32,6 +32,7 @@ import StoreComplaints from './pages/StoreComplaints' // ✅ เพิ่ม
 // ✅ เพิ่ม: หน้า Signup Google (ลูกค้า/ร้านค้า)
 import SignUpGoogleCustomer from './pages/SignUpGoogleCustomer'
 import SignUpGoogleStore from './pages/SignUpGoogleStore'
+import AppealSuspension from './pages/AppealSuspension'
 
 // แถบของฝั่งลูกค้า / แดชบอร์ด (rich header with profile / notifications)
 import CustomerNavbar from './components/CustomerNavbar.jsx'
@@ -141,6 +142,7 @@ const router = createBrowserRouter([
       { path: '/verify-email', element: <VerifyEmail /> },
       { path: '/forgot-password', element: <ForgotPassword /> },
       { path: '/reset-password', element: <ResetPassword /> },
+      { path: '/appeal-suspension', element: <AppealSuspension /> },
 
       {
         path: '/dashboard',

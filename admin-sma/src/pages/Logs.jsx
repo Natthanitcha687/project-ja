@@ -107,6 +107,12 @@ function changeSummary(l) {
     return `${r}${em}${why}`.trim();
   }
 
+  // ✅ เพิ่ม Support สำหรับ User Login
+  if (l.action === "USER_LOGIN") {
+    const method = m?.method ? ` • ${m.method}` : "";
+    return `เข้าสู่ระบบสำเร็จ${method}`;
+  }
+
   if (b || a) {
     const bKeys = b ? Object.keys(b) : [];
     const aKeys = a ? Object.keys(a) : [];
@@ -128,32 +134,45 @@ function changeSummary(l) {
 }
 
 /**
- * ✅ Result: เปลี่ยนเป็น “จุดบอกสถานะ” (ไม่กระทบ logic)
+ * ✅ Result: Status indicator (not a button)
  */
 function ResultPill({ value }) {
   const v = (value || "").toUpperCase();
 
-  const dotCls =
-    v === "SUCCESS" ? "bg-emerald-500" : v === "FAIL" ? "bg-rose-500" : "bg-slate-400";
+  // ✅ Status indicator styling - flat, no shadow/hover to avoid looking clickable
+  let dotCls = "";
+  let textCls = "";
+  let label = v || "—";
 
-  const label = v === "SUCCESS" ? "SUCCESS" : v === "FAIL" ? "FAIL" : v || "—";
+  if (v === "SUCCESS") {
+    dotCls = "bg-emerald-500";
+    textCls = "text-emerald-700";
+    label = "SUCCESS";
+  } else if (v === "FAIL") {
+    dotCls = "bg-rose-500";
+    textCls = "text-rose-700";
+    label = "FAIL";
+  } else {
+    dotCls = "bg-slate-400";
+    textCls = "text-slate-600";
+  }
 
   return (
     <span className="inline-flex items-center gap-2" title={label}>
-      <span className={["h-2.5 w-2.5 rounded-full", dotCls].join(" ")} aria-hidden="true" />
-      <span className="text-xs font-semibold text-slate-800">{label}</span>
+      <span className={["h-2 w-2 rounded-full", dotCls].join(" ")} aria-hidden="true" />
+      <span className={["text-xs font-medium", textCls].join(" ")}>{label}</span>
     </span>
   );
 }
 
 /**
- * ✅ Action: เอาจุดออก เหลือ “ตัวหนา” อย่างเดียว
+ * ✅ Action: Text label (not a button)
  */
 function ActionPill({ value }) {
   const v = value || "—";
   return (
     <span
-      className="max-w-full truncate align-middle text-xs font-extrabold text-slate-900 tracking-wide"
+      className="text-xs font-semibold text-sky-700 max-w-full truncate"
       title={v}
     >
       {v}
@@ -316,7 +335,7 @@ export default function Logs() {
     const m = metaOf(l);
     const text = m ? JSON.stringify(m, null, 2) : "";
     if (!text) return;
-    navigator.clipboard?.writeText(text).catch(() => {});
+    navigator.clipboard?.writeText(text).catch(() => { });
   }
 
   function openIpPopover(e, ip) {
@@ -352,7 +371,7 @@ export default function Logs() {
   function copyIp(ip) {
     const text = (ip ?? "").toString();
     if (!text) return;
-    navigator.clipboard?.writeText(text).catch(() => {});
+    navigator.clipboard?.writeText(text).catch(() => { });
   }
 
   return (
@@ -366,16 +385,6 @@ export default function Logs() {
             บันทึกการกระทำสำคัญในระบบ (การจัดการสถานะบัญชีผู้ใช้โดยแอดมิน ระงับ/ปลดระงับ/ลบบัญชี, การสร้าง/แก้ไขใบรับประกัน, การแจ้งปัญหา)
           </div>
         </div>
-
-        <button
-          type="button"
-          onClick={load}
-          disabled={loading}
-          className="rounded-xl bg-sky-700 text-white px-4 py-2 text-sm font-semibold shadow-sm hover:bg-sky-800 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200"
-          aria-label="รีเฟรชรายการ Activity Logs"
-        >
-          รีเฟรช
-        </button>
       </div>
 
       {err && (
@@ -392,23 +401,10 @@ export default function Logs() {
         ช่องค้นหาใช้ค้นหา actor/action/target/ip/user-agent/meta, ตัวกรองผลลัพธ์ใช้เลือก SUCCESS หรือ FAIL, ปุ่มล้างใช้รีเซ็ตตัวกรอง
       </p>
 
-      {/* Controls */}
-      <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_180px_110px] items-center">
-        <div>
-          <label htmlFor={Q_ID} className="sr-only">
-            ค้นหา logs
-          </label>
-          <input
-            id={Q_ID}
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            aria-describedby={HELP_ID}
-            className="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-slate-900 shadow-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-            placeholder="ค้นหา: actor / action / target / ip / user-agent / meta..."
-          />
-        </div>
-
-        <div>
+      {/* Controls - แบบหน้าจัดการผู้ใช้: dropdown, search, ปุ่มรีเฟรช */}
+      <div className="mt-4 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+        {/* Dropdown กรองผลลัพธ์ */}
+        <div className="shrink-0">
           <label htmlFor={RESULT_ID} className="sr-only">
             กรองผลลัพธ์
           </label>
@@ -417,26 +413,44 @@ export default function Logs() {
             value={result}
             onChange={(e) => setResult(e.target.value)}
             aria-describedby={HELP_ID}
-            className="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
+            className="w-full sm:w-auto rounded-xl bg-white border border-slate-200 px-3 py-2.5 text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
             title="กรองผลลัพธ์"
           >
-            <option value="">ผลลัพธ์: ทั้งหมด</option>
-            <option value="SUCCESS">SUCCESS</option>
-            <option value="FAIL">FAIL</option>
+            <option value="">ทั้งหมด</option>
+            <option value="SUCCESS">สำเร็จ</option>
+            <option value="FAIL">ล้มเหลว</option>
           </select>
         </div>
 
+        {/* Search input */}
+        <div className="relative flex-1">
+          <label htmlFor={Q_ID} className="sr-only">
+            ค้นหา logs
+          </label>
+          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+            <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <input
+            id={Q_ID}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            aria-describedby={HELP_ID}
+            className="w-full rounded-xl bg-white border border-slate-200 pl-10 pr-4 py-2.5 text-slate-900 shadow-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-400 transition-all duration-200"
+            placeholder="ค้นหาผู้กระทำ / การกระทำ / เป้าหมาย..."
+          />
+        </div>
+
+        {/* ปุ่มรีเฟรช */}
         <button
           type="button"
-          onClick={() => {
-            setQ("");
-            setResult("");
-          }}
-          className="w-full rounded-xl bg-slate-50 text-slate-700 border border-slate-200 px-4 py-2 font-semibold shadow-sm hover:bg-slate-100 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200"
+          onClick={load}
           disabled={loading}
-          aria-describedby={HELP_ID}
+          className="shrink-0 rounded-xl bg-white border border-slate-200 text-slate-700 px-6 py-2.5 text-sm font-semibold shadow-sm hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200 transition-colors duration-200"
+          aria-label="รีเฟรชรายการ Activity Logs"
         >
-          ล้าง
+          รีเฟรช
         </button>
       </div>
 
@@ -472,10 +486,10 @@ export default function Logs() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   {/* ✅ contrast */}
-                  <div className="text-xs text-slate-700">Time</div>
+                  <div className="text-xs text-slate-700">เวลา</div>
                   <div className="text-sm font-semibold text-slate-900">{fmtDT(l.createdAt)}</div>
 
-                  <div className="mt-2 text-xs text-slate-700">Who</div>
+                  <div className="mt-2 text-xs text-slate-700">ผู้กระทำ</div>
                   <div className="text-sm text-slate-900 break-words">{actorText(l)}</div>
                 </div>
 
@@ -487,7 +501,7 @@ export default function Logs() {
 
               <div className="mt-3 grid grid-cols-1 gap-3">
                 <div>
-                  <div className="text-xs text-slate-700">Target</div>
+                  <div className="text-xs text-slate-700">เป้าหมาย</div>
                   <div className="text-sm text-slate-900 break-words">{tgt}</div>
                 </div>
 
@@ -510,7 +524,7 @@ export default function Logs() {
                   </div>
 
                   <div>
-                    <div className="text-xs text-slate-700">User-Agent</div>
+                    <div className="text-xs text-slate-700">อุปกรณ์</div>
                     <div className="text-sm text-slate-900 break-words" title={l.userAgent || ""}>
                       {clip(l.userAgent || "—", 40)}
                     </div>
@@ -519,7 +533,7 @@ export default function Logs() {
 
                 {(sum || why) && (
                   <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                    <div className="text-xs text-slate-700">Meta</div>
+                    <div className="text-xs text-slate-700">รายละเอียด</div>
                     <div className="text-sm text-slate-900 break-words">
                       {sum || (why ? `เหตุผล: ${why}` : "—")}
                     </div>
@@ -564,31 +578,31 @@ export default function Logs() {
       <div className="mt-4 hidden md:block rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
         <table className="w-full text-sm table-fixed">
           {/* ✅ contrast */}
-          <thead className="bg-slate-50 text-slate-700">
+          <thead className="bg-slate-100 text-slate-800 font-semibold">
             <tr>
               <th className="p-3 text-left w-[190px]" scope="col">
-                Time
+                เวลา
               </th>
               <th className="p-3 text-left w-[260px]" scope="col">
-                Who
+                ผู้กระทำ
               </th>
               <th className="p-3 text-left w-[220px]" scope="col">
-                Action
+                การกระทำ
               </th>
               <th className="p-3 text-left w-[220px]" scope="col">
-                Target
+                เป้าหมาย
               </th>
               <th className="p-3 text-left w-[140px]" scope="col">
-                Result
+                ผลลัพธ์
               </th>
               <th className="p-3 text-left w-[140px]" scope="col">
                 IP
               </th>
               <th className="p-3 text-left hidden xl:table-cell" scope="col">
-                User-Agent
+                อุปกรณ์
               </th>
               <th className="p-3 text-left hidden xl:table-cell" scope="col">
-                Meta (สรุป)
+                รายละเอียด
               </th>
               <th className="p-3 text-left w-[140px]" scope="col">
                 {" "}
@@ -613,7 +627,7 @@ export default function Logs() {
               return (
                 <tr
                   key={l.id}
-                  className="border-t border-slate-200 hover:bg-slate-50/70 cursor-pointer"
+                  className="border-t border-slate-100 odd:bg-slate-50/50 hover:bg-sky-50/70 cursor-pointer transition-colors duration-150"
                   onClick={() => openDetail(l)}
                   onKeyDown={onRowKeyDown}
                   tabIndex={0}
@@ -656,9 +670,13 @@ export default function Logs() {
                       <button
                         type="button"
                         onClick={(e) => openIpPopover(e, l.ip)}
-                        className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                        className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-slate-50 to-slate-100 border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:shadow hover:from-slate-100 hover:to-slate-150 focus:outline-none focus:ring-2 focus:ring-sky-300 transition-all duration-200"
                         title="Show IP"
                       >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
                         Show
                       </button>
                     ) : (
@@ -683,14 +701,14 @@ export default function Logs() {
                       <button
                         type="button"
                         onClick={() => openDetail(l)}
-                        className="rounded-lg bg-sky-50 text-sky-700 border border-sky-200 px-3 py-1 font-semibold hover:bg-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                        className="rounded-lg bg-gradient-to-r from-sky-500 to-blue-500 text-white px-3 py-1.5 text-xs font-semibold shadow-sm hover:shadow-md hover:from-sky-600 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-sky-300 transition-all duration-200"
                       >
                         รายละเอียด
                       </button>
                       <button
                         type="button"
                         onClick={() => copyMeta(l)}
-                        className="rounded-lg bg-slate-50 text-slate-700 border border-slate-200 px-3 py-1 font-semibold hover:bg-slate-100 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200"
+                        className="rounded-lg bg-gradient-to-r from-slate-100 to-slate-200 text-slate-700 border border-slate-200 px-3 py-1.5 text-xs font-semibold shadow-sm hover:shadow hover:from-slate-200 hover:to-slate-300 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-300 transition-all duration-200"
                         disabled={!metaOf(l)}
                         title={!metaOf(l) ? "ไม่มี meta" : "คัดลอก meta JSON"}
                       >
@@ -874,7 +892,7 @@ export default function Logs() {
                 </div>
 
                 <pre className="mt-2 max-h-[360px] overflow-auto rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-xs text-white/85 whitespace-pre-wrap break-words">
-{metaOf(selected) ? JSON.stringify(metaOf(selected), null, 2) : "—"}
+                  {metaOf(selected) ? JSON.stringify(metaOf(selected), null, 2) : "—"}
                 </pre>
               </div>
 

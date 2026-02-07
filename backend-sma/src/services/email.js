@@ -72,7 +72,7 @@ function inferWarrantyCta({ subject, text }) {
 }
 
 
-function buildEmailShell({ title, messageHtml, ctaUrl, ctaText, footerNote }) {
+export function buildEmailShell({ title, messageHtml, ctaUrl, ctaText, footerNote }) {
   const safeTitle = escapeHtml(title || "การแจ้งเตือน");
   const safeFooter = escapeHtml(
     footerNote ||

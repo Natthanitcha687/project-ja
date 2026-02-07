@@ -2,71 +2,19 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { prisma } from "../db/prisma.js";
-import { sendMail } from "../config/mail.js"; // มีอยู่แล้วในโปรกต์ (ส่งแบบ best-effort)
+import { sendMail } from "../config/mail.js"; // มีอยู่แล้วในโปรเจกต์ (ส่งแบบ best-effort)
 import { createAndPublish as createNotification } from "../routes/notifications.routes.js";
+import { logAudit, clientInfo } from "../services/audit.service.js";
+import { buildEmailShell } from "../services/email.js";
+
+const ADMIN_CONTACT_EMAIL = process.env.ADMIN_EMAIL || "support@example.com";
+
 
 function sign(user) {
   const payload = { sub: user.id, role: user.role, email: user.email };
   const secret = process.env.JWT_SECRET || "dev-secret";
   const expiresIn = process.env.JWT_EXPIRES_IN || "7d";
   return jwt.sign(payload, secret, { expiresIn });
-}
-
-function clientInfo(req) {
-  const xf = req.headers["x-forwarded-for"];
-  const ipFromXf =
-    typeof xf === "string"
-      ? xf.split(",")[0].trim()
-      : Array.isArray(xf)
-      ? String(xf[0]).split(",")[0].trim()
-      : null;
-
-  const ip =
-    ipFromXf ||
-    req.headers["x-real-ip"]?.toString()?.trim() ||
-    req.headers["cf-connecting-ip"]?.toString()?.trim() ||
-    req.ip ||
-    null;
-
-  return {
-    ip,
-    userAgent: req.get("user-agent") || null,
-  };
-}
-
-/**
- * logAudit(req, action, targetType?, targetId?, meta?, actorUserIdOverride?)
- * - meta ควรเป็น object/Json
- * - actorUserIdOverride ใช้กรณี login (ยังไม่มี req.user)
- */
-async function logAudit(
-  req,
-  action,
-  targetType = null,
-  targetId = null,
-  meta = null,
-  actorUserIdOverride = null
-) {
-  const { ip, userAgent } = clientInfo(req);
-
-  const actorUserId =
-    actorUserIdOverride != null
-      ? Number(actorUserIdOverride)
-      : req.user?.id
-      ? Number(req.user.id)
-      : null;
-
-  await prisma.auditLog.create({
-    data: {
-      actorUserId,
-      action,
-      targetType,
-      targetId: targetId ? String(targetId) : null,
-      ip,
-      userAgent,
-      meta,
-    },
-  });
 }
 
 // ✅ ส่งเมลแบบ “พยายามส่ง” (ห้ามพังระบบถ้าไม่ได้ตั้งค่าเมล)
@@ -236,11 +184,11 @@ export async function listStores(req, res) {
     ...(status ? { status } : {}),
     ...(q
       ? {
-          OR: [
-            { email: { contains: q, mode: "insensitive" } },
-            { storeProfile: { storeName: { contains: q, mode: "insensitive" } } },
-          ],
-        }
+        OR: [
+          { email: { contains: q, mode: "insensitive" } },
+          { storeProfile: { storeName: { contains: q, mode: "insensitive" } } },
+        ],
+      }
       : {}),
   };
 
@@ -692,12 +640,30 @@ export async function deleteStoreAccount(req, res) {
     before,
   });
 
+  const html = buildEmailShell({
+    title: "บัญชีร้านถูกลบโดยผู้ดูแลระบบ",
+    messageHtml: `
+      <p style="font-size:16px;font-weight:bold;color:#1f2937;">เรียน เจ้าของร้านค้า,</p>
+      <p>บัญชีร้านค้าของคุณถูกลบออกจากระบบโดยผู้ดูแลระบบ</p>
+      <div style="background:#fef2f2;border-left:4px solid #ef4444;padding:12px;margin:16px 0;border-radius:4px;">
+        <p style="margin:0;font-weight:bold;color:#991b1b;">เหตุผล:</p>
+        <p style="margin:4px 0 0 0;color:#b91c1c;">${reason || "-"}</p>
+      </div>
+      <p>หากคุณมีข้อสงสัยหรือต้องการยื่นอุทธรณ์ สามารถกรอกแบบฟอร์มได้ที่:</p>
+      <p>
+        <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/appeal-suspension?email=${store.email}" style="color:#2563eb;font-weight:600;text-decoration:none;">
+          📝 ยื่นอุทธรณ์ / ขอปลดระงับ
+        </a>
+      </p>
+    `,
+    footerNote: "ระบบจัดการใบรับประกันอัจฉริยะ",
+  });
+
   await sendMailBestEffort({
     to: store.email,
     subject: "แจ้งเตือน: บัญชีร้านถูกลบโดยผู้ดูแลระบบ",
-    text: `บัญชีร้านของคุณถูกลบโดยผู้ดูแลระบบ\nเหตุผล: ${reason || "-"}`,
-    html: `<div style="font-family:system-ui,Arial">
-      <h3>บัญชีร้านถูกลบ</h3><p>เหตุผล: ${reason || "-"}</p></div>`,
+    text: `บัญชีร้านของคุณถูกลบโดยผู้ดูแลระบบ\nเหตุผล: ${reason || "-"}\nติดต่อ: ${ADMIN_CONTACT_EMAIL}`,
+    html,
   });
 
   await prisma.user.delete({ where: { id: storeId } });
@@ -721,15 +687,30 @@ export async function deleteCustomerAccount(req, res) {
     before,
   });
 
+  const html = buildEmailShell({
+    title: "บัญชีของคุณถูกลบโดยผู้ดูแลระบบ",
+    messageHtml: `
+      <p style="font-size:16px;font-weight:bold;color:#1f2937;">เรียน ลูกค้าผู้ใช้งาน,</p>
+      <p>บัญชีผู้ใช้งานของคุณถูกลบออกจากระบบโดยผู้ดูแลระบบ</p>
+      <div style="background:#fef2f2;border-left:4px solid #ef4444;padding:12px;margin:16px 0;border-radius:4px;">
+        <p style="margin:0;font-weight:bold;color:#991b1b;">เหตุผล:</p>
+        <p style="margin:4px 0 0 0;color:#b91c1c;">${reason || "-"}</p>
+      </div>
+      <p>หากคุณคิดว่าเป็นความผิดพลาด สามารถยื่นอุทธรณ์ได้ที่:</p>
+      <p>
+        <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/appeal-suspension?email=${user.email}" style="color:#2563eb;font-weight:600;text-decoration:none;">
+          📝 ยื่นอุทธรณ์ / ขอปลดระงับ
+        </a>
+      </p>
+    `,
+    footerNote: "ระบบจัดการใบรับประกันอัจฉริยะ",
+  });
+
   await sendMailBestEffort({
     to: user.email,
     subject: "แจ้งเตือน: บัญชีของคุณถูกลบโดยผู้ดูแลระบบ",
-    text: `บัญชีของคุณถูกลบโดยผู้ดูแลระบบ\nเหตุผล: ${reason || "-"}`,
-    html: `<div style="font-family:system-ui,Arial">
-      <h3>บัญชีของคุณถูกลบ</h3>
-      <p><b>เหตุผล:</b> ${reason || "-"}</p>
-      <p>หากคิดว่าเป็นความผิดพลาด กรุณาติดต่อผู้ดูแลระบบ</p>
-    </div>`,
+    text: `บัญชีของคุณถูกลบโดยผู้ดูแลระบบ\nเหตุผล: ${reason || "-"}\nติดต่อ: ${ADMIN_CONTACT_EMAIL}`,
+    html,
   });
 
   await prisma.user.delete({ where: { id: customerId } });
@@ -817,6 +798,37 @@ export async function setUserStatus(req, res) {
         const untilTxt = suspendedUntil ? fmtTH(suspendedUntil) : "-";
         const reasonTxt = (reason || "-").toString();
 
+        const html = buildEmailShell({
+          title: `${whoText}ถูกระงับการใช้งาน`,
+          messageHtml: `
+            <p style="font-size:16px;font-weight:bold;color:#1f2937;">เรียน ผู้ใช้งาน (${roleLabel}),</p>
+            <p>บัญชีของคุณถูกระงับการใช้งานชั่วคราวโดยผู้ดูแลระบบ</p>
+            
+            <table style="width:100%;margin:16px 0;border-collapse:collapse;">
+              <tr style="border-bottom:1px solid #e5e7eb;">
+                <td style="padding:8px;color:#6b7280;width:140px;">ระยะเวลา (วัน):</td>
+                <td style="padding:8px;font-weight:600;color:#111827;">${daysTxt}</td>
+              </tr>
+              <tr style="border-bottom:1px solid #e5e7eb;">
+                <td style="padding:8px;color:#6b7280;">หมดระงับวันที่:</td>
+                <td style="padding:8px;font-weight:600;color:#111827;">${untilTxt}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px;color:#6b7280;vertical-align:top;">เหตุผล:</td>
+                <td style="padding:8px;font-weight:600;color:#b91c1c;">${reasonTxt}</td>
+              </tr>
+            </table>
+
+            <p>หากคุณมีข้อสงสัยหรือต้องการยื่นอุทธรณ์ สามารถกรอกแบบฟอร์มได้ที่:</p>
+            <p>
+              <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/appeal-suspension?email=${updated.email}" style="color:#2563eb;font-weight:600;text-decoration:none;">
+                📝 ยื่นอุทธรณ์ / ขอปลดระงับ
+              </a>
+            </p>
+          `,
+          footerNote: "ระบบจัดการใบรับประกันอัจฉริยะ",
+        });
+
         await sendMailBestEffort({
           to: updated.email,
           subject: `แจ้งเตือน: ${whoText}ถูกระงับ`,
@@ -826,15 +838,8 @@ export async function setUserStatus(req, res) {
             `ระยะเวลา(วัน): ${daysTxt}\n` +
             `หมดระงับ: ${untilTxt}\n` +
             `เหตุผล: ${reasonTxt}\n` +
-            `หากคิดว่าเป็นความผิดพลาด กรุณาติดต่อผู้ดูแลระบบ`,
-          html: `<div style="font-family:system-ui,Arial">
-            <h3>${whoText}ถูกระงับ</h3>
-            <p><b>ประเภทบัญชี:</b> ${roleLabel}</p>
-            <p><b>ระยะเวลา(วัน):</b> ${daysTxt}</p>
-            <p><b>หมดระงับ:</b> ${untilTxt}</p>
-            <p><b>เหตุผล:</b> ${reasonTxt}</p>
-            <p style="color:#64748b">หากคิดว่าเป็นความผิดพลาด กรุณาติดต่อผู้ดูแลระบบ</p>
-          </div>`,
+            `ติดต่อ: ${ADMIN_CONTACT_EMAIL}`,
+          html,
         });
       } else {
         // ✅ ปลดระงับ “แบบละเอียด”
@@ -845,32 +850,40 @@ export async function setUserStatus(req, res) {
         const earlyUnsuspend =
           before?.suspendedUntil && new Date(before.suspendedUntil).getTime() > Date.now();
 
+        const html = buildEmailShell({
+          title: `${whoText}ถูกปลดระงับแล้ว`,
+          messageHtml: `
+            <p style="font-size:16px;font-weight:bold;color:#1f2937;">เรียน ผู้ใช้งาน (${roleLabel}),</p>
+            <p style="color:#059669;font-weight:600;">ยินดีด้วย! บัญชีของคุณได้รับการปลดระงับเรียบร้อยแล้ว</p>
+            <p>คุณสามารถกลับเข้าใช้งานระบบได้ตามปกติทันที</p>
+            
+            ${earlyUnsuspend ? `
+              <div style="background:#ecfdf5;border-left:4px solid #10b981;padding:12px;margin:16px 0;border-radius:4px;">
+                <p style="margin:0;font-size:14px;color:#065f46;">
+                  * บัญชีนี้ได้รับปลดระงับก่อนกำหนดเดิม (${prevUntil})
+                </p>
+              </div>
+            ` : ""}
+
+            <p style="font-size:13px;color:#6b7280;margin-top:20px;">
+              ประวัติการระงับเดิม:<br>
+              - วันที่เริ่ม: ${prevAt}<br>
+              - เหตุผล: ${prevReason}
+            </p>
+          `,
+          ctaUrl: process.env.FRONTEND_URL || "http://localhost:5173",
+          ctaText: "เข้าสู่ระบบ",
+          footerNote: "ระบบจัดการใบรับประกันอัจฉริยะ",
+        });
+
         await sendMailBestEffort({
           to: updated.email,
           subject: `แจ้งเตือน: ${whoText}ถูกปลดระงับแล้ว`,
           text:
             `${whoText}ถูกปลดระงับแล้ว\n` +
-            `ประเภทบัญชี: ${roleLabel}\n` +
-            `รายละเอียดการระงับเดิม:\n` +
-            `- เริ่มระงับ: ${prevAt}\n` +
-            `- เดิมหมดระงับ: ${prevUntil}\n` +
-            `- เหตุผลเดิม: ${prevReason}\n` +
-            (earlyUnsuspend ? `*หมายเหตุ: ปลดระงับก่อนกำหนด\n` : "") +
-            `ขณะนี้คุณสามารถเข้าใช้งานระบบได้ตามปกติ`,
-          html: `<div style="font-family:system-ui,Arial">
-            <h3>${whoText}ถูกปลดระงับแล้ว</h3>
-            <p><b>ประเภทบัญชี:</b> ${roleLabel}</p>
-
-            <div style="margin:12px 0;padding:12px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc">
-              <div style="font-weight:600;margin-bottom:6px">รายละเอียดการระงับเดิม</div>
-              <p style="margin:4px 0"><b>เริ่มระงับ:</b> ${prevAt}</p>
-              <p style="margin:4px 0"><b>เดิมหมดระงับ:</b> ${prevUntil}</p>
-              <p style="margin:4px 0"><b>เหตุผลเดิม:</b> ${prevReason}</p>
-              ${earlyUnsuspend ? `<p style="margin:8px 0;color:#b45309"><b>หมายเหตุ:</b> ปลดระงับก่อนกำหนด</p>` : ""}
-            </div>
-
-            <p>ขณะนี้คุณสามารถเข้าใช้งานระบบได้ตามปกติ</p>
-          </div>`,
+            `สามารถกลับเข้าใช้งานได้ทันที\n` +
+            `\n(เดิมระงับเมื่อ: ${prevAt}, เหตุผล: ${prevReason})`,
+          html,
         });
       }
     }
