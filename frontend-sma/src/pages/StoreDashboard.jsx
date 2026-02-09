@@ -454,160 +454,40 @@ export default function StoreDashboard() {
   }, [filteredWarranties])
 
   // Export current overview or aggregates to Excel
+  // Export current overview or aggregates to Excel
   async function exportOverviewToExcel() {
     try {
-      const wb = XLSX.utils.book_new()
+      if (!storeIdResolved) return
+      setLoading(true)
 
-      // If user requested pivot mode, build raw data sheet + pivot summary sheet
-      if (exportMode === 'pivot') {
-        // Flatten items and prepare status-specific sheets
-        const flat = []
-        const perStatus = { active: [], nearing: [], expired: [] }
-        for (const h of (filteredWarranties || [])) {
-          for (const it of (h.items || [])) {
-            const status = it.status || it._status || deriveItemStatusCode(it, profile?.notifyDaysInAdvance ?? 14)
-            const normalizedStatus = (status === 'nearing_expiration' || status === 'nearing') ? 'nearing' : (status === 'expired' ? 'expired' : 'active')
-            const created = h.createdAt || h.created_at || ''
-            const createdMonth = created ? (new Date(created)).toISOString().slice(0, 7) : ''
-            const row = {
-              headerId: h.id || h.headerId || '',
-              customer: h.customerName || h.customer_name || '',
-              customerEmail: h.customerEmail || h.customer_email || '',
-              product: it.productName || it.product_name || '',
-              serial: it.serial || it.serialNumber || '',
-              status: normalizedStatus,
-              createdAt: created,
-              createdMonth,
-              expiryDate: it.expiryDate || it.expiry_date || ''
-            }
-            flat.push(row)
-            if (normalizedStatus === 'active') perStatus.active.push(row)
-            else if (normalizedStatus === 'nearing') perStatus.nearing.push(row)
-            else if (normalizedStatus === 'expired') perStatus.expired.push(row)
-          }
-        }
+      const response = await api.get(`/store/${storeIdResolved}/export-warranties`, {
+        responseType: 'blob', // สำคัญ! รับเป็นไฟล์
+      })
 
-        // Build Data sheet using selected pivotFields
-        const dataForSheet = flat.map(r => {
-          const out = {}
-          if (pivotFields.customer) out.customer = r.customer
-          if (pivotFields.customerEmail) out.customerEmail = r.customerEmail
-          if (pivotFields.product) out.product = r.product
-          if (pivotFields.serial) out.serial = r.serial
-          if (pivotFields.expiryDate) out.expiryDate = r.expiryDate
-          if (pivotFields.createdAt) out.createdAt = r.createdAt
-          out.status = r.status
-          return out
-        })
-        const dataSheet = XLSX.utils.json_to_sheet(dataForSheet)
-        XLSX.utils.book_append_sheet(wb, dataSheet, 'Data')
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
 
-        // Create per-status sheets
-        const wsActive = XLSX.utils.json_to_sheet(perStatus.active.map(r => ({ customer: r.customer, product: r.product, serial: r.serial, expiryDate: r.expiryDate, createdAt: r.createdAt })))
-        XLSX.utils.book_append_sheet(wb, wsActive, 'Active')
-        const wsNearing = XLSX.utils.json_to_sheet(perStatus.nearing.map(r => ({ customer: r.customer, product: r.product, serial: r.serial, expiryDate: r.expiryDate, createdAt: r.createdAt })))
-        XLSX.utils.book_append_sheet(wb, wsNearing, 'Nearing')
-        const wsExpired = XLSX.utils.json_to_sheet(perStatus.expired.map(r => ({ customer: r.customer, product: r.product, serial: r.serial, expiryDate: r.expiryDate, createdAt: r.createdAt })))
-        XLSX.utils.book_append_sheet(wb, wsExpired, 'Expired')
-
-        // Determine grouping keys for pivot summary
-        const groupFields = []
-        if (pivotByCustomer) groupFields.push('customer')
-        if (pivotByProduct) groupFields.push('product')
-        if (pivotByStatus) groupFields.push('status')
-        if (pivotByMonth) groupFields.push('createdMonth')
-
-        // Aggregate
-        const map = new Map()
-        if (groupFields.length === 0) {
-          // total only
-          const total = { Count: flat.length }
-          const ws = XLSX.utils.json_to_sheet([total])
-          XLSX.utils.book_append_sheet(wb, ws, 'Pivot')
-        } else {
-          for (const r of flat) {
-            const keyParts = groupFields.map(f => String(r[f] ?? ''))
-            const key = keyParts.join('||')
-            const entry = map.get(key) || { __count: 0, __values: Object.fromEntries(groupFields.map((f, i) => [f, keyParts[i]])) }
-            entry.__count += 1
-            map.set(key, entry)
-          }
-          const rows = []
-          for (const e of map.values()) {
-            const out = {}
-            for (const f of groupFields) out[f] = e.__values[f]
-            out.Count = e.__count
-            rows.push(out)
-          }
-          const ws = XLSX.utils.json_to_sheet(rows)
-          XLSX.utils.book_append_sheet(wb, ws, 'Pivot')
-        }
-      } else {
-        // existing behavior: raw/aggregate modes
-        if (exportAggregateBy === 'byCustomer') {
-          const byCustomerRows = []
-          const custMap = new Map()
-          for (const h of (filteredWarranties || [])) {
-            const key = (h.customerEmail || h.customer_email || h.customerName || h.customer_name || 'Unknown').toLowerCase()
-            const entry = custMap.get(key) || { customerName: h.customerName || h.customer_name || '', customerEmail: h.customerEmail || h.customer_email || '', headers: 0, items: 0, active: 0, nearing: 0, expired: 0 }
-            entry.headers += 1
-            entry.items += (h.items || []).length
-            for (const it of (h.items || [])) {
-              const code = it.statusCode || it._status || deriveItemStatusCode(it, profile?.notifyDaysInAdvance ?? 14)
-              if (code === 'active') entry.active++
-              else if (code === 'nearing_expiration' || code === 'nearing') entry.nearing++
-              else if (code === 'expired') entry.expired++
-            }
-            custMap.set(key, entry)
-          }
-          for (const v of custMap.values()) byCustomerRows.push(v)
-          const ws = XLSX.utils.json_to_sheet(byCustomerRows)
-          XLSX.utils.book_append_sheet(wb, ws, 'ByCustomer')
-        } else if (exportAggregateBy === 'byProduct') {
-          const map = new Map()
-          for (const h of (filteredWarranties || [])) {
-            for (const it of (h.items || [])) {
-              const pKey = (it.productName || it.product_name || 'Unknown').toLowerCase()
-              const entry = map.get(pKey) || { productName: it.productName || it.product_name || '', count: 0, active: 0, nearing: 0, expired: 0 }
-              entry.count++
-              const code = it.statusCode || it._status || deriveItemStatusCode(it, profile?.notifyDaysInAdvance ?? 14)
-              if (code === 'active') entry.active++
-              else if (code === 'nearing_expiration' || code === 'nearing') entry.nearing++
-              else if (code === 'expired') entry.expired++
-              map.set(pKey, entry)
-            }
-          }
-          const rows = Array.from(map.values())
-          const ws = XLSX.utils.json_to_sheet(rows)
-          XLSX.utils.book_append_sheet(wb, ws, 'ByProduct')
-        } else {
-          const rows = []
-          for (const h of (filteredWarranties || [])) {
-            rows.push({
-              headerId: h.id || h.headerId || '',
-              customer: h.customerName || h.customer_name || '',
-              customerEmail: h.customerEmail || h.customer_email || '',
-              createdAt: h.createdAt || h.created_at || '',
-              items: (h.items || []).length,
-              status: (h.items || []).map(it => it.status || it._status || deriveItemStatusCode(it, profile?.notifyDaysInAdvance ?? 14)).join('; ')
-            })
-            if (exportIncludeDetails) {
-              for (const it of (h.items || [])) {
-                rows.push({ headerId: h.id || h.headerId || '', itemProduct: it.productName || it.product_name || '', itemSerial: it.serial || it.serialNumber || '', expiryDate: it.expiryDate || it.expiry_date || '' })
-              }
-            }
-          }
-          const ws = XLSX.utils.json_to_sheet(rows)
-          XLSX.utils.book_append_sheet(wb, ws, 'Overview')
-        }
+      // Extract filename from header or default
+      let fileName = `warranty-report-${storeIdResolved}.xlsx`
+      const contentDisposition = response.headers['content-disposition']
+      if (contentDisposition) {
+        const fileNameMatch = contentDisposition.match(/filename="?(.+)"?/)
+        if (fileNameMatch && fileNameMatch.length === 2) fileName = fileNameMatch[1]
       }
 
-      const now = new Date().toISOString().slice(0, 19).replaceAll(':', '-')
-      const fileName = `warranty-export-${exportMode}-${exportAggregateBy}-${exportStatusFilter}-${exportIncludeDetails ? 'details' : 'nodetails'}-${now}.xlsx`
-      XLSX.writeFile(wb, fileName)
+      link.setAttribute('download', fileName)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+
+      setLoading(false)
     } catch (err) {
       console.error('Export to Excel failed', err)
-      alert('ไม่สามารถสร้างไฟล์ Excel ได้: ' + (err?.message || String(err)))
+      alert('ไม่สามารถดาวน์โหลดไฟล์ได้: ' + (err?.response?.data?.error || err.message || String(err)))
+      setLoading(false)
     }
   }
 
@@ -895,8 +775,8 @@ export default function StoreDashboard() {
                       onClick={() => setExtendListPage(p => Math.max(1, p - 1))}
                       disabled={currentPage <= 1}
                       className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${currentPage <= 1
-                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                          : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
                         }`}
                     >
                       ← ก่อนหน้า
@@ -906,8 +786,8 @@ export default function StoreDashboard() {
                       onClick={() => setExtendListPage(p => Math.min(totalPages, p + 1))}
                       disabled={currentPage >= totalPages}
                       className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${currentPage >= totalPages
-                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                          : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
                         }`}
                     >
                       ถัดไป →

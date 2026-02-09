@@ -16,6 +16,8 @@ import {
   listStoreComplaints,
 } from "../controllers/store.controller.js";
 
+import { exportStoreWarranties } from "../controllers/export.controller.js";
+
 import { requireAuth } from "../middleware/requireAuth.js";
 import { requireStore } from "../middleware/requireStore.js";
 import { requireVerified } from "../middleware/requireVerified.js";
@@ -274,5 +276,23 @@ router.post(
  *       '401': { description: Unauthorized }
  */
 router.get("/:storeId/complaints", listStoreComplaints);
+
+/**
+ * @openapi
+ * /store/{storeId}/export-warranties:
+ *   get:
+ *     tags: [Store]
+ *     summary: Export Warranty Data to Excel
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: storeId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       '200': { description: File download }
+ *       '401': { description: Unauthorized }
+ */
+router.get("/:storeId/export-warranties", exportStoreWarranties);
 
 export default router;
