@@ -1,4 +1,3 @@
-// src/pages/StoreDashboard.jsx
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useNavigate, Link } from 'react-router-dom'
@@ -6,8 +5,9 @@ import { api, API_URL, getToken } from '../lib/api'
 import { useAuth } from '../store/auth'
 import StoreTabs from '../components/StoreTabs'
 import SimpleDonut from '../components/SimpleDonut'
-import LineChart from '../components/LineChart'
-import AppLogo from '../components/AppLogo' // ✅ ใช้หัวเดียวกับหน้า Warranty
+import BarChart from '../components/BarChart'
+import ExtendWarrantyModal from '../components/ExtendWarrantyModal'
+import AppLogo from '../components/AppLogo'
 import * as XLSX from 'xlsx'
 
 export default function StoreDashboard() {
@@ -43,6 +43,12 @@ export default function StoreDashboard() {
   const [modalError, setModalError] = useState('')
   const [profileSubmitting, setProfileSubmitting] = useState(false)
   const [passwordSubmitting, setPasswordSubmitting] = useState(false)
+
+  // Extend warranty modal state
+  const [extendModalOpen, setExtendModalOpen] = useState(false)
+  const [selectedItemForExtend, setSelectedItemForExtend] = useState(null)
+  const [extendListPage, setExtendListPage] = useState(1)
+  const ITEMS_PER_PAGE = 10
 
   // Dynamic province/district/subdistrict lists
   const PROVINCES_JSON_LOCAL = '/data/api_province.json'
@@ -160,10 +166,10 @@ export default function StoreDashboard() {
           province: parsed.province?.id ?? parsed.province ?? '',
           postcode: parsed.postcode || parsed.subdistrict?.zipcode || '',
         })
-        try { const prov = parsed.province?.id ?? parsed.province ?? ''; if (prov) await loadDistrictsForProvince(prov); const dist = parsed.district?.id ?? parsed.district ?? ''; if (dist) await loadSubdistrictsForDistrict(dist) } catch (e) {}
+        try { const prov = parsed.province?.id ?? parsed.province ?? ''; if (prov) await loadDistrictsForProvince(prov); const dist = parsed.district?.id ?? parsed.district ?? ''; if (dist) await loadSubdistrictsForDistrict(dist) } catch (e) { }
       } else if (raw && typeof raw === 'object') {
         setAddressParts({ street: raw.street || '', subdistrict: raw.subdistrict?.id ?? raw.subdistrict ?? '', district: raw.district?.id ?? raw.district ?? '', province: raw.province?.id ?? raw.province ?? '', postcode: raw.postcode || '' })
-        try { const prov = raw.province?.id ?? raw.province ?? ''; if (prov) await loadDistrictsForProvince(prov); const dist = raw.district?.id ?? raw.district ?? ''; if (dist) await loadSubdistrictsForDistrict(dist) } catch (e) {}
+        try { const prov = raw.province?.id ?? raw.province ?? ''; if (prov) await loadDistrictsForProvince(prov); const dist = raw.district?.id ?? raw.district ?? ''; if (dist) await loadSubdistrictsForDistrict(dist) } catch (e) { }
       } else {
         setAddressParts({ street: String(profile?.address || '') || '', subdistrict: '', district: '', province: '', postcode: '' })
       }
@@ -194,8 +200,8 @@ export default function StoreDashboard() {
       const response = await api.patch(`/store/${storeIdResolved}/profile`, payload)
       const updatedProfile = response.data?.data?.storeProfile ?? payload
       setProfile((prev) => ({ ...prev, ...updatedProfile }))
-      try { const rawAddr = updatedProfile.address; if (rawAddr) { const parsedAddr = typeof rawAddr === 'string' ? JSON.parse(rawAddr) : rawAddr; setAddressParts({ street: parsedAddr.street || '', subdistrict: parsedAddr.subdistrict?.id ?? parsedAddr.subdistrict ?? '', district: parsedAddr.district?.id ?? parsedAddr.district ?? '', province: parsedAddr.province?.id ?? parsedAddr.province ?? '', postcode: parsedAddr.postcode || '' }) } } catch (e) {}
-      try { setBusinessSchedule(parseBusinessSchedule(updatedProfile.businessHours)) } catch (e) {}
+      try { const rawAddr = updatedProfile.address; if (rawAddr) { const parsedAddr = typeof rawAddr === 'string' ? JSON.parse(rawAddr) : rawAddr; setAddressParts({ street: parsedAddr.street || '', subdistrict: parsedAddr.subdistrict?.id ?? parsedAddr.subdistrict ?? '', district: parsedAddr.district?.id ?? parsedAddr.district ?? '', province: parsedAddr.province?.id ?? parsedAddr.province ?? '', postcode: parsedAddr.postcode || '' }) } } catch (e) { }
+      try { setBusinessSchedule(parseBusinessSchedule(updatedProfile.businessHours)) } catch (e) { }
       setProfileImage({ file: null, preview: '' })
       setModalError('')
       setProfileModalOpen(false)
@@ -253,8 +259,8 @@ export default function StoreDashboard() {
     return 'active'
   }
 
-// Dashboard header is provided by DashboardLayout (shared), so notification
-// state and SSE are handled there. Removed duplicate header/notification logic.
+  // Dashboard header is provided by DashboardLayout (shared), so notification
+  // state and SSE are handled there. Removed duplicate header/notification logic.
 
   // ---------- โปรไฟล์เมนูเหมือนหน้า Warranty ----------
   const [isProfileMenuOpen, setProfileMenuOpen] = useState(false)
@@ -284,7 +290,7 @@ export default function StoreDashboard() {
       const res = await api.get('/notifications')
       const data = res?.data?.data || res?.data || []
       const arr = Array.isArray(data) ? data : []
-      arr.sort((a,b)=> new Date(b.createdAt || b.time || b.created_at || 0) - new Date(a.createdAt || a.time || a.created_at || 0))
+      arr.sort((a, b) => new Date(b.createdAt || b.time || b.created_at || 0) - new Date(a.createdAt || a.time || a.created_at || 0))
       setNotifications(arr)
       return data
     } catch (e) {
@@ -318,12 +324,12 @@ export default function StoreDashboard() {
       )
       await api.patch(`/notifications/${id}/read`)
       await fetchNotifications()
-    } catch (e) {}
+    } catch (e) { }
   }
 
   useEffect(() => { fetchSummary() }, [fetchSummary])
   // fetch notifications on mount so unread count shows before user clicks bell
-  useEffect(() => { fetchNotifications().catch(() => {}) }, [fetchNotifications])
+  useEffect(() => { fetchNotifications().catch(() => { }) }, [fetchNotifications])
 
   // ---------- ปิดเมนูเมื่อคลิกนอกกรอบ (เหมือนหน้า Warranty) ----------
   useEffect(() => {
@@ -423,7 +429,7 @@ export default function StoreDashboard() {
     const days = [...Array(7)].map((_, i) => {
       const date = new Date(now.getTime() - i * oneDay)
       return {
-        label: ['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'][date.getDay()],
+        label: ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'][date.getDay()],
         value: (filteredWarranties || []).filter(w => {
           const wDate = new Date(w.createdAt || w.created_at)
           return wDate.toDateString() === date.toDateString()
@@ -438,7 +444,7 @@ export default function StoreDashboard() {
     return [...Array(6)].map((_, i) => {
       const date = new Date(now.getFullYear(), now.getMonth() - i)
       return {
-        label: ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'][date.getMonth()],
+        label: ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'][date.getMonth()],
         value: (filteredWarranties || []).filter(w => {
           const wDate = new Date(w.createdAt || w.created_at)
           return wDate.getMonth() === date.getMonth() && wDate.getFullYear() === date.getFullYear()
@@ -462,7 +468,7 @@ export default function StoreDashboard() {
             const status = it.status || it._status || deriveItemStatusCode(it, profile?.notifyDaysInAdvance ?? 14)
             const normalizedStatus = (status === 'nearing_expiration' || status === 'nearing') ? 'nearing' : (status === 'expired' ? 'expired' : 'active')
             const created = h.createdAt || h.created_at || ''
-            const createdMonth = created ? (new Date(created)).toISOString().slice(0,7) : ''
+            const createdMonth = created ? (new Date(created)).toISOString().slice(0, 7) : ''
             const row = {
               headerId: h.id || h.headerId || '',
               customer: h.customerName || h.customer_name || '',
@@ -528,7 +534,7 @@ export default function StoreDashboard() {
           }
           const rows = []
           for (const e of map.values()) {
-            const out = { }
+            const out = {}
             for (const f of groupFields) out[f] = e.__values[f]
             out.Count = e.__count
             rows.push(out)
@@ -596,7 +602,7 @@ export default function StoreDashboard() {
         }
       }
 
-      const now = new Date().toISOString().slice(0,19).replaceAll(':','-')
+      const now = new Date().toISOString().slice(0, 19).replaceAll(':', '-')
       const fileName = `warranty-export-${exportMode}-${exportAggregateBy}-${exportStatusFilter}-${exportIncludeDetails ? 'details' : 'nodetails'}-${now}.xlsx`
       XLSX.writeFile(wb, fileName)
     } catch (err) {
@@ -611,7 +617,7 @@ export default function StoreDashboard() {
   const pct = (n) => (totals.totalItems ? Math.round((n / totals.totalItems) * 100) : 0)
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-sky-50 to-sky-100/60 pb-12 px-2 sm:px-6 md:px-8 overflow-x-hidden">
+    <div className="min-h-screen pb-12 px-2 sm:px-6 md:px-8 overflow-x-hidden" style={{ background: 'rgb(231, 243, 252)' }}>
       {/* Header provided by shared `/dashboard` layout */}
 
       <main className="mx-auto max-w-6xl px-0 py-8">
@@ -619,286 +625,314 @@ export default function StoreDashboard() {
           <StoreTabs />
         </div>
 
-        {/* การ์ดหลักแบบหน้าการจัดการ */}
-        <section className="rounded-3xl bg-white/90 backdrop-blur-sm border border-slate-200 shadow-sm">
-          {/* หัวการ์ด */}
-          <div className="flex items-center justify-between px-3 sm:px-6 py-4">
+        {/* Welcome Section */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-black" style={{ fontFamily: 'Inter, sans-serif' }}>
+              ยินดีต้อนรับ, {storeDisplayName}
+            </h1>
+            <p className="text-lg text-black/70">จัดการการรับประกันสินค้าและลูกค้าของคุณ</p>
+          </div>
+          <button
+            type="button"
+            onClick={exportOverviewToExcel}
+            className="flex items-center gap-2 rounded-xl px-6 py-3 text-base font-bold text-white shadow-md hover:opacity-90 transition"
+            style={{ background: 'rgb(40, 167, 69)' }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            ส่งออกข้อมูล Excel
+          </button>
+        </div>
+
+        {/* Title: ภาพรวม & การรับประกัน */}
+        <h2 className="text-2xl font-bold text-black mb-4" style={{ fontFamily: 'Inter, sans-serif' }}>
+          ภาพรวม & การรับประกัน
+        </h2>
+
+        {/* Stats Cards Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          {/* Card: ใบรับประกันทั้งหมด */}
+          <div className="flex items-center gap-6 rounded-xl bg-white border border-black/10 p-6 shadow-sm">
+            <div
+              className="flex h-20 w-20 items-center justify-center rounded-2xl text-white text-3xl"
+              style={{ background: 'rgb(0, 113, 235)' }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
             <div>
-              <h2 className="text-lg font-semibold text-slate-900">ภาพรวม & การรับประกัน</h2>
-              <p className="text-sm text-slate-500">สรุปภาพรวมการรับประกันและสินค้าของร้าน</p>
-            </div>
-            <div className="flex items-center justify-between w-full gap-4">
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <label className="text-xs text-slate-500">โหมดส่งออก</label>
-                <select value={exportMode} onChange={(e) => setExportMode(e.target.value)} className="rounded-md border px-2 py-1 text-sm w-auto min-w-0 max-w-[190px]">
-                  <option value="raw">ข้อมูล</option>
-                  <option value="aggregate">สรุป</option>
-                  <option value="pivot">Pivot (ตารางสรุป)</option>
-                </select>
-
-                {exportMode !== 'pivot' && (
-                  <>
-                    <label className="text-xs text-slate-500">สรุปตาม</label>
-                    <select value={exportAggregateBy} onChange={(e) => setExportAggregateBy(e.target.value)} className="rounded-md border px-2 py-1 text-sm w-auto min-w-0 max-w-[190px]">
-                      <option value="overview">ภาพรวม</option>
-                      <option value="byCustomer">สรุปตามลูกค้า</option>
-                      <option value="byProduct">สรุปตามสินค้า</option>
-                    </select>
-
-                    <label className="text-xs text-slate-500">สถานะ</label>
-                    <select value={exportStatusFilter} onChange={(e) => setExportStatusFilter(e.target.value)} className="rounded-md border px-2 py-1 text-sm w-auto min-w-0 max-w-[160px]">
-                      <option value="all">ทั้งหมด</option>
-                      <option value="active">กำลังใช้งาน</option>
-                      <option value="nearing">ใกล้หมดอายุ</option>
-                      <option value="expired">หมดอายุ</option>
-                    </select>
-
-                    <label className="text-sm flex items-center gap-2">
-                      <input type="checkbox" checked={exportIncludeDetails} onChange={(e) => setExportIncludeDetails(e.target.checked)} />
-                      <span className="text-xs text-slate-600">รวมรายละเอียด</span>
-                    </label>
-                  </>
-                )}
-              </div>
-
-              <div className="flex-1 min-w-0 px-2">
-                <div className="flex items-center gap-3 flex-wrap overflow-x-auto">
-                  {exportMode === 'pivot' ? (
-                    <>
-                      <div className="text-xs text-slate-500">จัดกลุ่มตาม</div>
-                      <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={pivotByCustomer} onChange={(e) => setPivotByCustomer(e.target.checked)} /> ลูกค้า</label>
-                      <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={pivotByProduct} onChange={(e) => setPivotByProduct(e.target.checked)} /> สินค้า</label>
-                      <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={pivotByStatus} onChange={(e) => setPivotByStatus(e.target.checked)} /> สถานะ</label>
-                      <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={pivotByMonth} onChange={(e) => setPivotByMonth(e.target.checked)} /> เดือน</label>
-                      <div className="ml-2 text-xs text-slate-500">แสดงคอลัมน์</div>
-                      <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={!!pivotFields.customer} onChange={(e) => setPivotFields(f => ({ ...f, customer: e.target.checked }))} /> ลูกค้า</label>
-                      <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={!!pivotFields.customerEmail} onChange={(e) => setPivotFields(f => ({ ...f, customerEmail: e.target.checked }))} /> อีเมล</label>
-                      <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={!!pivotFields.product} onChange={(e) => setPivotFields(f => ({ ...f, product: e.target.checked }))} /> สินค้า</label>
-                      <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={!!pivotFields.serial} onChange={(e) => setPivotFields(f => ({ ...f, serial: e.target.checked }))} /> ซีเรียล</label>
-                      <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={!!pivotFields.expiryDate} onChange={(e) => setPivotFields(f => ({ ...f, expiryDate: e.target.checked }))} /> วันหมดอายุ</label>
-                      <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={!!pivotFields.createdAt} onChange={(e) => setPivotFields(f => ({ ...f, createdAt: e.target.checked }))} /> วันที่สร้าง</label>
-                    </>
-                  ) : (
-                    <>
-                      <div className="text-xs text-slate-500">แสดงคอลัมน์</div>
-                      <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={!!pivotFields.customer} onChange={(e) => setPivotFields(f => ({ ...f, customer: e.target.checked }))} /> ลูกค้า</label>
-                      <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={!!pivotFields.customerEmail} onChange={(e) => setPivotFields(f => ({ ...f, customerEmail: e.target.checked }))} /> อีเมล</label>
-                      <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={!!pivotFields.product} onChange={(e) => setPivotFields(f => ({ ...f, product: e.target.checked }))} /> สินค้า</label>
-                      <label className="text-xs text-slate-600 flex items-center gap-1"><input type="checkbox" checked={!!pivotFields.serial} onChange={(e) => setPivotFields(f => ({ ...f, serial: e.target.checked }))} /> ซีเรียล</label>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex-shrink-0">
-                <button
-                  type="button"
-                  onClick={exportOverviewToExcel}
-                  className={`h-10 w-full md:w-auto min-w-0 rounded-full border border-sky-300 px-4 py-2 text-sm font-semibold text-sky-700 bg-white hover:-translate-y-0.5 hover:bg-sky-50 transition`}
-                  aria-label="ส่งออกเป็น Excel"
-                >
-                  ส่งออก Excel
-                </button>
+              <div className="text-lg font-medium text-black/70">ใบรับประกันทั้งหมด</div>
+              <div className="text-5xl font-bold text-black" style={{ fontFamily: 'Inter, sans-serif' }}>
+                {totals.totalHeaders}
               </div>
             </div>
           </div>
 
-          <div className="border-t border-slate-100" />
+          {/* Card: ลูกค้าทั้งหมด */}
+          <div className="flex items-center gap-6 rounded-xl bg-white border border-black/10 p-6 shadow-sm">
+            <div
+              className="flex h-20 w-20 items-center justify-center rounded-2xl text-white text-3xl"
+              style={{ background: 'rgb(40, 167, 69)' }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
+            <div>
+              <div className="text-lg font-medium text-black/70">ลูกค้าทั้งหมด</div>
+              <div className="text-5xl font-bold text-black" style={{ fontFamily: 'Inter, sans-serif' }}>
+                {(() => {
+                  const custSet = new Set()
+                  for (const h of (filteredWarranties || [])) {
+                    const key = (h.customerEmail || h.customer_email || h.customerName || h.customer_name || 'Unknown').toLowerCase()
+                    custSet.add(key)
+                  }
+                  return custSet.size
+                })()}
+              </div>
+            </div>
+          </div>
+        </div>
 
-          {/* KPI Overview */}
-          <div className="px-3 sm:px-6 py-6">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="flex items-center gap-4 rounded-2xl bg-white p-3 sm:p-4 shadow-sm ring-1 ring-black/3 min-w-0">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-sky-50 text-sky-600 text-lg font-semibold">📄</div>
+        {/* Monthly Warranty Chart */}
+        <div className="mb-6">
+          <BarChart
+            data={(() => {
+              // Generate 12 months of data
+              const now = new Date()
+              return [...Array(12)].map((_, i) => {
+                const date = new Date(now.getFullYear(), now.getMonth() - (11 - i))
+                const monthLabel = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'][date.getMonth()]
+                const count = (filteredWarranties || []).filter((w) => {
+                  const wDate = new Date(w.createdAt || w.created_at)
+                  return wDate.getMonth() === date.getMonth() && wDate.getFullYear() === date.getFullYear()
+                }).length
+                return { label: monthLabel, value: count }
+              })
+            })()}
+            height={350}
+            title="ใบรับประกันรายเดือน"
+            showLine={false}
+          />
+        </div>
+
+        {/* Status Donut Chart */}
+        <div className="rounded-xl bg-white border border-black/10 p-6 shadow-sm">
+          <h3 className="text-2xl font-bold text-black mb-6" style={{ fontFamily: 'Inter, sans-serif' }}>
+            สัดส่วนสถานะการรับประกัน
+          </h3>
+          <div className="flex flex-col md:flex-row items-center gap-8">
+            <div className="flex-shrink-0">
+              <SimpleDonut counts={totals} size={240} thickness={40} />
+            </div>
+            <div className="flex-1 grid gap-4">
+              {/* Active */}
+              <div className="flex items-center gap-4">
+                <div className="w-4 h-4 rounded-full bg-emerald-500" />
                 <div>
-                  <div className="text-xs text-slate-500">ใบรับประกัน</div>
-                  <div className="mt-1 text-2xl font-bold text-slate-900">{totals.totalHeaders}</div>
+                  <div className="text-lg font-medium text-black">ใช้งานได้</div>
+                  <div className="text-3xl font-bold text-black">
+                    {totals.active} <span className="text-lg font-normal text-black/50">({pct(totals.active)}%)</span>
+                  </div>
                 </div>
               </div>
-
-              <div className="flex items-center gap-4 rounded-2xl bg-white p-3 sm:p-4 shadow-sm ring-1 ring-black/3 min-w-0">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 text-lg font-semibold">✅</div>
+              {/* Nearing */}
+              <div className="flex items-center gap-4">
+                <div className="w-4 h-4 rounded-full bg-amber-500" />
                 <div>
-                  <div className="text-xs text-slate-500">กำลังใช้งาน</div>
-                  <div className="mt-1 text-2xl font-bold text-emerald-600">{totals.active}</div>
+                  <div className="text-lg font-medium text-black">ใกล้หมดอายุ</div>
+                  <div className="text-3xl font-bold text-black">
+                    {totals.nearing} <span className="text-lg font-normal text-black/50">({pct(totals.nearing)}%)</span>
+                  </div>
                 </div>
               </div>
-
-              <div className="flex items-center gap-4 rounded-2xl bg-white p-3 sm:p-4 shadow-sm ring-1 ring-black/3 min-w-0">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-50 text-amber-600 text-lg font-semibold">⚠️</div>
+              {/* Expired */}
+              <div className="flex items-center gap-4">
+                <div className="w-4 h-4 rounded-full bg-rose-500" />
                 <div>
-                  <div className="text-xs text-slate-500">ใกล้หมดอายุ</div>
-                  <div className="mt-1 text-2xl font-bold text-amber-600">{totals.nearing}</div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/3 min-w-0">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-50 text-rose-600 text-lg font-semibold">⛔️</div>
-                <div>
-                  <div className="text-xs text-slate-500">หมดอายุ</div>
-                  <div className="mt-1 text-2xl font-bold text-rose-600">{totals.expired}</div>
+                  <div className="text-lg font-medium text-black">หมดอายุ</div>
+                  <div className="text-3xl font-bold text-black">
+                    {totals.expired} <span className="text-lg font-normal text-black/50">({pct(totals.expired)}%)</span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
+        </div>
 
-          <div className="border-t border-slate-100" />
+        {/* Expiring Soon Widget */}
+        {(() => {
+          // Get ALL warranty items
+          const today = new Date()
 
-          {/* Status + Donut */}
-          <div className="px-3 sm:px-6 py-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-base font-semibold text-slate-900">สถานะการรับประกัน</h3>
-                <p className="text-sm text-slate-500">สัดส่วนสถานะการรับประกันทั้งหมด</p>
-              </div>
-              <div className="flex items-center gap-4 text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-emerald-500"></div>
-                  <span className="text-slate-600">กำลังใช้งาน</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-amber-500"></div>
-                  <span className="text-slate-600">ใกล้หมดอายุ</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-rose-500"></div>
-                  <span className="text-slate-600">หมดอายุ</span>
-                </div>
-              </div>
-            </div>
+          const allItems = []
+          for (const w of (filteredWarranties || [])) {
+            for (const item of (w.items || [])) {
+              const exp = item.expiryDate ? new Date(item.expiryDate) : null
+              const daysLeft = exp ? Math.ceil((exp - today) / (1000 * 60 * 60 * 24)) : null
+              allItems.push({
+                ...item,
+                warrantyCode: w.code,
+                customerName: w.customerName || w.customer_name || '-',
+                customerEmail: w.customerEmail || w.customer_email || '-',
+                daysLeft,
+                isExpiringSoon: daysLeft !== null && daysLeft > 0 && daysLeft <= 30,
+                isExpired: daysLeft !== null && daysLeft <= 0,
+              })
+            }
+          }
 
-            <div className="flex flex-col md:flex-row items-center md:justify-between">
-              <div className="flex-1 min-w-0 flex justify-center">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-xl w-full">
-                  <div className="rounded-xl bg-emerald-50/50 p-4">
-                    <div className="text-sm font-medium text-emerald-900">กำลังใช้งาน</div>
-                    <div className="mt-1 text-3xl font-bold text-emerald-600">{totals.active}</div>
-                    <div className="mt-1 text-sm text-emerald-700">{pct(totals.active)}%</div>
+          // Sort: expiring soon first, then by days left
+          allItems.sort((a, b) => {
+            if (a.isExpiringSoon && !b.isExpiringSoon) return -1
+            if (!a.isExpiringSoon && b.isExpiringSoon) return 1
+            if (a.daysLeft === null) return 1
+            if (b.daysLeft === null) return -1
+            return a.daysLeft - b.daysLeft
+          })
+
+          const totalPages = Math.ceil(allItems.length / ITEMS_PER_PAGE)
+          const currentPage = Math.min(extendListPage, totalPages || 1)
+          const startIdx = (currentPage - 1) * ITEMS_PER_PAGE
+          const pageItems = allItems.slice(startIdx, startIdx + ITEMS_PER_PAGE)
+
+          if (allItems.length === 0) {
+            return (
+              <div className="mt-6 rounded-xl bg-white border border-gray-200 p-6 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="text-3xl">📋</div>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-700">ยังไม่มีรายการใบรับประกัน</h3>
+                    <p className="text-sm text-gray-500">สร้างใบรับประกันใหม่เพื่อเริ่มต้นใช้งาน</p>
                   </div>
-                  <div className="rounded-xl bg-amber-50/50 p-4">
-                    <div className="text-sm font-medium text-amber-900">ใกล้หมดอายุ</div>
-                    <div className="mt-1 text-3xl font-bold text-amber-600">{totals.nearing}</div>
-                    <div className="mt-1 text-sm text-amber-700">{pct(totals.nearing)}%</div>
-                  </div>
-                  <div className="rounded-xl bg-rose-50/50 p-4">
-                    <div className="text-sm font-medium text-rose-900">หมดอายุ</div>
-                    <div className="mt-1 text-3xl font-bold text-rose-600">{totals.expired}</div>
-                    <div className="mt-1 text-sm text-rose-700">{pct(totals.expired)}%</div>
+                </div>
+              </div>
+            )
+          }
+
+          return (
+            <div className="mt-6 rounded-xl bg-white border border-blue-200 p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="text-3xl">📅</div>
+                  <div>
+                    <h3 className="text-xl font-bold text-blue-700">ต่ออายุใบรับประกัน</h3>
+                    <p className="text-sm text-blue-600">รายการทั้งหมด {allItems.length} รายการ</p>
                   </div>
                 </div>
               </div>
-              <div className="md:ml-8 mt-4 md:mt-0 flex items-center justify-center min-w-0">
-                <SimpleDonut counts={totals} size={donutSize} thickness={30} />
-              </div>
-            </div>
-          </div>
 
-          <div className="border-t border-slate-100" />
-
-          {/* Aggregate view when user selected byCustomer / byProduct */}
-          {exportAggregateBy === 'byCustomer' && (
-            <div className="px-3 sm:px-6 py-6">
-              <h3 className="text-base font-semibold text-slate-900">สรุปตามลูกค้า</h3>
-              <p className="text-sm text-slate-500">แสดงจำนวนใบรับประกันและสถานะแบบรวมต่อแต่ละลูกค้า</p>
-              <div className="mt-4 overflow-x-auto">
-                <table className="w-full table-auto text-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-left text-slate-600">
-                      <th className="pb-2">ลูกค้า</th>
-                      <th className="pb-2">อีเมล</th>
-                      <th className="pb-2">ใบรับประกัน</th>
-                      <th className="pb-2">รายการ</th>
-                      <th className="pb-2">ใช้งาน</th>
-                      <th className="pb-2">ใกล้หมด</th>
-                      <th className="pb-2">หมดอายุ</th>
+                    <tr className="text-left text-blue-700 border-b border-blue-100">
+                      <th className="pb-2 font-medium">ลูกค้า</th>
+                      <th className="pb-2 font-medium">สินค้า</th>
+                      <th className="pb-2 font-medium">หมดอายุ</th>
+                      <th className="pb-2 font-medium text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {(() => {
-                      const rows = []
-                      const custMap = new Map()
-                      for (const h of (filteredWarranties || [])) {
-                        const key = (h.customerEmail || h.customer_email || h.customerName || h.customer_name || 'Unknown').toLowerCase()
-                        const entry = custMap.get(key) || { customerName: h.customerName || h.customer_name || '', customerEmail: h.customerEmail || h.customer_email || '', headers: 0, items: 0, active: 0, nearing: 0, expired: 0 }
-                        entry.headers += 1
-                        entry.items += (h.items || []).length
-                        for (const it of (h.items || [])) {
-                          const code = it.statusCode || it._status || deriveItemStatusCode(it, profile?.notifyDaysInAdvance ?? 14)
-                          if (code === 'active') entry.active++
-                          else if (code === 'nearing_expiration' || code === 'nearing') entry.nearing++
-                          else if (code === 'expired') entry.expired++
-                        }
-                        custMap.set(key, entry)
-                      }
-                      for (const v of custMap.values()) rows.push(v)
-                      return rows.map((r, i) => (
-                        <tr key={i} className="border-t">
-                          <td className="py-2">{r.customerName || '-'}</td>
-                          <td className="py-2">{r.customerEmail || '-'}</td>
-                          <td className="py-2">{r.headers}</td>
-                          <td className="py-2">{r.items}</td>
-                          <td className="py-2">{r.active}</td>
-                          <td className="py-2">{r.nearing}</td>
-                          <td className="py-2">{r.expired}</td>
-                        </tr>
-                      ))
-                    })()}
+                    {pageItems.map((item, idx) => (
+                      <tr
+                        key={item.id || idx}
+                        className={`border-b hover:bg-blue-50/50 ${item.isExpired ? 'bg-rose-50' : item.isExpiringSoon ? 'bg-amber-50' : 'border-blue-50'
+                          }`}
+                      >
+                        <td className="py-3">
+                          <div className="font-medium text-gray-900">{item.customerName}</div>
+                          <div className="text-xs text-gray-500">{item.customerEmail}</div>
+                        </td>
+                        <td className="py-3">
+                          <div className="font-medium text-gray-900">{item.productName || '-'}</div>
+                          {item.serial && <div className="text-xs text-gray-500">S/N: {item.serial}</div>}
+                        </td>
+                        <td className="py-3">
+                          <div className={`font-medium ${item.isExpired ? 'text-rose-600' : item.isExpiringSoon ? 'text-amber-600' : 'text-gray-700'
+                            }`}>
+                            {item.expiryDate
+                              ? new Date(item.expiryDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })
+                              : '-'
+                            }
+                          </div>
+                          {item.daysLeft !== null && (
+                            <div className={`text-xs ${item.isExpired ? 'text-rose-500' : item.isExpiringSoon ? 'text-amber-500' : 'text-gray-500'
+                              }`}>
+                              {item.isExpired ? `หมดแล้ว ${Math.abs(item.daysLeft)} วัน` : `อีก ${item.daysLeft} วัน`}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedItemForExtend(item)
+                              setExtendModalOpen(true)
+                            }}
+                            className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500 transition"
+                          >
+                            <span>📅</span> ต่ออายุ
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
-            </div>
-          )}
 
-          {exportAggregateBy === 'byProduct' && (
-            <div className="px-4 sm:px-6 py-6">
-              <h3 className="text-base font-semibold text-slate-900">สรุปตามสินค้า</h3>
-              <p className="text-sm text-slate-500">สรุปจำนวนรายการตามชื่อสินค้า</p>
-              <div className="mt-4 overflow-x-auto">
-                <table className="w-full table-auto text-sm">
-                  <thead>
-                    <tr className="text-left text-slate-600">
-                      <th className="pb-2">สินค้า</th>
-                      <th className="pb-2">จำนวน</th>
-                      <th className="pb-2">ใช้งาน</th>
-                      <th className="pb-2">ใกล้หมด</th>
-                      <th className="pb-2">หมดอายุ</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(() => {
-                      const map = new Map()
-                      for (const h of (filteredWarranties || [])) {
-                        for (const it of (h.items || [])) {
-                          const pKey = (it.productName || it.product_name || 'Unknown').toLowerCase()
-                          const entry = map.get(pKey) || { productName: it.productName || it.product_name || '', count: 0, active: 0, nearing: 0, expired: 0 }
-                          entry.count++
-                          const code = it.statusCode || it._status || deriveItemStatusCode(it, profile?.notifyDaysInAdvance ?? 14)
-                          if (code === 'active') entry.active++
-                          else if (code === 'nearing_expiration' || code === 'nearing') entry.nearing++
-                          else if (code === 'expired') entry.expired++
-                          map.set(pKey, entry)
-                        }
-                      }
-                      const rows = Array.from(map.values())
-                      return rows.map((r, i) => (
-                        <tr key={i} className="border-t">
-                          <td className="py-2">{r.productName || '-'}</td>
-                          <td className="py-2">{r.count}</td>
-                          <td className="py-2">{r.active}</td>
-                          <td className="py-2">{r.nearing}</td>
-                          <td className="py-2">{r.expired}</td>
-                        </tr>
-                      ))
-                    })()}
-                  </tbody>
-                </table>
-              </div>
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-blue-100">
+                  <div className="text-sm text-gray-500">
+                    หน้า {currentPage} / {totalPages}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setExtendListPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage <= 1}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${currentPage <= 1
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                        }`}
+                    >
+                      ← ก่อนหน้า
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setExtendListPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage >= totalPages}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${currentPage >= totalPages
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                        }`}
+                    >
+                      ถัดไป →
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-
-          {/* (พื้นที่กราฟหรือส่วนอื่น ๆ ของคุณยังคงเพิ่มต่อได้) */}
-        </section>
+          )
+        })()}
       </main>
+
+      {/* Extend Warranty Modal */}
+      <ExtendWarrantyModal
+        isOpen={extendModalOpen}
+        onClose={() => {
+          setExtendModalOpen(false)
+          setSelectedItemForExtend(null)
+        }}
+        item={selectedItemForExtend}
+        onSuccess={() => {
+          // Refresh data
+          fetchSummary()
+        }}
+      />
 
       {isProfileModalOpen && (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/30 px-4 py-4 sm:py-6">
@@ -929,8 +963,8 @@ export default function StoreDashboard() {
               </button>
             </div>
 
-              <div className="px-4 sm:px-6 pt-2 overflow-y-auto pb-20" style={{ maxHeight: 'calc(94vh - 140px)' }}>
-                <div className="mb-2 flex gap-2">
+            <div className="px-4 sm:px-6 pt-2 overflow-y-auto pb-20" style={{ maxHeight: 'calc(94vh - 140px)' }}>
+              <div className="mb-2 flex gap-2">
                 <button
                   type="button"
                   onClick={() => { setProfileTab('info'); setModalError('') }}
@@ -947,60 +981,60 @@ export default function StoreDashboard() {
                 </button>
               </div>
 
-            {profileTab === 'info' ? (
-              <form id="profileForm" onSubmit={handleProfileSubmit} className="px-4 sm:px-6 pb-6">
-                <input ref={profileImageInputRef} accept="image/*" className="sr-only" onChange={handleProfileAvatarSelect} type="file" />
-                <input
-                  type="hidden"
-                  name="address"
-                  value={JSON.stringify({
-                    street: addressParts.street,
-                    province: {
-                      id: addressParts.province,
-                      name: (provincesList.find((p) => String(p.code) === String(addressParts.province))?.name) || addressParts.province || '',
-                    },
-                    district: {
-                      id: addressParts.district,
-                      name: (districtOptions.find((d) => String(d.code) === String(addressParts.district))?.name) || addressParts.district || '',
-                    },
-                    subdistrict: {
-                      id: addressParts.subdistrict,
-                      name: (subdistrictOptions.find((s) => String(s.code) === String(addressParts.subdistrict))?.name) || addressParts.subdistrict || '',
-                      zipcode: addressParts.postcode || (subdistrictOptions.find((s) => String(s.code) === String(addressParts.subdistrict))?.zipcode || ''),
-                    },
-                    postcode: addressParts.postcode,
-                  })}
-                />
-                <input type="hidden" name="businessHours" value={JSON.stringify(businessSchedule)} />
-                <div className="mb-4 flex items-center gap-4">
-                  {profileAvatarSrc ? (
-                    <img src={profileAvatarSrc} alt="Store profile" className="h-16 w-16 rounded-full object-cover" />
-                  ) : (
-                    <div className="grid h-16 w-16 place-items-center rounded-full bg-sky-200 text-3xl">🏪</div>
-                  )}
-                  <div>
-                    <button
-                      type="button"
-                      onClick={() => profileImageInputRef.current?.click()}
-                      className="rounded-full bg-sky-500 px-4 py-2 text-xs font-semibold text-white shadow hover:bg-sky-400"
-                    >
-                      อัปโหลดรูปใหม่
-                    </button>
-                    <div className="mt-1 text-xs text-gray-400">รองรับไฟล์ .jpg, .png ขนาดไม่เกิน 2 MB</div>
+              {profileTab === 'info' ? (
+                <form id="profileForm" onSubmit={handleProfileSubmit} className="px-4 sm:px-6 pb-6">
+                  <input ref={profileImageInputRef} accept="image/*" className="sr-only" onChange={handleProfileAvatarSelect} type="file" />
+                  <input
+                    type="hidden"
+                    name="address"
+                    value={JSON.stringify({
+                      street: addressParts.street,
+                      province: {
+                        id: addressParts.province,
+                        name: (provincesList.find((p) => String(p.code) === String(addressParts.province))?.name) || addressParts.province || '',
+                      },
+                      district: {
+                        id: addressParts.district,
+                        name: (districtOptions.find((d) => String(d.code) === String(addressParts.district))?.name) || addressParts.district || '',
+                      },
+                      subdistrict: {
+                        id: addressParts.subdistrict,
+                        name: (subdistrictOptions.find((s) => String(s.code) === String(addressParts.subdistrict))?.name) || addressParts.subdistrict || '',
+                        zipcode: addressParts.postcode || (subdistrictOptions.find((s) => String(s.code) === String(addressParts.subdistrict))?.zipcode || ''),
+                      },
+                      postcode: addressParts.postcode,
+                    })}
+                  />
+                  <input type="hidden" name="businessHours" value={JSON.stringify(businessSchedule)} />
+                  <div className="mb-4 flex items-center gap-4">
+                    {profileAvatarSrc ? (
+                      <img src={profileAvatarSrc} alt="Store profile" className="h-16 w-16 rounded-full object-cover" />
+                    ) : (
+                      <div className="grid h-16 w-16 place-items-center rounded-full bg-sky-200 text-3xl">🏪</div>
+                    )}
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => profileImageInputRef.current?.click()}
+                        className="rounded-full bg-sky-500 px-4 py-2 text-xs font-semibold text-white shadow hover:bg-sky-400"
+                      >
+                        อัปโหลดรูปใหม่
+                      </button>
+                      <div className="mt-1 text-xs text-gray-400">รองรับไฟล์ .jpg, .png ขนาดไม่เกิน 2 MB</div>
+                    </div>
                   </div>
-                </div>
-                {modalError && profileTab === 'info' && (
-                  <div className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600">{modalError}</div>
-                )}
-                <div className="grid gap-3">
-                  {[
-                    ['storeName', 'ชื่อร้าน'],
-                    ['contactName', 'ชื่อผู้ติดต่อ'],
-                    ['email', 'อีเมล'],
-                    ['phone', 'เบอร์ติดต่อ'],
-                    ['address', 'ที่อยู่'],
-                    ['businessHours', 'เวลาทำการ'],
-                  ].map(([key, label]) => (
+                  {modalError && profileTab === 'info' && (
+                    <div className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600">{modalError}</div>
+                  )}
+                  <div className="grid gap-3">
+                    {[
+                      ['storeName', 'ชื่อร้าน'],
+                      ['contactName', 'ชื่อผู้ติดต่อ'],
+                      ['email', 'อีเมล'],
+                      ['phone', 'เบอร์ติดต่อ'],
+                      ['address', 'ที่อยู่'],
+                      ['businessHours', 'เวลาทำการ'],
+                    ].map(([key, label]) => (
                       <label key={key} className="text-sm text-gray-600">
                         {label}
                         {key === 'address' ? (
@@ -1102,7 +1136,7 @@ export default function StoreDashboard() {
                                 ['fri', 'ศ.'],
                                 ['sat', 'ส.'],
                                 ['sun', 'อา.'],
-                                ].map(([d, lbl]) => (
+                              ].map(([d, lbl]) => (
                                 <div key={d} className="flex flex-col sm:flex-row items-start sm:items-center gap-2 text-xs md:text-sm">
                                   <div className="flex items-center gap-2">
                                     <input
@@ -1137,34 +1171,34 @@ export default function StoreDashboard() {
                           </div>
                         )}
                       </label>
-                  ))}
-                </div>
-              </form>
-            ) : (
-              <form id="passwordForm" onSubmit={handlePasswordSubmit} className="px-4 sm:px-6 pb-6">
-                {modalError && profileTab === 'password' && (
-                  <div className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600">{modalError}</div>
-                )}
-                <div className="grid gap-3">
-                  {[
-                    ['currentPassword', 'รหัสผ่านเก่า'],
-                    ['newPassword', 'รหัสผ่านใหม่'],
-                    ['confirmPassword', 'ยืนยันรหัสผ่านใหม่'],
-                  ].map(([key, label]) => (
-                    <label key={key} className="text-sm text-gray-600">
-                      {label}
-                      <input
-                        required
-                        value={profilePasswords[key]}
-                        onChange={(e) => setProfilePasswords((prev) => ({ ...prev, [key]: e.target.value }))}
-                        className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
-                        type="password"
-                      />
-                    </label>
-                  ))}
-                </div>
-              </form>
-            )}
+                    ))}
+                  </div>
+                </form>
+              ) : (
+                <form id="passwordForm" onSubmit={handlePasswordSubmit} className="px-4 sm:px-6 pb-6">
+                  {modalError && profileTab === 'password' && (
+                    <div className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600">{modalError}</div>
+                  )}
+                  <div className="grid gap-3">
+                    {[
+                      ['currentPassword', 'รหัสผ่านเก่า'],
+                      ['newPassword', 'รหัสผ่านใหม่'],
+                      ['confirmPassword', 'ยืนยันรหัสผ่านใหม่'],
+                    ].map(([key, label]) => (
+                      <label key={key} className="text-sm text-gray-600">
+                        {label}
+                        <input
+                          required
+                          value={profilePasswords[key]}
+                          onChange={(e) => setProfilePasswords((prev) => ({ ...prev, [key]: e.target.value }))}
+                          className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                          type="password"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </form>
+              )}
 
             </div>
 
@@ -1202,6 +1236,6 @@ export default function StoreDashboard() {
         </div>
       )}
 
-    </div>
+    </div >
   )
 }

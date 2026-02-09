@@ -1006,6 +1006,9 @@ export default function WarrantyDashboard() {
         expiry_date: item.expiryDate || '',
         warranty_terms: item.coverageNote || '',
         note: item.note || '',
+        // ✅ โหลดเงื่อนไขที่เลือกไว้
+        selectedConditions: Array.isArray(item.selectedConditions) ? item.selectedConditions : [],
+        customCondition: item.customCondition || '',
       })
       setEditHeaderEmail(item?._headerEmail || '') // ✅ อีเมลลูกค้าระดับใบ
       setManualExpiry(false)
@@ -1960,13 +1963,9 @@ export default function WarrantyDashboard() {
                       </label>
                       <label className="text-sm text-gray-600 block">
                         อีเมลลูกค้า
-                        <input
-                          value={editHeaderEmail}
-                          onChange={e => setEditHeaderEmail(e.target.value)}
-                          className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
-                          placeholder="example@email.com"
-                          type="email"
-                        />
+                        <div className="mt-1 w-full rounded-2xl border border-gray-200 bg-gray-100 px-4 py-2 text-sm text-gray-600">
+                          {editHeaderEmail || '-'}
+                        </div>
                       </label>
 
                       {/* ฟอร์มแก้ไขแบบ controlled + auto-expiry */}
@@ -2007,19 +2006,19 @@ export default function WarrantyDashboard() {
                               setEditForm(f => {
                                 if (v === 'other') {
                                   const next = { ...f, duration_mode: 'custom', custom_unit: 'months', custom_value: 12 }
-                                  if (!manualExpiry) next.expiry_date = computeExpiry(next.purchase_date, { unit: 'months', value: 12 })
+                                  next.expiry_date = computeExpiry(next.purchase_date, { unit: 'months', value: 12 })
                                   return next
                                 } else {
                                   const vNum = Number(v || 12)
                                   const next = { ...f, duration_mode: 'preset', duration_months: vNum }
-                                  if (!manualExpiry) next.expiry_date = computeExpiry(next.purchase_date, vNum)
+                                  next.expiry_date = computeExpiry(next.purchase_date, vNum)
                                   return next
                                 }
                               })
                             }}
                             className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                           >
-                            {[6, 12, 18, 24].map(month => (
+                            {[1, 3, 6, 12, 18, 24].map(month => (
                               <option key={month} value={month}>{month} เดือน</option>
                             ))}
                             <option value="other">อื่นๆ (ระบุเอง)</option>
@@ -2047,18 +2046,17 @@ export default function WarrantyDashboard() {
                             <input
                               inputMode="numeric"
                               value={editForm?.custom_value ?? ''}
-                              onChange={e =>
+                              onChange={e => {
+                                const val = e.target.value
                                 setEditForm(f => {
-                                  const next = { ...f, custom_value: e.target.value }
-                                  if (!manualExpiry) {
-                                    next.expiry_date = computeExpiry(next.purchase_date, {
-                                      unit: f.custom_unit || 'months',
-                                      value: Number(e.target.value || 0),
-                                    })
-                                  }
+                                  const next = { ...f, custom_value: val }
+                                  next.expiry_date = computeExpiry(next.purchase_date, {
+                                    unit: f.custom_unit || 'months',
+                                    value: Number(val || 0),
+                                  })
                                   return next
                                 })
-                              }
+                              }}
                               className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                               placeholder="เช่น 45"
                               type="number"
@@ -2073,15 +2071,15 @@ export default function WarrantyDashboard() {
                                   type="radio"
                                   name="unit-edit"
                                   checked={editForm?.custom_unit === 'days'}
-                                  onChange={() =>
+                                  onChange={() => {
                                     setEditForm(f => {
                                       const next = { ...f, custom_unit: 'days' }
-                                      if (!manualExpiry && f.purchase_date && f.custom_value) {
+                                      if (f.purchase_date && f.custom_value) {
                                         next.expiry_date = computeExpiry(f.purchase_date, { unit: 'days', value: Number(f.custom_value) })
                                       }
                                       return next
                                     })
-                                  }
+                                  }}
                                 />
                                 วัน
                               </label>
@@ -2090,15 +2088,15 @@ export default function WarrantyDashboard() {
                                   type="radio"
                                   name="unit-edit"
                                   checked={editForm?.custom_unit === 'months'}
-                                  onChange={() =>
+                                  onChange={() => {
                                     setEditForm(f => {
                                       const next = { ...f, custom_unit: 'months' }
-                                      if (!manualExpiry && f.purchase_date && f.custom_value) {
+                                      if (f.purchase_date && f.custom_value) {
                                         next.expiry_date = computeExpiry(f.purchase_date, { unit: 'months', value: Number(f.custom_value) })
                                       }
                                       return next
                                     })
-                                  }
+                                  }}
                                 />
                                 เดือน
                               </label>
@@ -2117,12 +2115,11 @@ export default function WarrantyDashboard() {
                               const v = e.target.value
                               setEditForm(f => {
                                 const next = { ...f, purchase_date: v }
-                                if (!manualExpiry) {
-                                  if (next.duration_mode === 'custom' && next.custom_value) {
-                                    next.expiry_date = computeExpiry(v, { unit: next.custom_unit || 'months', value: Number(next.custom_value || 0) })
-                                  } else {
-                                    next.expiry_date = computeExpiry(v, next.duration_months)
-                                  }
+                                // Auto-calculate expiry based on duration
+                                if (next.duration_mode === 'custom' && next.custom_value) {
+                                  next.expiry_date = computeExpiry(v, { unit: next.custom_unit || 'months', value: Number(next.custom_value || 0) })
+                                } else {
+                                  next.expiry_date = computeExpiry(v, next.duration_months || 12)
                                 }
                                 return next
                               })
@@ -2134,19 +2131,10 @@ export default function WarrantyDashboard() {
                         </label>
                         <label className="text-sm text-gray-600">
                           วันหมดอายุ
-                          <input
-                            name="expiry_date"
-                            value={editForm?.expiry_date ?? ''}
-                            onChange={e => {
-                              setManualExpiry(true)
-                              setEditForm(f => ({ ...f, expiry_date: e.target.value }))
-                            }}
-                            onBlur={() => {
-                              setManualExpiry(prev => (editForm?.expiry_date ? prev : false))
-                            }}
-                            className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
-                            type="date"
-                          />
+                          <div className="mt-1 w-full rounded-2xl border border-gray-200 bg-gray-100 px-4 py-2 text-sm text-gray-600">
+                            {editForm?.expiry_date ? new Date(editForm.expiry_date).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' }) : '-'}
+                            <div className="text-xs text-blue-600 mt-1"></div>
+                          </div>
                         </label>
                       </div>
 
