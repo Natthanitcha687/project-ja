@@ -147,7 +147,7 @@ router.post('/cleanup-warranty', requireAuth, async (req, res) => {
 // helper to create notification and publish
 export async function createAndPublish({ prisma, attrs }) {
   // strip non-DB fields to avoid Prisma errors
-  const { sendEmail, ...dbAttrs } = attrs || {}
+  const { sendEmail, htmlBody, ...dbAttrs } = attrs || {}
 
   // create DB notification and publish via SSE
   const n = await prisma.notification.create({ data: dbAttrs })
@@ -189,7 +189,12 @@ export async function createAndPublish({ prisma, attrs }) {
           const subject = n.title || 'การแจ้งเตือน'
           const bodyText = n.body || ''
           console.log(`createAndPublish: sending CUSTOMER email to ${toEmail} subject=${subject}`)
-          await sendNotificationEmail({ to: toEmail, subject, text: bodyText })
+          // ✅ Support HTML body
+          if (htmlBody) {
+            await sendNotificationEmail({ to: toEmail, subject, html: htmlBody })
+          } else {
+            await sendNotificationEmail({ to: toEmail, subject, text: bodyText })
+          }
         }
       }
 
