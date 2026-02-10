@@ -1490,7 +1490,7 @@ export default function WarrantyDashboard() {
                                       <div>Serial No.: <span className="font-medium text-slate-900">{it.serial || '-'}</span></div>
                                       <div>วันที่เริ่มรับประกัน: <span className="font-medium text-slate-900">{it.purchaseDate || '-'}</span></div>
                                       <div>วันหมดอายุ: <span className="font-medium text-slate-900">{it.expiryDate || '-'}</span></div>
-                                      <div>จำนวนวันคงเหลือ: <span className="font-medium text-slate-900">{it.daysLeft ?? 0} วัน</span></div>
+                                      <div>จำนวนวันคงเหลือ: <span className="font-medium text-slate-900">{Math.max(0, it.daysLeft ?? 0)} วัน</span></div>
                                       <div>รุ่น: <span className="font-medium text-slate-900">{it.model || '-'}</span></div>
                                     </div>
                                     {/* ✅ ปุ่มดูเงื่อนไขการรับประกัน */}
