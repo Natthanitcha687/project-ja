@@ -403,7 +403,7 @@ export default function CustomerWarranty() {
                                   <StatusPill code={code} />
                                   {Number.isFinite(daysLeft) && (
                                     <span className="text-xs text-slate-500">
-                                      ({daysLeft} วัน)
+                                      ({Math.max(0, daysLeft)} วัน)
                                     </span>
                                   )}
 

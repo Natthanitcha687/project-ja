@@ -515,7 +515,7 @@ export async function updateItem(req, res) {
         if (changes.length > 0) {
           body += `<div style="margin-top:16px;padding:16px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;"><div style="font-size:16px;font-weight:700;color:#1e40af;margin-bottom:12px;">📝 รายละเอียดการเปลี่ยนแปลง</div>${changes.join('')}</div>`
         }
-        body += `<div style="margin-top:12px;padding:10px 14px;background:#eff6ff;border-radius:8px;color:#1e40af;font-size:13px;">⏰ <strong>เวลาอัปเดต:</strong> ${new Date().toLocaleString('th-TH', { dateStyle: 'long', timeStyle: 'short' })}</div>`
+        body += `<div style="margin-top:12px;padding:10px 14px;background:#eff6ff;border-radius:8px;color:#1e40af;font-size:13px;">⏰ <strong>เวลาอัปเดต:</strong> ${new Date().toLocaleString('th-TH', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Asia/Bangkok' })}</div>`
 
         await createAndPublish({
           prisma, attrs: {
