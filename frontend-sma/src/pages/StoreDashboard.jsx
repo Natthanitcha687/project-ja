@@ -531,39 +531,39 @@ export default function StoreDashboard() {
           ภาพรวม & การรับประกัน
         </h2>
 
-        {/* Stats Cards Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        {/* Consolidated Stats & Donut Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           {/* Card: ใบรับประกันทั้งหมด */}
-          <div className="flex items-center gap-6 rounded-xl bg-white border border-black/10 p-6 shadow-sm">
+          <div className="flex items-center gap-4 rounded-xl bg-white border border-black/10 p-4 shadow-sm">
             <div
-              className="flex h-20 w-20 items-center justify-center rounded-2xl text-white text-3xl"
+              className="flex h-16 w-16 items-center justify-center rounded-2xl text-white text-2xl"
               style={{ background: 'rgb(0, 113, 235)' }}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
             </div>
             <div>
-              <div className="text-lg font-medium text-black/70">ใบรับประกันทั้งหมด</div>
-              <div className="text-5xl font-bold text-black" style={{ fontFamily: 'Inter, sans-serif' }}>
+              <div className="text-base font-medium text-black/70">ใบรับประกันทั้งหมด</div>
+              <div className="text-4xl font-bold text-black" style={{ fontFamily: 'Inter, sans-serif' }}>
                 {totals.totalHeaders}
               </div>
             </div>
           </div>
 
           {/* Card: ลูกค้าทั้งหมด */}
-          <div className="flex items-center gap-6 rounded-xl bg-white border border-black/10 p-6 shadow-sm">
+          <div className="flex items-center gap-4 rounded-xl bg-white border border-black/10 p-4 shadow-sm">
             <div
-              className="flex h-20 w-20 items-center justify-center rounded-2xl text-white text-3xl"
+              className="flex h-16 w-16 items-center justify-center rounded-2xl text-white text-2xl"
               style={{ background: 'rgb(40, 167, 69)' }}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
             </div>
             <div>
-              <div className="text-lg font-medium text-black/70">ลูกค้าทั้งหมด</div>
-              <div className="text-5xl font-bold text-black" style={{ fontFamily: 'Inter, sans-serif' }}>
+              <div className="text-base font-medium text-black/70">ลูกค้าทั้งหมด</div>
+              <div className="text-4xl font-bold text-black" style={{ fontFamily: 'Inter, sans-serif' }}>
                 {(() => {
                   const custSet = new Set()
                   for (const h of (filteredWarranties || [])) {
@@ -575,16 +575,49 @@ export default function StoreDashboard() {
               </div>
             </div>
           </div>
+
+          {/* Card: Status Donut (Compact) */}
+          <div className="flex items-center gap-4 rounded-xl bg-white border border-black/10 p-4 shadow-sm relative overflow-hidden">
+            <div className="flex-shrink-0 relative z-10">
+              <SimpleDonut counts={totals} size={110} thickness={15} />
+            </div>
+            <div className="flex-1 min-w-0 relative z-10">
+              <div className="text-base font-medium text-black/70 mb-2">สถานะการรับประกัน</div>
+              <div className="space-y-1.5 text-sm">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm" />
+                    <span className="text-black/80">ปกติ</span>
+                  </div>
+                  <span className="font-bold text-black">{totals.active}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-sm" />
+                    <span className="text-black/80">ใกล้หมด</span>
+                  </div>
+                  <span className="font-bold text-black">{totals.nearing}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-sm" />
+                    <span className="text-black/80">หมดอายุ</span>
+                  </div>
+                  <span className="font-bold text-black">{totals.expired}</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Monthly Warranty Chart */}
+        {/* Monthly Warranty Chart - Responsive (No Scroll, 6 Months) */}
         <div className="mb-6">
           <BarChart
             data={(() => {
-              // Generate 12 months of data
+              // Generate 6 months of data (for better mobile readability)
               const now = new Date()
-              return [...Array(12)].map((_, i) => {
-                const date = new Date(now.getFullYear(), now.getMonth() - (11 - i))
+              return [...Array(6)].map((_, i) => {
+                const date = new Date(now.getFullYear(), now.getMonth() - (5 - i))
                 const monthLabel = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'][date.getMonth()]
                 const count = (filteredWarranties || []).filter((w) => {
                   const wDate = new Date(w.createdAt || w.created_at)
@@ -593,54 +626,12 @@ export default function StoreDashboard() {
                 return { label: monthLabel, value: count }
               })
             })()}
-            height={350}
-            title="ใบรับประกันรายเดือน"
+            height={300} // Reduce height slightly for mobile
+            title="ใบรับประกันรายเดือน (ย้อนหลัง 6 เดือน)"
+            subtitle="แกนซ้าย: จำนวนใบรับประกัน"
             showLine={false}
+            yAxisMax={50} // Fixed scale 0-50
           />
-        </div>
-
-        {/* Status Donut Chart */}
-        <div className="rounded-xl bg-white border border-black/10 p-6 shadow-sm">
-          <h3 className="text-2xl font-bold text-black mb-6" style={{ fontFamily: 'Inter, sans-serif' }}>
-            สัดส่วนสถานะการรับประกัน
-          </h3>
-          <div className="flex flex-col md:flex-row items-center gap-8">
-            <div className="flex-shrink-0">
-              <SimpleDonut counts={totals} size={240} thickness={40} />
-            </div>
-            <div className="flex-1 grid gap-4">
-              {/* Active */}
-              <div className="flex items-center gap-4">
-                <div className="w-4 h-4 rounded-full bg-emerald-500" />
-                <div>
-                  <div className="text-lg font-medium text-black">ใช้งานได้</div>
-                  <div className="text-3xl font-bold text-black">
-                    {totals.active} <span className="text-lg font-normal text-black/50">({pct(totals.active)}%)</span>
-                  </div>
-                </div>
-              </div>
-              {/* Nearing */}
-              <div className="flex items-center gap-4">
-                <div className="w-4 h-4 rounded-full bg-amber-500" />
-                <div>
-                  <div className="text-lg font-medium text-black">ใกล้หมดอายุ</div>
-                  <div className="text-3xl font-bold text-black">
-                    {totals.nearing} <span className="text-lg font-normal text-black/50">({pct(totals.nearing)}%)</span>
-                  </div>
-                </div>
-              </div>
-              {/* Expired */}
-              <div className="flex items-center gap-4">
-                <div className="w-4 h-4 rounded-full bg-rose-500" />
-                <div>
-                  <div className="text-lg font-medium text-black">หมดอายุ</div>
-                  <div className="text-3xl font-bold text-black">
-                    {totals.expired} <span className="text-lg font-normal text-black/50">({pct(totals.expired)}%)</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Expiring Soon Widget */}
@@ -659,7 +650,7 @@ export default function StoreDashboard() {
                 customerName: w.customerName || w.customer_name || '-',
                 customerEmail: w.customerEmail || w.customer_email || '-',
                 daysLeft,
-                isExpiringSoon: daysLeft !== null && daysLeft > 0 && daysLeft <= 30,
+                isExpiringSoon: daysLeft !== null && daysLeft > 0 && daysLeft <= 15,
                 isExpired: daysLeft !== null && daysLeft <= 0,
               })
             }
@@ -706,7 +697,8 @@ export default function StoreDashboard() {
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                {/* Desktop Table */}
+                <table className="w-full text-sm hidden md:table">
                   <thead>
                     <tr className="text-left text-blue-700 border-b border-blue-100">
                       <th className="pb-2 font-medium">ลูกค้า</th>
@@ -761,6 +753,67 @@ export default function StoreDashboard() {
                     ))}
                   </tbody>
                 </table>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden space-y-3">
+                  {pageItems.map((item, idx) => (
+                    <div
+                      key={item.id || idx}
+                      className={`p-4 rounded-xl border shadow-sm ${item.isExpired
+                        ? 'bg-rose-50 border-rose-100'
+                        : item.isExpiringSoon
+                          ? 'bg-amber-50 border-amber-100'
+                          : 'bg-white border-blue-100'
+                        }`}
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <div className="font-medium text-gray-900">{item.customerName}</div>
+                          <div className="text-xs text-gray-500">{item.customerEmail}</div>
+                        </div>
+                        <div className={`text-xs px-2 py-1 rounded-full font-medium ${item.isExpired
+                          ? 'bg-rose-100 text-rose-700'
+                          : item.isExpiringSoon
+                            ? 'bg-amber-100 text-amber-700'
+                            : 'bg-blue-100 text-blue-700'
+                          }`}>
+                          {item.isExpired
+                            ? 'หมดอายุ'
+                            : item.isExpiringSoon
+                              ? 'ใกล้หมด'
+                              : 'ปกติ'}
+                        </div>
+                      </div>
+
+                      <div className="mb-3 pl-2 border-l-2 border-black/10">
+                        <div className="text-sm font-medium text-gray-800">{item.productName || '-'}</div>
+                        {item.serial && <div className="text-xs text-gray-500">S/N: {item.serial}</div>}
+                      </div>
+
+                      <div className="flex items-center justify-between pt-3 border-t border-black/5 mt-2">
+                        <div>
+                          <div className="text-xs text-gray-500">วันหมดอายุ</div>
+                          <div className={`text-sm font-medium ${item.isExpired ? 'text-rose-600' : 'text-gray-700'}`}>
+                            {item.expiryDate
+                              ? new Date(item.expiryDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })
+                              : '-'
+                            }
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedItemForExtend(item)
+                            setExtendModalOpen(true)
+                          }}
+                          className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 transition shadow-sm"
+                        >
+                          <span>📅</span> ต่ออายุ
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* Pagination */}

@@ -30,7 +30,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
   // fetch notifications once on mount so badge is populated before user interaction
   useEffect(() => {
     if (onFetchNotifications) {
-      onFetchNotifications().catch(() => {})
+      onFetchNotifications().catch(() => { })
     }
   }, [onFetchNotifications])
 
@@ -107,7 +107,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
                     void onMarkAllRead()
                   } else {
                     void (async () => {
-                      try { await api.post('/notifications/mark-all-read') } catch (e) {}
+                      try { await api.post('/notifications/mark-all-read') } catch (e) { }
                       // don't force a fetch here; parent will sync via SSE or periodic fetch
                     })()
                   }
@@ -152,18 +152,18 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
                         className="rounded-lg p-3 hover:bg-sky-50"
                         onClick={async () => {
                           const id = n.id
-                              if (id != null && !n.read) {
-                                // optimistic update: mark locally and send request in background
-                                setDisplayedNotifications((prev) => (prev || []).map((m) => (String(m.id) === String(id) ? { ...m, read: true } : m)))
-                                void (async () => {
-                                  try { await api.patch(`/notifications/${id}/read`) } catch (e) {}
-                                  // do not call onFetchNotifications here to avoid toggling loading state
-                                })()
-                              }
+                          if (id != null && !n.read) {
+                            // optimistic update: mark locally and send request in background
+                            setDisplayedNotifications((prev) => (prev || []).map((m) => (String(m.id) === String(id) ? { ...m, read: true } : m)))
+                            void (async () => {
+                              try { await api.patch(`/notifications/${id}/read`) } catch (e) { }
+                              // do not call onFetchNotifications here to avoid toggling loading state
+                            })()
+                          }
                           if (n?.data?.warrantyId) {
                             try {
                               navigate(`/warranty/${n.data.warrantyId}`)
-                            } catch {}
+                            } catch { }
                           }
                           setNotifOpen(false)
                         }}
@@ -177,8 +177,19 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
                               {n.title || n.message || 'การแจ้งเตือน'}
                             </div>
                             {n.body || n.message ? (
-                              <div className="text-xs text-slate-600 mt-1 break-words">
-                                {n.body || n.message}
+                              <div
+                                className="text-xs text-slate-600 mt-1 break-words"
+                              >
+                                {((n.data?.type === 'warranty_updated') || (n.body && n.body.includes('<div')))
+                                  ? (
+                                    <span className="text-sky-600 font-medium">
+                                      กรุณาตรวจสอบรายละเอียดเพิ่มเติมที่อีเมลของคุณ ✉️
+                                    </span>
+                                  )
+                                  : (
+                                    <div dangerouslySetInnerHTML={{ __html: n.body || n.message }} />
+                                  )
+                                }
                               </div>
                             ) : null}
                             <div className="text-[10px] text-slate-400 mt-1">
@@ -248,7 +259,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
                   type="button"
                   onClick={() => {
                     if (onEditProfile) {
-                      try { onEditProfile() } catch (e) {}
+                      try { onEditProfile() } catch (e) { }
                       setProfileMenuOpen(false)
                     } else {
                       navigate('/dashboard/warranty?openProfile=1')
