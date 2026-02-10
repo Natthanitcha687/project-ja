@@ -1960,8 +1960,8 @@ export default function WarrantyDashboard() {
                 </button>
               </div>
 
-              <form className="grid" onSubmit={handleWarrantySubmit}>
-                <div className="overflow-y-auto px-5 sm:px-6 pt-5 pb-3" style={{ maxHeight: '72vh' }}>
+              <form className="flex flex-col h-full" onSubmit={handleWarrantySubmit}>
+                <div className="overflow-y-auto overflow-x-hidden px-5 sm:px-6 pt-5 pb-3 flex-1" style={{ maxHeight: '72vh' }}>
                   {warrantyModalError && (
                     <div className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600">{warrantyModalError}</div>
                   )}
