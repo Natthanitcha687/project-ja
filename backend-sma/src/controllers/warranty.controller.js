@@ -155,14 +155,22 @@ export async function downloadWarrantyPdf(req, res) {
 
     const profile = header.store?.storeProfile;
 
-    // HTTP headers
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader(
-      "Content-Disposition",
-      `inline; filename="warranty-${header.code || header.id}.pdf"`
-    );
+    // ==== สร้าง PDF (Buffer) เพื่อหา Content-Length สำหรับ Safari ====
+    const chunks = [];
+    const doc = new PDFDocument({ autoFirstPage: false });
 
-    // ==== สร้าง PDF ====
+    doc.on("data", (chunk) => chunks.push(chunk));
+    doc.on("end", () => {
+      const result = Buffer.concat(chunks);
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `inline; filename="warranty-${header.code || header.id}.pdf"`
+      );
+      res.setHeader("Content-Length", result.length); // ✅ Critical for Safari
+      res.send(result);
+    });
+
     const mm = (v) => v * 2.83464567;
     const T = (v, f = "-") =>
       v === undefined || v === null || String(v).trim() === "" ? f : String(v);
@@ -251,7 +259,7 @@ export async function downloadWarrantyPdf(req, res) {
 
     const logoPath = firstExistingFile(logoCandidates);
 
-    const doc = new PDFDocument({ autoFirstPage: false });
+    // NOTE: doc created above (buffered)
 
     const regPath = firstExistingFile(fontCandidatesRegular);
     const boldPath = firstExistingFile(fontCandidatesBold);
@@ -273,7 +281,7 @@ export async function downloadWarrantyPdf(req, res) {
       return sendError(res, 500, "Unknown font format: โปรดใช้ไฟล์ TTF แบบ static");
     }
 
-    doc.pipe(res);
+    // doc.pipe(res); // ❌ REMOVE for buffering
 
     // -------------------------------
     // (เดิม) ฟังก์ชันวาดตาราง/โลโก้/ช่องต่าง ๆ ยังอยู่ (ไม่ได้ลบ)
@@ -352,7 +360,9 @@ export async function downloadWarrantyPdf(req, res) {
     doc.end();
   } catch (error) {
     console.error("downloadWarrantyPdf error", error);
-    return sendError(res, 500, "ไม่สามารถสร้างไฟล์ PDF ได้");
+    if (!res.headersSent) {
+      return sendError(res, 500, "ไม่สามารถสร้างไฟล์ PDF ได้");
+    }
   }
 }
 

@@ -1267,9 +1267,20 @@ export default function WarrantyDashboard() {
       setDownloadingPdfId(warrantyId)
       const response = await api.get(`/warranties/${warrantyId}/pdf`, { responseType: 'blob' })
       const blob = new Blob([response.data], { type: 'application/pdf' })
-      const url = URL.createObjectURL(blob)
-      window.open(url, '_blank', 'noopener')
-      setTimeout(() => URL.revokeObjectURL(url), 10000)
+      const url = window.URL.createObjectURL(blob)
+
+      // Safari-friendly approach
+      const win = window.open(url, '_blank')
+      if (!win) {
+        // Fallback if popup blocked
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `warranty-${warrantyId}.pdf`
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+      }
+      setTimeout(() => window.URL.revokeObjectURL(url), 60000)
     } catch (error) {
       setDashboardError(error?.response?.data?.error?.message || 'ไม่สามารถดาวน์โหลดใบรับประกันได้')
     } finally {
