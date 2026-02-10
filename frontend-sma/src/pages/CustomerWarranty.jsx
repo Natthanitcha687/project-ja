@@ -214,9 +214,14 @@ export default function CustomerWarranty() {
         responseType: "blob",
       });
       const blob = new Blob([resp.data], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      const win = window.open(url, "_blank", "noopener,noreferrer");
+      const url = window.URL.createObjectURL(blob);
+
+      // Safari-friendly approach:
+      // Try to open in new tab first
+      const win = window.open(url, "_blank");
       if (!win) {
+        // Pop-up blocked or failed, fallback to direct download or current window
+        alert("Pop-up blocked. Downloading file instead.");
         const a = document.createElement("a");
         a.href = url;
         a.download = `warranty-${warrantyId}.pdf`;
@@ -224,7 +229,9 @@ export default function CustomerWarranty() {
         a.click();
         a.remove();
       }
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+
+      // Cleanup
+      setTimeout(() => window.URL.revokeObjectURL(url), 60000);
     } catch {
       alert("เปิดไฟล์ PDF ไม่ได้");
     }
@@ -525,8 +532,8 @@ export default function CustomerWarranty() {
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
                 className={`rounded-full px-3 py-2 text-xs font-medium shadow-sm ${currentPage === 1
-                    ? "cursor-not-allowed bg-white text-slate-300 ring-1 ring-black/10"
-                    : "bg-white text-slate-700 ring-1 ring-black/10 hover:bg-slate-50"
+                  ? "cursor-not-allowed bg-white text-slate-300 ring-1 ring-black/10"
+                  : "bg-white text-slate-700 ring-1 ring-black/10 hover:bg-slate-50"
                   }`}
               >
                 ก่อนหน้า
@@ -536,8 +543,8 @@ export default function CustomerWarranty() {
                   key={n}
                   onClick={() => setPage(n)}
                   className={`rounded-full px-3 py-2 text-xs font-medium shadow-sm ${n === currentPage
-                      ? "bg-slate-900 text-white"
-                      : "bg-white text-slate-700 ring-1 ring-black/10 hover:bg-slate-50"
+                    ? "bg-slate-900 text-white"
+                    : "bg-white text-slate-700 ring-1 ring-black/10 hover:bg-slate-50"
                     }`}
                 >
                   {n}
@@ -547,8 +554,8 @@ export default function CustomerWarranty() {
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
                 className={`rounded-full px-3 py-2 text-xs font-medium shadow-sm ${currentPage === totalPages
-                    ? "cursor-not-allowed bg-white text-slate-300 ring-1 ring-black/10"
-                    : "bg-white text-slate-700 ring-1 ring-black/10 hover:bg-slate-50"
+                  ? "cursor-not-allowed bg-white text-slate-300 ring-1 ring-black/10"
+                  : "bg-white text-slate-700 ring-1 ring-black/10 hover:bg-slate-50"
                   }`}
               >
                 ถัดไป
