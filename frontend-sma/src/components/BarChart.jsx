@@ -11,13 +11,16 @@ export default function BarChart({
     lineColor = '#E53E3E',
     showLine = true,
     lineLabel = '',
+    yAxisMax = null, // New prop for fixed Y-axis max
 }) {
     const chartData = useMemo(() => {
-        if (!data?.length) return { max: 0, bars: [], linePoints: '' }
-        const max = Math.max(...data.map((d) => d.value), 1)
+        if (!data?.length) return { max: yAxisMax || 0, bars: [], linePoints: '' }
+        // Use yAxisMax if provided, otherwise find data max (min 1 to avoid /0)
+        const max = yAxisMax || Math.max(...data.map((d) => d.value), 1)
+
         const bars = data.map((d, i) => ({
             ...d,
-            height: (d.value / max) * 100,
+            height: (d.value / max) * 100, // Percentage of max
             percent: d.percent ?? null,
         }))
         // Line points for secondary metric (percent)
@@ -29,9 +32,33 @@ export default function BarChart({
             })
             .join(' ')
         return { max, bars, linePoints }
-    }, [data])
+    }, [data, yAxisMax])
 
     if (!data?.length) return null
+
+    // Generate Y-axis labels
+    const yAxisLabels = useMemo(() => {
+        if (yAxisMax) {
+            // If fixed max, generate 5 steps (including 0)
+            const step = yAxisMax / 5
+            return [
+                yAxisMax,
+                yAxisMax - step,
+                yAxisMax - step * 2,
+                yAxisMax - step * 3,
+                yAxisMax - step * 4,
+                0
+            ]
+        }
+        // Dynamic labels based on max
+        return [
+            chartData.max,
+            Math.round(chartData.max * 0.75),
+            Math.round(chartData.max * 0.5),
+            Math.round(chartData.max * 0.25),
+            0
+        ]
+    }, [chartData.max, yAxisMax])
 
     return (
         <div className="rounded-xl bg-white border border-black/10 p-6 shadow-sm">
@@ -45,11 +72,9 @@ export default function BarChart({
             <div className="relative" style={{ height }}>
                 {/* Y-axis labels */}
                 <div className="absolute left-0 top-0 bottom-8 w-8 flex flex-col justify-between text-xs text-slate-400">
-                    <div>{chartData.max}</div>
-                    <div>{Math.round(chartData.max * 0.75)}</div>
-                    <div>{Math.round(chartData.max * 0.5)}</div>
-                    <div>{Math.round(chartData.max * 0.25)}</div>
-                    <div>0</div>
+                    {yAxisLabels.map((val, idx) => (
+                        <div key={idx}>{val}</div>
+                    ))}
                 </div>
 
                 {/* Percent Y-axis on right */}
@@ -66,24 +91,24 @@ export default function BarChart({
                 {/* Grid lines */}
                 <div className="absolute left-10 right-12 top-0 bottom-8">
                     <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-                        {[0, 1, 2, 3, 4].map((i) => (
+                        {yAxisLabels.map((_, i) => (
                             <div key={i} className="border-t border-slate-100" />
                         ))}
                     </div>
 
                     {/* Bars */}
-                    <div className="absolute inset-0 flex items-end justify-around gap-1 pb-0">
+                    <div className="absolute inset-0 flex justify-around gap-1 pb-0">
                         {chartData.bars.map((bar, i) => (
-                            <div key={i} className="flex-1 flex flex-col items-center group relative">
+                            <div key={i} className="flex-1 flex flex-col items-center justify-end h-full group relative">
                                 {/* Tooltip */}
-                                <div className="absolute bottom-full mb-1 hidden group-hover:block bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                                <div className="absolute bottom-full mb-1 hidden group-hover:block bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-10">
                                     {bar.label}: {bar.value} ใบ
                                 </div>
                                 <div
                                     className="w-full max-w-[40px] rounded-t-md transition-all duration-300"
                                     style={{
-                                        height: bar.value > 0 ? `${bar.height}%` : '4px',
-                                        minHeight: '4px',
+                                        height: `${bar.height}%`, // Simple percentage height
+                                        minHeight: bar.value > 0 ? '4px' : '0px',
                                         background: barColor,
                                         opacity: bar.value > 0 ? 1 : 0.3,
                                     }}

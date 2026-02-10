@@ -92,7 +92,7 @@ export default function CustomerNavbar() {
       );
       await api.patch(`/notifications/${id}/read`);
       await fetchNotifications();
-    } catch (e) {}
+    } catch (e) { }
   }
 
   // ✅ Load notifications once + สมัคร SSE
@@ -142,9 +142,9 @@ export default function CustomerNavbar() {
 
             // prepend notification ใหม่
             setNotifications((p) => [payload, ...(p || [])]);
-          } catch (e) {}
+          } catch (e) { }
         });
-        es.onerror = () => {};
+        es.onerror = () => { };
       } catch (e) {
         // ignore
       }
@@ -154,7 +154,7 @@ export default function CustomerNavbar() {
       mounted = false;
       try {
         if (es) es.close();
-      } catch {}
+      } catch { }
     };
   }, []);
 
@@ -204,7 +204,7 @@ export default function CustomerNavbar() {
         phone: cp.phone || "",
         email: me.email || "",
       });
-    } catch {}
+    } catch { }
   }
 
   useEffect(() => {
@@ -368,21 +368,30 @@ export default function CustomerNavbar() {
                             onClick={() => {
                               if (!read && id != null) markOneAsRead(id);
                             }}
-                            className={`px-4 py-3 text-sm border-b last:border-0 transition ${
-                              type === "nearing_expiration"
-                                ? "bg-amber-50 text-amber-800"
-                                : type === "expired"
+                            className={`px-4 py-3 text-sm border-b last:border-0 transition ${type === "nearing_expiration"
+                              ? "bg-amber-50 text-amber-800"
+                              : type === "expired"
                                 ? "bg-rose-50 text-rose-700"
                                 : "bg-white text-slate-700"
-                            } ${read ? "opacity-70" : "font-semibold"} ${
-                              id != null ? "cursor-pointer" : ""
-                            }`}
+                              } ${read ? "opacity-70" : "font-semibold"} ${id != null ? "cursor-pointer" : ""
+                              }`}
                           >
                             <div className="whitespace-normal break-words">
                               <div className="text-sm font-semibold">{title}</div>
                               {body ? (
-                                <div className="text-xs text-slate-500 mt-1 break-words">
-                                  {body}
+                                <div
+                                  className="text-xs text-slate-500 mt-1 break-words"
+                                >
+                                  {((n.data?.type === 'warranty_updated') || (body && body.includes('<div')))
+                                    ? (
+                                      <span className="text-sky-600 font-medium">
+                                        กรุณาตรวจสอบรายละเอียดเพิ่มเติมที่อีเมลของคุณ ✉️
+                                      </span>
+                                    )
+                                    : (
+                                      <div dangerouslySetInnerHTML={{ __html: body }} />
+                                    )
+                                  }
                                 </div>
                               ) : null}
                             </div>
