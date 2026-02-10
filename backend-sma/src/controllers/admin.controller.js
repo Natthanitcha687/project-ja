@@ -31,7 +31,7 @@ function fmtTH(v) {
   if (!v) return "-";
   const d = v instanceof Date ? v : new Date(v);
   if (isNaN(d)) return "-";
-  return d.toLocaleString("th-TH");
+   return d.toLocaleString("th-TH", { timeZone: "Asia/Bangkok" });
 }
 
 /* =========================
