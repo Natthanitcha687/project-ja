@@ -212,21 +212,24 @@ export async function sendVerificationEmail({ to, verifyUrl }) {
 
   const subject = "ยืนยันอีเมลของคุณ";
   const text = `ยืนยันอีเมลของคุณโดยเปิดลิงก์นี้: ${verifyUrl}`;
-  const html = `
-    <div style="font-family:system-ui,Arial,sans-serif;line-height:1.6">
-      <h1 style="margin:0 0 12px">ยืนยันอีเมล</h1>
-      <p>ขอบคุณที่สมัครใช้งาน คลิกลิงก์ด้านล่างเพื่อยืนยันอีเมลของคุณ</p>
-      <p>
-        <a href="${verifyUrl}" 
-           style="display:inline-block;padding:10px 16px;border-radius:8px;background:#2563eb;color:#fff;text-decoration:none">
-          ยืนยันอีเมล
-        </a>
-      </p>
-      <p>ถ้าปุ่มกดไม่ได้ ให้คัดลอกลิงก์นี้ไปวางในเบราว์เซอร์:<br>
-        <a href="${verifyUrl}">${verifyUrl}</a>
-      </p>
-    </div>
+
+  // Use the shared professional template
+  const msgHtml = `
+    <p style="margin:0 0 12px;font-size:15px;color:#374151;">
+      ขอบคุณที่สมัครสมาชิกกับ <strong>Warranty Platform</strong>
+    </p>
+    <p style="margin:0 0 12px;font-size:15px;color:#374151;">
+      เพื่อให้การสมัครสมาชิกสมบูรณ์ กรุณายืนยันอีเมลของคุณโดยคลิกปุ่มด้านล่าง
+    </p>
   `;
+
+  const html = buildEmailShell({
+    title: "ยืนยันอีเมล",
+    messageHtml: msgHtml,
+    ctaUrl: verifyUrl,
+    ctaText: "ยืนยันอีเมล",
+    footerNote: "หากคุณไม่ได้สมัครสมาชิก สามารถละเว้นอีเมลนี้ได้"
+  });
 
   return transport.sendMail({ from, to, subject, text, html });
 }
@@ -238,21 +241,23 @@ export async function sendPasswordResetEmail({ to, resetUrl }) {
 
   const subject = "ตั้งรหัสผ่านใหม่";
   const text = `ตั้งรหัสผ่านใหม่โดยเปิดลิงก์นี้: ${resetUrl}`;
-  const html = `
-    <div style="font-family:system-ui,Arial,sans-serif;line-height:1.6">
-      <h1 style="margin:0 0 12px">ตั้งรหัสผ่านใหม่</h1>
-      <p>คลิกลิงก์ด้านล่างเพื่อไปหน้าตั้งรหัสผ่านใหม่ ลิงก์นี้จะหมดอายุในไม่ช้า</p>
-      <p>
-        <a href="${resetUrl}" 
-           style="display:inline-block;padding:10px 16px;border-radius:8px;background:#16a34a;color:#fff;text-decoration:none">
-          ตั้งรหัสผ่านใหม่
-        </a>
-      </p>
-      <p>ถ้าปุ่มกดไม่ได้ ให้คัดลอกลิงก์นี้ไปวางในเบราว์เซอร์:<br>
-        <a href="${resetUrl}">${resetUrl}</a>
-      </p>
-    </div>
+
+  const msgHtml = `
+    <p style="margin:0 0 12px;font-size:15px;color:#374151;">
+      เราได้รับคำขอให้รีเซ็ตรหัสผ่านสำหรับบัญชีของคุณ
+    </p>
+    <p style="margin:0 0 12px;font-size:15px;color:#374151;">
+      หากคุณต้องการตั้งรหัสผ่านใหม่ กรุณาคลิกปุ่มด้านล่าง (ลิงก์นี้จะหมดอายุภายใน 1 ชั่วโมง)
+    </p>
   `;
+
+  const html = buildEmailShell({
+    title: "ตั้งรหัสผ่านใหม่",
+    messageHtml: msgHtml,
+    ctaUrl: resetUrl,
+    ctaText: "ตั้งรหัสผ่านใหม่",
+    footerNote: "หากคุณไม่ได้ส่งคำขอนี้ สามารถละเว้นอีเมลนี้ได้ รหัสผ่านของคุณจะยังคงปลอดภัย"
+  });
 
   return transport.sendMail({ from, to, subject, text, html });
 }
