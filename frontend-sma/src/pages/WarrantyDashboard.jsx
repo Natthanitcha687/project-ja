@@ -1394,7 +1394,7 @@ export default function WarrantyDashboard() {
 
 
                 <div className="mb-6 flex flex-wrap items-center gap-2 sm:gap-3">
-                  <div className="flex flex-1 min-w-0 items-center rounded-2xl bg-white px-3 py-2 sm:px-4 shadow ring-1 ring-black/5">
+                  <div className="flex w-full sm:flex-1 sm:w-auto min-w-0 items-center rounded-2xl bg-white px-3 py-2 sm:px-4 shadow ring-1 ring-black/5">
                     <span className="text-slate-400">🔍</span>
                     <input
                       value={searchTerm}
