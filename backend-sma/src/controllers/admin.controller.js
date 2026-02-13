@@ -31,7 +31,7 @@ function fmtTH(v) {
   if (!v) return "-";
   const d = v instanceof Date ? v : new Date(v);
   if (isNaN(d)) return "-";
-   return d.toLocaleString("th-TH", { timeZone: "Asia/Bangkok" });
+  return d.toLocaleString("th-TH", { timeZone: "Asia/Bangkok" });
 }
 
 /* =========================
@@ -680,6 +680,18 @@ export async function deleteCustomerAccount(req, res) {
   if (!user || user.role !== "CUSTOMER") return res.status(404).json({ message: "ไม่พบลูกค้า" });
 
   const before = { id: user.id, email: user.email, status: user.status, role: user.role };
+
+  // ✅ 1. ล้างข้อมูลในใบรับประกันที่ผูกกับ User นี้ (Unlink warranties)
+  // เพื่อไม่ให้ใบรับประกันเก่ากลับมาแสดงผลหากลูกค้าสมัครใหม่ด้วยอีเมลเดิม
+  await prisma.warranty.updateMany({
+    where: { customerUserId: customerId },
+    data: {
+      customerEmail: null,
+      customerPhone: null,
+      customerName: null,
+      customerAddress: null,
+    },
+  });
 
   await logAudit(req, "DELETE_CUSTOMER_ACCOUNT", "User", customerId, {
     result: "SUCCESS",
