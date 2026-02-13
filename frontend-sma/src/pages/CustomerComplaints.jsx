@@ -1,9 +1,9 @@
-// frontend-sma/src/pages/CustomerComplaints.jsx
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../store/auth";
 import ReCAPTCHA from "react-google-recaptcha";
+import Swal from "sweetalert2";
 
 //const TEST_SITE_KEY = "6LfBBV8sAAAAAKDz6Ke5jy76-YfOQ7UbCfcqg2WC"; // Production Key
 //const TEST_SITE_KEY = "6LfOUV8sAAAAAC1x_toJ4Fj-9Z8AQU1QaP_k1zTO";
@@ -74,9 +74,6 @@ export default function CustomerComplaints() {
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const [err, setErr] = useState("");
-  const [ok, setOk] = useState("");
-
   // ✅ auto refresh (polling)
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
@@ -112,15 +109,15 @@ export default function CustomerComplaints() {
     inFlightRef.current = true;
 
     if (!silent) setLoading(true);
-    setErr("");
 
     try {
       const r = await api.get("/customer/complaints");
       setItems(r.data?.complaints || []);
       setLastUpdatedAt(new Date().toISOString());
     } catch (e) {
+      console.error("fetchComplaints failed", e);
       // ถ้าเป็น silent refresh แล้วพัง จะไม่ทับ UI ด้วย loading หนัก
-      setErr(e?.response?.data?.message || "โหลดรายการแจ้งปัญหาไม่สำเร็จ");
+      // setErr(e?.response?.data?.message || "โหลดรายการแจ้งปัญหาไม่สำเร็จ");
     } finally {
       if (!silent) setLoading(false);
       inFlightRef.current = false;
@@ -165,20 +162,30 @@ export default function CustomerComplaints() {
 
   async function onSubmit(e) {
     e.preventDefault();
-    setErr("");
-    setOk("");
 
     const s = subject.trim();
     const m = message.trim();
 
     if (!s || !m) {
-      setErr("กรุณากรอกหัวข้อและรายละเอียด");
+      Swal.fire({
+        icon: "warning",
+        title: "ข้อมูลไม่ครบถ้วน",
+        text: "กรุณากรอกหัวข้อและรายละเอียด",
+        confirmButtonText: "ตกลง",
+        confirmButtonColor: "#0284c7", // sky-600
+      });
       return;
     }
 
     // ✅ Check CAPTCHA
     if (!captchaToken) {
-      setErr("กรุณายืนยันตัวตน (I'm not a robot)");
+      Swal.fire({
+        icon: "warning",
+        title: "ยืนยันตัวตน",
+        text: "กรุณาติ๊กถูกที่ช่อง I'm not a robot",
+        confirmButtonText: "ตกลง",
+        confirmButtonColor: "#0284c7",
+      });
       return;
     }
 
@@ -213,7 +220,15 @@ export default function CustomerComplaints() {
         });
       }
 
-      setOk("แจ้งปัญหาเรียบร้อย ✅");
+      // ✅ Success Popup
+      Swal.fire({
+        icon: "success",
+        title: "แจ้งปัญหาเรียบร้อย",
+        text: "เราได้รับเรื่องของคุณแล้ว",
+        showConfirmButton: false,
+        timer: 2000,
+      });
+
       setSubject("");
       setMessage("");
       setAttachments([]); // ✅ รีเซ็ตไฟล์แนบ
@@ -226,7 +241,14 @@ export default function CustomerComplaints() {
       await fetchComplaints();
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (e2) {
-      setErr(e2?.response?.data?.message || "แจ้งปัญหาไม่สำเร็จ");
+      const msg = e2?.response?.data?.message || "แจ้งปัญหาไม่สำเร็จ";
+      Swal.fire({
+        icon: "error",
+        title: "เกิดข้อผิดพลาด",
+        text: msg,
+        confirmButtonText: "ปิด",
+        confirmButtonColor: "#e11d48", // rose-600
+      });
     } finally {
       setSubmitting(false);
     }
@@ -253,20 +275,7 @@ export default function CustomerComplaints() {
         </div>
 
         {/* Alerts */}
-        {(err || ok) && (
-          <div className="mb-4 space-y-2">
-            {err && (
-              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-                {err}
-              </div>
-            )}
-            {ok && (
-              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-                {ok}
-              </div>
-            )}
-          </div>
-        )}
+
 
         {/* Form */}
         <div className="overflow-hidden rounded-2xl border border-sky-100 bg-white shadow-sm">
