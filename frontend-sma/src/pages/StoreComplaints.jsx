@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, API_URL, getToken } from "../lib/api";
 import { useAuth } from "../store/auth";
 import ReCAPTCHA from "react-google-recaptcha";
+import Swal from "sweetalert2";
 
 const TEST_SITE_KEY = "6LebWF8sAAAAAAXjv7QYDcmx7yXUQjOD38Pd8-70";
 //const TEST_SITE_KEY = "6LfOUV8sAAAAAC1x_toJ4Fj-9Z8AQU1QaP_k1zTO";
@@ -112,9 +113,6 @@ export default function StoreComplaints() {
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const [err, setErr] = useState("");
-  const [ok, setOk] = useState("");
-
   // auto refresh
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
@@ -129,14 +127,14 @@ export default function StoreComplaints() {
     inFlightRef.current = true;
 
     if (!silent) setLoading(true);
-    setErr("");
 
     try {
       const r = await api.get(`/store/${storeIdResolved}/complaints`);
       setItems(r.data?.complaints || []);
       setLastUpdatedAt(new Date().toISOString());
     } catch (e) {
-      setErr(e?.response?.data?.message || "โหลดรายการแจ้งปัญหาไม่สำเร็จ");
+      console.error("fetchComplaints failed", e);
+      // setErr(e?.response?.data?.message || "โหลดรายการแจ้งปัญหาไม่สำเร็จ");
     } finally {
       if (!silent) setLoading(false);
       inFlightRef.current = false;
@@ -178,23 +176,59 @@ export default function StoreComplaints() {
 
   async function onSubmit(e) {
     e.preventDefault();
-    setErr("");
-    setOk("");
 
-    if (!storeIdResolved) return setErr("ไม่พบบัญชีร้านค้า (storeId)");
+    if (!storeIdResolved) {
+      Swal.fire({
+        icon: "error",
+        title: "เกิดข้อผิดพลาด",
+        text: "ไม่พบบัญชีร้านค้า (storeId)",
+        confirmButtonText: "ปิด",
+      });
+      return;
+    }
 
     const s = subject.trim();
     const m = message.trim();
 
-    if (!s) return setErr("กรุณากรอกหัวข้อ (subject)");
-    if (!m) return setErr("กรุณากรอกรายละเอียด (message)");
-    if (s.length > 200) return setErr("หัวข้อยาวเกินไป (สูงสุด 200 ตัวอักษร)");
-    if (m.length > 5000) return setErr("รายละเอียด ยาวเกินไป (สูงสุด 5000 ตัวอักษร)");
+    if (!s || !m) {
+      Swal.fire({
+        icon: "warning",
+        title: "ข้อมูลไม่ครบถ้วน",
+        text: "กรุณากรอกหัวข้อและรายละเอียด",
+        confirmButtonText: "ตกลง",
+        confirmButtonColor: "#0284c7",
+      });
+      return;
+    }
+    if (s.length > 200) {
+      Swal.fire({
+        icon: "warning",
+        title: "ข้อมูลยาวเกินไป",
+        text: "หัวข้อยาวเกินไป (สูงสุด 200 ตัวอักษร)",
+        confirmButtonText: "ตกลง",
+      });
+      return;
+    }
+    if (m.length > 5000) {
+      Swal.fire({
+        icon: "warning",
+        title: "ข้อมูลยาวเกินไป",
+        text: "รายละเอียด ยาวเกินไป (สูงสุด 5000 ตัวอักษร)",
+        confirmButtonText: "ตกลง",
+      });
+      return;
+    }
 
 
     // ✅ Check CAPTCHA
     if (!captchaToken) {
-      setErr("กรุณายืนยันตัวตน (I'm not a robot)");
+      Swal.fire({
+        icon: "warning",
+        title: "ยืนยันตัวตน",
+        text: "กรุณาติ๊กถูกที่ช่อง I'm not a robot",
+        confirmButtonText: "ตกลง",
+        confirmButtonColor: "#0284c7",
+      });
       return;
     }
 
@@ -229,7 +263,15 @@ export default function StoreComplaints() {
         });
       }
 
-      setOk("แจ้งปัญหาเรียบร้อย ✅");
+      // ✅ Success Popup
+      Swal.fire({
+        icon: "success",
+        title: "แจ้งปัญหาเรียบร้อย",
+        text: "เราได้รับเรื่องของคุณแล้ว",
+        showConfirmButton: false,
+        timer: 2000,
+      });
+
       setSubject("");
       setMessage("");
       setAttachments([]);
@@ -242,7 +284,14 @@ export default function StoreComplaints() {
       await fetchComplaints();
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (e2) {
-      setErr(e2?.response?.data?.message || "แจ้งปัญหาไม่สำเร็จ");
+      const msg = e2?.response?.data?.message || "แจ้งปัญหาไม่สำเร็จ";
+      Swal.fire({
+        icon: "error",
+        title: "เกิดข้อผิดพลาด",
+        text: msg,
+        confirmButtonText: "ปิด",
+        confirmButtonColor: "#e11d48",
+      });
     } finally {
       setSubmitting(false);
     }
@@ -277,20 +326,7 @@ export default function StoreComplaints() {
         </div>
 
         {/* Alerts */}
-        {(err || ok) && (
-          <div className="mb-4 space-y-2">
-            {err && (
-              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-                {err}
-              </div>
-            )}
-            {ok && (
-              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-                {ok}
-              </div>
-            )}
-          </div>
-        )}
+
 
         {/* Form */}
         <div className="overflow-hidden rounded-2xl border border-sky-100 bg-white shadow-sm">
@@ -502,7 +538,7 @@ export default function StoreComplaints() {
                   className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-900"
                 >
                   <option value="all">ทุกสถานะ</option>
-                  <option value="OPEN">เปิดเรื่อง</option>
+                  <option value="OPEN">ยังไม่ไดตรวจสอบ</option>
                   <option value="IN_PROGRESS">กำลังดำเนินการ</option>
                   <option value="RESOLVED">แก้ไขแล้ว</option>
                   <option value="REJECTED">ปฏิเสธ</option>
