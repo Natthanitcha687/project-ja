@@ -2084,7 +2084,7 @@ export default function WarrantyDashboard() {
                         <input
                           name="product_name"
                           value={editForm?.product_name ?? ''}
-                          onChange={e => setEditForm(f => ({ ...f, product_name: e.target.value }))}
+                          onChange={e => setEditForm(f => ({ ...f, product_name: e.target.value.replace(/[@#$%^&*?|><]/g, '') }))}
                           className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                           placeholder="กรอกชื่อสินค้าที่ทำการซ่อม"
                           type="text"
@@ -2098,7 +2098,7 @@ export default function WarrantyDashboard() {
                         <input
                           name="model"
                           value={editForm?.model ?? ''}
-                          onChange={e => setEditForm(f => ({ ...f, model: e.target.value }))}
+                          onChange={e => setEditForm(f => ({ ...f, model: e.target.value.replace(/[@#$%^&*?|><]/g, '') }))}
                           className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                           placeholder="กรอกรุ่นสินค้าที่ทำการซ่อม"
                           type="text"
@@ -2333,7 +2333,7 @@ export default function WarrantyDashboard() {
                               <input
                                 type="text"
                                 value={editAddConditionText}
-                                onChange={e => setEditAddConditionText(e.target.value)}
+                                onChange={e => setEditAddConditionText(e.target.value.replace(/[@#$%^&*?|><]/g, ''))}
                                 className="flex-1 rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-sm focus:border-sky-400 focus:outline-none"
                                 placeholder="พิมพ์เงื่อนไขใหม่..."
                                 autoFocus
@@ -2433,7 +2433,7 @@ export default function WarrantyDashboard() {
                                 <div className="text-xs text-gray-500">เลขที่ / ซอย / ถนน</div>
                                 <textarea
                                   value={customerAddressParts.street}
-                                  onChange={(e) => syncCustomerAddress((p) => ({ ...p, street: e.target.value }))}
+                                  onChange={(e) => syncCustomerAddress((p) => ({ ...p, street: e.target.value.replace(/[@#$%^&*?|><]/g, '') }))}
                                   className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                                   placeholder="เช่น 123/4 ซ.สุขุมวิท 11"
                                   rows={2}
@@ -2535,7 +2535,7 @@ export default function WarrantyDashboard() {
                             ชื่อสินค้าที่ทำการซ่อม <span className="text-red-500">*</span>
                             <input
                               value={it.product_name}
-                              onChange={e => patchItem(idx, { product_name: e.target.value })}
+                              onChange={e => patchItem(idx, { product_name: e.target.value.replace(/[@#$%^&*?|><]/g, '') })}
                               className="mt-1 w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                               placeholder="กรอกชื่อสินค้าที่ทำการซ่อม"
                               type="text"
@@ -2548,7 +2548,7 @@ export default function WarrantyDashboard() {
                             รุ่นสินค้าที่ทำการซ่อม
                             <input
                               value={it.model}
-                              onChange={e => patchItem(idx, { model: e.target.value })}
+                              onChange={e => patchItem(idx, { model: e.target.value.replace(/[@#$%^&*?|><]/g, '') })}
                               className="mt-1 w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                               placeholder="กรอกรุ่นสินค้าที่ทำการซ่อม"
                               type="text"
@@ -2736,7 +2736,7 @@ export default function WarrantyDashboard() {
                                   <input
                                     type="text"
                                     value={createAddConditionText[idx] || ''}
-                                    onChange={e => setCreateAddConditionText(prev => ({ ...prev, [idx]: e.target.value }))}
+                                    onChange={e => setCreateAddConditionText(prev => ({ ...prev, [idx]: e.target.value.replace(/[@#$%^&*?|><]/g, '') }))}
                                     className="flex-1 rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-sm focus:border-sky-400 focus:outline-none"
                                     placeholder="พิมพ์เงื่อนไขใหม่..."
                                     autoFocus
