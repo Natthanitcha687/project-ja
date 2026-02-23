@@ -170,6 +170,7 @@ export default function SignUpGoogleStore() {
   // ===== store form state =====
   const [storeName, setStoreName] = useState("");
   const [typeStore, setTypeStore] = useState("");
+  const [customTypeStore, setCustomTypeStore] = useState("");
   const [ownerStore, setOwnerStore] = useState("");
   const [phone, setPhone] = useState("");
 
@@ -542,10 +543,14 @@ export default function SignUpGoogleStore() {
         postcode: addressPostcode,
       });
 
+      const finalTypeStore = typeStore === "other"
+        ? `other:${String(customTypeStore || "").trim()}`
+        : String(typeStore || "").trim();
+
       const payload = {
         signupToken,
         storeName: String(storeName || "").trim(),
-        typeStore: String(typeStore || "").trim(),
+        typeStore: finalTypeStore,
         ownerStore: String(ownerStore || "").trim(),
         phone: String(phone || "").trim(),
         address: addressJson,
@@ -709,7 +714,10 @@ export default function SignUpGoogleStore() {
                   <span className="absolute left-3 top-1/2 -translate-y-1/2">{Icon.home()}</span>
                   <select
                     value={typeStore}
-                    onChange={(e) => setTypeStore(e.target.value)}
+                    onChange={(e) => {
+                      setTypeStore(e.target.value);
+                      if (e.target.value !== "other") setCustomTypeStore("");
+                    }}
                     className="mt-1 w-full h-10 rounded-xl border border-gray-300 bg-white pl-10 pr-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   >
@@ -722,6 +730,16 @@ export default function SignUpGoogleStore() {
                     <option value="other">อื่น ๆ</option>
                   </select>
                 </div>
+                {typeStore === "other" && (
+                  <InputIcon
+                    value={customTypeStore}
+                    onChange={(e) => setCustomTypeStore(e.target.value.replace(/[^a-zA-Z0-9ก-๙\s.\-\/]/g, ''))}
+                    placeholder="ระบุประเภทร้านค้า"
+                    required
+                    left={Icon.home()}
+                    className="mt-2"
+                  />
+                )}
               </label>
 
               <label className="block">

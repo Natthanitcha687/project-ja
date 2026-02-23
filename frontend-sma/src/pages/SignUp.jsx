@@ -398,6 +398,8 @@ export default function Signup() {
   const confirmRef = useRef(null);
   // terms modal visibility
   const [showTerms, setShowTerms] = useState(false);
+  const [storeTypeValue, setStoreTypeValue] = useState("");
+  const [customTypeStore, setCustomTypeStore] = useState("");
 
   // Helper: compose time availability string for form submission
   const defaultSchedule = {
@@ -650,9 +652,14 @@ export default function Signup() {
     }
     setSubmitting(true);
     const fd = new FormData(e.currentTarget);
+    const rawType = fd.get("typeStore") || storeTypeValue;
+    const finalTypeStore = rawType === "other"
+      ? `other:${String(customTypeStore || "").trim()}`
+      : rawType;
+
     const payload = {
       storeName: fd.get("storeName"),
-      typeStore: fd.get("typeStore"),
+      typeStore: finalTypeStore,
       ownerStore: fd.get("ownerStore"),
       email: fd.get("email"),
       phone: fd.get("phone"),
@@ -981,7 +988,11 @@ export default function Signup() {
                   <select
                     name="typeStore"
                     className="mt-1 w-full h-10 rounded-xl border border-gray-300 bg-white pl-10 pr-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    defaultValue=""
+                    value={storeTypeValue}
+                    onChange={(e) => {
+                      setStoreTypeValue(e.target.value);
+                      if (e.target.value !== "other") setCustomTypeStore("");
+                    }}
                     required
                   >
                     <option value="" disabled>เลือกประเภทร้านค้า</option>
@@ -993,6 +1004,16 @@ export default function Signup() {
                     <option value="other">อื่น ๆ</option>
                   </select>
                 </div>
+                {storeTypeValue === "other" && (
+                  <InputIcon
+                    value={customTypeStore}
+                    onChange={(e) => setCustomTypeStore(e.target.value.replace(/[^a-zA-Z0-9ก-๙\s.\-\/]/g, ''))}
+                    placeholder="ระบุประเภทร้านค้า"
+                    required
+                    left={Icon.home()}
+                    className="mt-2"
+                  />
+                )}
               </label>
 
               <label className="block">

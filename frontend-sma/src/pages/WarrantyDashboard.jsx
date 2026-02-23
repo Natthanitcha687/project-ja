@@ -5,6 +5,7 @@ import { API_URL, getToken } from '../lib/api'
 import { useNavigate, Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuth } from '../store/auth'
+import Swal from 'sweetalert2'
 import ImageUpload from '../components/ImageUpload'
 import ImagePreview from '../components/ImagePreview'
 import AppLogo from '../components/AppLogo'
@@ -1129,6 +1130,39 @@ export default function WarrantyDashboard() {
     event.preventDefault()
     console.log('handleWarrantySubmit start', { modalMode, selectedItem })
     if (!storeIdResolved) return
+
+    // ✅ Validate required fields before submitting
+    if (modalMode === 'create') {
+      const missing = []
+      for (let i = 0; i < createItems.length; i++) {
+        const it = createItems[i]
+        if (!(it.customer_email || '').trim()) missing.push(`รายการที่ ${i + 1}: อีเมลลูกค้า`)
+        if (!(it.product_name || '').trim()) missing.push(`รายการที่ ${i + 1}: ชื่อสินค้า`)
+        if (!(it.purchase_date || '').trim()) missing.push(`รายการที่ ${i + 1}: วันที่ซื้อ`)
+      }
+      if (missing.length > 0) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'ข้อมูลไม่ครบถ้วน',
+          html: `<div style="text-align:left">กรุณากรอกข้อมูลให้ครบ:<br/><ul style="margin-top:8px;padding-left:20px">${missing.map(m => `<li>${m}</li>`).join('')}</ul></div>`,
+          confirmButtonText: 'ตกลง',
+          confirmButtonColor: '#0284c7',
+        })
+        return
+      }
+    } else if (modalMode === 'edit') {
+      if (!(editForm?.product_name || '').trim() || !(editForm?.purchase_date || '').trim()) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'ข้อมูลไม่ครบถ้วน',
+          text: 'กรุณากรอกชื่อสินค้าและวันที่ซื้อ',
+          confirmButtonText: 'ตกลง',
+          confirmButtonColor: '#0284c7',
+        })
+        return
+      }
+    }
+
     setWarrantySubmitting(true)
     setWarrantyModalError('')
 
@@ -1200,6 +1234,13 @@ export default function WarrantyDashboard() {
         await fetchDashboard()
         setWarrantyModalOpen(false)
         setWarrantySubmitting(false)
+        Swal.fire({
+          icon: 'success',
+          title: 'แก้ไขสำเร็จ',
+          text: 'บันทึกข้อมูลใบรับประกันเรียบร้อยแล้ว',
+          showConfirmButton: false,
+          timer: 2000,
+        })
         return
       }
 
@@ -1263,8 +1304,21 @@ export default function WarrantyDashboard() {
 
       await fetchDashboard()
       setWarrantyModalOpen(false)
+      Swal.fire({
+        icon: 'success',
+        title: 'สร้างใบรับประกันสำเร็จ',
+        text: `สร้างใบรับประกัน ${createItems.length} รายการเรียบร้อยแล้ว`,
+        showConfirmButton: false,
+        timer: 2500,
+      })
     } catch (error) {
-      setWarrantyModalError(error?.response?.data?.error?.message || 'ไม่สามารถบันทึกใบรับประกันได้')
+      Swal.fire({
+        icon: 'error',
+        title: 'เกิดข้อผิดพลาด',
+        text: error?.response?.data?.error?.message || 'ไม่สามารถบันทึกใบรับประกันได้',
+        confirmButtonText: 'ปิด',
+        confirmButtonColor: '#e11d48',
+      })
     } finally {
       setWarrantySubmitting(false)
     }

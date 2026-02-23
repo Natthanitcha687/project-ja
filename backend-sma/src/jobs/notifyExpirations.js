@@ -74,10 +74,12 @@ export async function runExpiryScanJob() {
       // ---------- ✅ Accumulate store daily summary (NO per-item store notification anymore) ----------
       if (storeId) {
         const s = storeSummary.get(storeId) || { storeId, nearingCount: 0, expiredCount: 0 }
-        // ✅ cutoff 1 วัน: นับ expired เฉพาะวันแรกที่หมด (daysLeft >= -1)
-        if (daysLeft < 0 && daysLeft >= -1) {
+        // ✅ แจ้งเฉพาะวันแรกที่เข้าเงื่อนไข:
+        //    - หมดอายุ: เฉพาะ daysLeft === 0 (วันที่หมดพอดี)
+        //    - ใกล้หมดอายุ: เฉพาะ daysLeft === notifyDays (วันแรกที่เข้าช่วงแจ้งเตือน)
+        if (daysLeft === 0) {
           s.expiredCount += 1
-        } else if (daysLeft >= 0 && daysLeft <= notifyDays) {
+        } else if (daysLeft === notifyDays) {
           s.nearingCount += 1
         }
         storeSummary.set(storeId, s)
