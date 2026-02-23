@@ -194,12 +194,12 @@ export default function CustomerProfileModal({ open, onClose, initialTab = 'info
                 <div>
                   <label className="mb-1 block text-sm text-gray-600">ชื่อ</label>
                   <input className="mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none bg-sky-50/60"
-                    value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="ชื่อ" />
+                    value={firstName} onChange={(e) => setFirstName(e.target.value.replace(/[^a-zA-Z0-9ก-๙\s.\-]/g, ''))} placeholder="ชื่อ" />
                 </div>
                 <div>
                   <label className="mb-1 block text-sm text-gray-600">นามสกุล</label>
                   <input className="mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none bg-sky-50/60"
-                    value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="นามสกุล" />
+                    value={lastName} onChange={(e) => setLastName(e.target.value.replace(/[^a-zA-Z0-9ก-๙\s.\-]/g, ''))} placeholder="นามสกุล" />
                 </div>
               </div>
 
@@ -213,7 +213,7 @@ export default function CustomerProfileModal({ open, onClose, initialTab = 'info
               <div>
                 <label className="mb-1 block text-sm text-gray-600">เบอร์โทรศัพท์</label>
                 <input className="mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none bg-sky-50/60"
-                  value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="08xxxxxxxx" />
+                  value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, ''))} maxLength={10} placeholder="08xxxxxxxx" />
               </div>
 
               <label className="flex items-center gap-2 text-sm text-slate-700">
@@ -236,8 +236,8 @@ export default function CustomerProfileModal({ open, onClose, initialTab = 'info
                 <div className="flex flex-wrap gap-2">
                   {availableNotifyDays.map(day => (
                     <label key={day} className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-all ${notifyDaysArray.includes(day)
-                        ? 'bg-blue-500 text-white shadow-md'
-                        : 'bg-white border border-slate-200 text-slate-700 hover:border-blue-300'
+                      ? 'bg-blue-500 text-white shadow-md'
+                      : 'bg-white border border-slate-200 text-slate-700 hover:border-blue-300'
                       }`}>
                       <input
                         type="checkbox"

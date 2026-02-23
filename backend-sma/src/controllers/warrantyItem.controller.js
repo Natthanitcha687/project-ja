@@ -338,6 +338,12 @@ export async function updateItem(req, res) {
 
     const note = b.note !== undefined ? String(b.note).trim() : item.note;
 
+    // ✅ ราคาสินค้า (บาท) - optional
+    const price =
+      b.price !== undefined
+        ? (b.price != null && b.price !== '' ? Number(b.price) || null : null)
+        : (item.price ?? null);
+
     // ✅ รองรับ checkbox เงื่อนไข
     let selectedConditions = item.selectedConditions ?? null;
     if (b.selectedConditions !== undefined) {
@@ -371,6 +377,7 @@ export async function updateItem(req, res) {
       productName,
       model, // ⭐ บันทึกฟิลด์รุ่น
       serial,
+      price, // ✅ ราคาสินค้า (บาท)
       purchaseDate,
       expiryDate,
       durationMonths: durationMonths ?? null,

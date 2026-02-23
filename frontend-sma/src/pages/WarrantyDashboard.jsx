@@ -310,7 +310,7 @@ export default function WarrantyDashboard() {
         ])
 
         if (!mounted) return
-        setProvincesList(provData.map((p) => ({ name: p.name_th || p.name, code: p.id ?? p.code })))
+        setProvincesList(provData.map((p) => ({ name: p.name_th || p.name, code: p.id ?? p.code })).sort((a, b) => a.name.localeCompare(b.name, 'th')))
         setDistrictsCache(districtData)
         setSubdistrictsCache(subData)
 
@@ -356,7 +356,7 @@ export default function WarrantyDashboard() {
       const pid = String(provinceCode)
       if (districtsMap) {
         const list = districtsMap[pid] || []
-        setDistrictOptions(list.map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code })))
+        setDistrictOptions(list.map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code })).sort((a, b) => a.name.localeCompare(b.name, 'th')))
         return
       }
 
@@ -368,7 +368,7 @@ export default function WarrantyDashboard() {
         setDistrictsCache(districtsData)
       }
       const filtered = districtsData.filter((d) => String(d.province_id ?? d.province_code) === pid)
-      setDistrictOptions(filtered.map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code })))
+      setDistrictOptions(filtered.map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code })).sort((a, b) => a.name.localeCompare(b.name, 'th')))
     } catch (err) {
       console.error('loadDistrictsForProvince error', err)
       setDistrictOptions([])
@@ -384,7 +384,7 @@ export default function WarrantyDashboard() {
       const did = String(districtCode)
       if (subdistrictsMap) {
         const list = subdistrictsMap[did] || []
-        setSubdistrictOptions(list.map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip })))
+        setSubdistrictOptions(list.map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip })).sort((a, b) => a.name.localeCompare(b.name, 'th')))
         return
       }
 
@@ -396,7 +396,7 @@ export default function WarrantyDashboard() {
         setSubdistrictsCache(subs)
       }
       const filtered = subs.filter((s) => String(s.district_id ?? s.district_code) === did)
-      setSubdistrictOptions(filtered.map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip })))
+      setSubdistrictOptions(filtered.map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip })).sort((a, b) => a.name.localeCompare(b.name, 'th')))
     } catch (err) {
       console.error('loadSubdistrictsForDistrict error', err)
       setSubdistrictOptions([])
@@ -413,7 +413,7 @@ export default function WarrantyDashboard() {
       const pid = String(provinceCode)
       if (districtsMap) {
         const list = districtsMap[pid] || []
-        setCustomerDistrictOptions(list.map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code })))
+        setCustomerDistrictOptions(list.map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code })).sort((a, b) => a.name.localeCompare(b.name, 'th')))
         return
       }
 
@@ -425,7 +425,7 @@ export default function WarrantyDashboard() {
         setDistrictsCache(districtsData)
       }
       const filtered = (districtsData || []).filter((d) => String(d.province_id ?? d.province_code ?? d.provinceId ?? d.province) === pid)
-      setCustomerDistrictOptions(filtered.map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code })))
+      setCustomerDistrictOptions(filtered.map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code })).sort((a, b) => a.name.localeCompare(b.name, 'th')))
     } catch (err) {
       console.error('loadCustomerDistrictsForProvince error', err)
       setCustomerDistrictOptions([])
@@ -441,7 +441,7 @@ export default function WarrantyDashboard() {
       const did = String(districtCode)
       if (subdistrictsMap) {
         const list = subdistrictsMap[did] || []
-        setCustomerSubdistrictOptions(list.map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip })))
+        setCustomerSubdistrictOptions(list.map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip })).sort((a, b) => a.name.localeCompare(b.name, 'th')))
         return
       }
 
@@ -453,7 +453,7 @@ export default function WarrantyDashboard() {
         setSubdistrictsCache(subs)
       }
       const filtered = (subs || []).filter((s) => String(s.district_id ?? s.district_code ?? s.amphure_id ?? s.district) === did)
-      setCustomerSubdistrictOptions(filtered.map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip })))
+      setCustomerSubdistrictOptions(filtered.map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip })).sort((a, b) => a.name.localeCompare(b.name, 'th')))
     } catch (err) {
       console.error('loadCustomerSubdistrictsForDistrict error', err)
       setCustomerSubdistrictOptions([])
@@ -528,6 +528,7 @@ export default function WarrantyDashboard() {
     customer_address: '',
     product_name: '',
     model: '', // ✅ เพิ่มฟิลด์รุ่นในโหมดสร้าง
+    price: '', // ✅ ราคาสินค้า (บาท) - optional
     duration_months: 12,
     // ✅ เพิ่มโหมดกำหนดเอง
     duration_mode: 'preset',      // 'preset' | 'custom'
@@ -995,6 +996,7 @@ export default function WarrantyDashboard() {
       setEditForm({
         product_name: item.productName || '',
         model: item.model || '', // ✅ ผูก model ตอนแก้ไข
+        price: item.price != null ? String(item.price) : '', // ✅ โหลดราคาตอนแก้ไข
         duration_months: hasMonths
           ? item.durationMonths
           : Math.max(1, Math.round((item.durationDays || 30) / 30)),
@@ -1169,6 +1171,12 @@ export default function WarrantyDashboard() {
 
         fd.append('coverageNote', String(editForm?.warranty_terms || '').trim())
         fd.append('note', String(editForm?.note || '').trim())
+        // ✅ ส่งราคาสินค้า (บาท)
+        if (editForm?.price != null && editForm?.price !== '') {
+          fd.append('price', String(editForm.price))
+        } else {
+          fd.append('price', '')
+        }
         // ✅ ส่งเงื่อนไขที่เลือกจาก checkbox
         const selectedConds = Array.isArray(editForm?.selectedConditions) ? editForm.selectedConditions : []
         fd.append('selectedConditions', JSON.stringify(selectedConds))
@@ -1221,6 +1229,7 @@ export default function WarrantyDashboard() {
             customer_address: (it.customer_address || '').trim(),
             product_name: (it.product_name || '').trim(),
             model: (it.model || '').trim() || null, // ✅ ส่งรุ่นไป backend
+            price: it.price != null && it.price !== '' ? Number(it.price) || null : null, // ✅ ราคาสินค้า
             purchase_date: (it.purchase_date || '').trim(),
             serial: (it.serial || '').trim(),
             warranty_terms: (it.warranty_terms || '').trim(),
@@ -1808,7 +1817,8 @@ export default function WarrantyDashboard() {
                                 <input
                                   placeholder="รหัสไปรษณีย์"
                                   value={addressParts.postcode}
-                                  onChange={(e) => setAddressParts((p) => ({ ...p, postcode: e.target.value }))}
+                                  onChange={(e) => setAddressParts((p) => ({ ...p, postcode: e.target.value.replace(/[^0-9]/g, '') }))}
+                                  maxLength={5}
                                   className="mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none bg-sky-50/60"
                                   type="text"
                                 />
@@ -2003,6 +2013,20 @@ export default function WarrantyDashboard() {
                           className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                           placeholder="กรอกรุ่นสินค้าที่ทำการซ่อม"
                           type="text"
+                        />
+                      </label>
+
+                      {/* ✅ ราคาสินค้า (บาท) ในโหมดแก้ไข */}
+                      <label className="mt-3 text-sm text-gray-600">
+                        ราคาสินค้า (บาท)
+                        <input
+                          name="price"
+                          value={editForm?.price ?? ''}
+                          onChange={e => setEditForm(f => ({ ...f, price: e.target.value.replace(/[^0-9.]/g, '') }))}
+                          className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                          placeholder="กรอกราคาสินค้า (ไม่บังคับ)"
+                          type="text"
+                          inputMode="decimal"
                         />
                       </label>
 
@@ -2320,7 +2344,8 @@ export default function WarrantyDashboard() {
                                     <div className="text-xs text-gray-500">รหัสไปรษณีย์</div>
                                     <input
                                       value={customerAddressParts.postcode}
-                                      onChange={(e) => syncCustomerAddress((p) => ({ ...p, postcode: e.target.value }))}
+                                      onChange={(e) => syncCustomerAddress((p) => ({ ...p, postcode: e.target.value.replace(/[^0-9]/g, '') }))}
+                                      maxLength={5}
                                       className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                                       placeholder="เช่น 10110"
                                       type="text"
@@ -2356,6 +2381,19 @@ export default function WarrantyDashboard() {
                               className="mt-1 w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                               placeholder="กรอกรุ่นสินค้าที่ทำการซ่อม"
                               type="text"
+                            />
+                          </label>
+
+                          {/* ✅ ราคาสินค้า (บาท) ต่อรายการ — ไม่แชร์กันทั้งใบ */}
+                          <label className="mt-3 text-sm text-gray-600 block">
+                            ราคาสินค้า (บาท)
+                            <input
+                              value={it.price}
+                              onChange={e => patchItem(idx, { price: e.target.value.replace(/[^0-9.]/g, '') })}
+                              className="mt-1 w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                              placeholder="กรอกราคาสินค้า (ไม่บังคับ)"
+                              type="text"
+                              inputMode="decimal"
                             />
                           </label>
 
@@ -2450,8 +2488,8 @@ export default function WarrantyDashboard() {
                               วันหมดอายุ
                               <input
                                 value={it.expiry_date}
-                                onChange={e => patchItem(idx, { expiry_date: e.target.value })}
-                                className="mt-1 w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                                readOnly
+                                className="mt-1 w-full rounded-2xl border border-sky-100 bg-slate-50 px-4 py-2 text-sm text-gray-500 focus:outline-none cursor-default"
                                 type="date"
                               />
                             </label>

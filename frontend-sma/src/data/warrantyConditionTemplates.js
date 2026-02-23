@@ -74,7 +74,7 @@ export const CONDITIONS_BY_STORE_TYPE = {
     },
 }
 
-// Helper function to get conditions for a store type
+
 export function getConditionsForStoreType(storeType) {
     return CONDITIONS_BY_STORE_TYPE[storeType] || CONDITIONS_BY_STORE_TYPE.other
 }

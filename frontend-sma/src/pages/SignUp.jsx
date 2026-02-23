@@ -61,14 +61,14 @@ const Icon = {
 
 // รายชื่อจังหวัด 77 จังหวัด (ชื่อภาษาไทย)
 const TH_PROVINCES = [
-  'กรุงเทพมหานคร','กระบี่','กาญจนบุรี','กาฬสินธุ์','กำแพงเพชร','ขอนแก่น','จันทบุรี','ฉะเชิงเทรา','ชลบุรี','ชัยนาท',
-  'ชัยภูมิ','ชุมพร','เชียงราย','เชียงใหม่','ตรัง','ตราด','ตาก','นครนายก','นครปฐม','นครพนม',
-  'นครราชสีมา','นครศรีธรรมราช','นนทบุรี','นราธิวาส','น่าน','บึงกาฬ','บุรีรัมย์','ปทุมธานี','ประจวบคีรีขันธ์','ปราจีนบุรี',
-  'ปัตตานี','พระนครศรีอยุธยา','พังงา','พัทลุง','พิจิตร','พิษณุโลก','เพชรบุรี','เพชรบูรณ์','แพร่','ภูเก็ต',
-  'มหาสารคาม','มุกดาหาร','แม่ฮ่องสอน','ยะลา','ยโสธร','ร้อยเอ็ด','ระนอง','ระยอง','ราชบุรี','ลพบุรี',
-  'ลำปาง','ลำพูน','เลย','ศรีสะเกษ','สกลนคร','สงขลา','สตูล','สมุทรปราการ','สมุทรสงคราม','สมุทรสาคร',
-  'สระแก้ว','สระบุรี','สิงห์บุรี','สุโขทัย','สุพรรณบุรี','สุราษฎร์ธานี','สุรินทร์','หนองคาย','หนองบัวลำภู','อ่างทอง',
-  'อุดรธานี','อุทัยธานี','อุบลราชธานี','อำนาจเจริญ','อุตรดิตถ์'
+  'กรุงเทพมหานคร', 'กระบี่', 'กาญจนบุรี', 'กาฬสินธุ์', 'กำแพงเพชร', 'ขอนแก่น', 'จันทบุรี', 'ฉะเชิงเทรา', 'ชลบุรี', 'ชัยนาท',
+  'ชัยภูมิ', 'ชุมพร', 'เชียงราย', 'เชียงใหม่', 'ตรัง', 'ตราด', 'ตาก', 'นครนายก', 'นครปฐม', 'นครพนม',
+  'นครราชสีมา', 'นครศรีธรรมราช', 'นนทบุรี', 'นราธิวาส', 'น่าน', 'บึงกาฬ', 'บุรีรัมย์', 'ปทุมธานี', 'ประจวบคีรีขันธ์', 'ปราจีนบุรี',
+  'ปัตตานี', 'พระนครศรีอยุธยา', 'พังงา', 'พัทลุง', 'พิจิตร', 'พิษณุโลก', 'เพชรบุรี', 'เพชรบูรณ์', 'แพร่', 'ภูเก็ต',
+  'มหาสารคาม', 'มุกดาหาร', 'แม่ฮ่องสอน', 'ยะลา', 'ยโสธร', 'ร้อยเอ็ด', 'ระนอง', 'ระยอง', 'ราชบุรี', 'ลพบุรี',
+  'ลำปาง', 'ลำพูน', 'เลย', 'ศรีสะเกษ', 'สกลนคร', 'สงขลา', 'สตูล', 'สมุทรปราการ', 'สมุทรสงคราม', 'สมุทรสาคร',
+  'สระแก้ว', 'สระบุรี', 'สิงห์บุรี', 'สุโขทัย', 'สุพรรณบุรี', 'สุราษฎร์ธานี', 'สุรินทร์', 'หนองคาย', 'หนองบัวลำภู', 'อ่างทอง',
+  'อุดรธานี', 'อุทัยธานี', 'อุบลราชธานี', 'อำนาจเจริญ', 'อุตรดิตถ์'
 ];
 
 /* ---------------------------------------------
@@ -76,7 +76,7 @@ const TH_PROVINCES = [
  * -------------------------------------------*/
 const InputIcon = forwardRef(function InputIcon(
   // รับ type เข้ามา แต่เราจะใช้ type="password" ตรงๆ ใน JSX
-  { left, right, onRightClick, className = "", invalid = false, ...props }, 
+  { left, right, onRightClick, className = "", invalid = false, ...props },
   ref
 ) {
   // กำหนด padding ด้านขวา (pr-10) เมื่อมีไอคอน right ถูกส่งเข้ามาเท่านั้น
@@ -95,7 +95,7 @@ const InputIcon = forwardRef(function InputIcon(
         className={
           "mt-1 w-full rounded-xl border bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 transition " +
           (left ? "pl-10 " : "") +
-          rightPadding + 
+          rightPadding +
           (invalid ? "border-red-400 focus:ring-red-300" : "border-gray-300 focus:ring-blue-500") +
           " " +
           className
@@ -485,7 +485,7 @@ export default function Signup() {
         ]);
 
         if (!mounted) return;
-        setProvincesList(provData.map((p) => ({ name: p.name_th || p.name, code: p.id ?? p.code })));
+        setProvincesList(provData.map((p) => ({ name: p.name_th || p.name, code: p.id ?? p.code })).sort((a, b) => a.name.localeCompare(b.name, 'th')));
         setDistrictsCache(districtData);
         setSubdistrictsCache(subData);
 
@@ -535,8 +535,8 @@ export default function Signup() {
       // prefer pre-built map
       if (districtsMap) {
         const list = districtsMap[pid] || [];
-        try { console.debug('loadDistrictsForProvince (from map)', { provinceCode: pid, matched: list.length }); } catch(e) {}
-        setDistrictOptions(list.map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code })));
+        try { console.debug('loadDistrictsForProvince (from map)', { provinceCode: pid, matched: list.length }); } catch (e) { }
+        setDistrictOptions(list.map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code })).sort((a, b) => a.name.localeCompare(b.name, 'th')));
         return;
       }
 
@@ -549,8 +549,8 @@ export default function Signup() {
         setDistrictsCache(districtsData);
       }
       const filtered = districtsData.filter((d) => String(d.province_id ?? d.province_code) === pid);
-      try { console.debug('loadDistrictsForProvince (fallback)', { provinceCode: pid, districtsTotal: districtsData.length, matched: filtered.length }); } catch(e) {}
-      setDistrictOptions(filtered.map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code })));
+      try { console.debug('loadDistrictsForProvince (fallback)', { provinceCode: pid, districtsTotal: districtsData.length, matched: filtered.length }); } catch (e) { }
+      setDistrictOptions(filtered.map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code })).sort((a, b) => a.name.localeCompare(b.name, 'th')));
     } catch (err) {
       console.error('loadDistrictsForProvince error', err);
       setDistrictOptions([]);
@@ -566,8 +566,8 @@ export default function Signup() {
       const did = String(districtCode);
       if (subdistrictsMap) {
         const list = subdistrictsMap[did] || [];
-        try { console.debug('loadSubdistrictsForDistrict (from map)', { districtCode: did, matched: list.length }); } catch(e) {}
-        setSubdistrictOptions(list.map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip })));
+        try { console.debug('loadSubdistrictsForDistrict (from map)', { districtCode: did, matched: list.length }); } catch (e) { }
+        setSubdistrictOptions(list.map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip })).sort((a, b) => a.name.localeCompare(b.name, 'th')));
         return;
       }
 
@@ -579,8 +579,8 @@ export default function Signup() {
         setSubdistrictsCache(subs);
       }
       const filtered = subs.filter((s) => String(s.district_id ?? s.district_code) === did);
-      try { console.debug('loadSubdistrictsForDistrict (fallback)', { districtCode: did, total: subs.length, matched: filtered.length }); } catch(e) {}
-      setSubdistrictOptions(filtered.map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip })));
+      try { console.debug('loadSubdistrictsForDistrict (fallback)', { districtCode: did, total: subs.length, matched: filtered.length }); } catch (e) { }
+      setSubdistrictOptions(filtered.map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip })).sort((a, b) => a.name.localeCompare(b.name, 'th')));
     } catch (err) {
       console.error('loadSubdistrictsForDistrict error', err);
       setSubdistrictOptions([]);
@@ -723,7 +723,7 @@ export default function Signup() {
                     <li>ยกเลิกบัญชีร้านค้า</li>
                     <li>ลบข้อมูลที่เกี่ยวข้อง</li>
                   </ul>
-                  
+
                   <p className="mt-6"><strong className="font-semibold">6.</strong> วัตถุประสงค์ในการเข้าถึงข้อมูล</p>
                   <p>ผู้ดูแลระบบของแพลตฟอร์มมีสิทธิ์เข้าถึงข้อมูลใบรับประกันสินค้าและประวัติกิจกรรม (Activity Logs) เฉพาะเพื่อวัตถุประสงค์ต่อไปนี้: การสนับสนุนทางเทคนิคแก่ร้านค้าและลูกค้า, การตรวจสอบความถูกต้องของธุรกรรมตามคำร้องขอหรือเพื่อสืบสวนเหตุการณ์ร้องเรียน และการเก็บเป็นหลักฐานในกรณีข้อพิพาทหรือปัญหาการใช้งาน โดยการเข้าถึงจะทำเมื่อต้องการเท่านั้นและอยู่ภายใต้การควบคุมของผู้ให้บริการ</p>
 
@@ -809,7 +809,7 @@ export default function Signup() {
               <Tabs value={tab} onChange={setTab} />
             </div>
 
-                        {/* ✅ Google สมัครครั้งเดียว (ไม่เด้งไปกดซ้ำ) */}
+            {/* ✅ Google สมัครครั้งเดียว (ไม่เด้งไปกดซ้ำ) */}
             <div className="mt-5 w-full">
               {googleMsg ? (
                 <div className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
@@ -869,11 +869,11 @@ export default function Signup() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <label className="block">
                   <span className="block text-sm font-medium text-gray-700">ชื่อ</span>
-                  <InputIcon name="firstName" placeholder="ชื่อผู้ใช้" required left={Icon.user()} />
+                  <InputIcon name="firstName" placeholder="ชื่อผู้ใช้" required left={Icon.user()} onInput={(e) => { e.target.value = e.target.value.replace(/[^a-zA-Z0-9ก-๙\s.\-]/g, '') }} />
                 </label>
                 <label className="block">
                   <span className="block text-sm font-medium text-gray-700">นามสกุล</span>
-                  <InputIcon name="lastName" placeholder="นามสกุล" required left={Icon.user()} />
+                  <InputIcon name="lastName" placeholder="นามสกุล" required left={Icon.user()} onInput={(e) => { e.target.value = e.target.value.replace(/[^a-zA-Z0-9ก-๙\s.\-]/g, '') }} />
                 </label>
               </div>
 
@@ -884,7 +884,14 @@ export default function Signup() {
 
               <label className="block">
                 <span className="block text-sm font-medium text-gray-700">เบอร์โทรศัพท์</span>
-                <InputIcon name="phone" placeholder="กรอกเบอร์โทรศัพท์" required left={Icon.phone()} />
+                <InputIcon
+                  name="phone"
+                  placeholder="กรอกเบอร์โทรศัพท์"
+                  required
+                  left={Icon.phone()}
+                  maxLength={10}
+                  onInput={(e) => { e.target.value = e.target.value.replace(/[^0-9]/g, '') }}
+                />
               </label>
 
               <label className="block">
@@ -964,7 +971,7 @@ export default function Signup() {
             <form onSubmit={onSubmitStore} className="mt-2 space-y-4" noValidate>
               <label className="block">
                 <span className="block text-sm font-medium text-gray-700">ชื่อร้านค้า</span>
-                <InputIcon name="storeName" placeholder="ชื่อร้านค้า" required left={Icon.home()} />
+                <InputIcon name="storeName" placeholder="ชื่อร้านค้า" required left={Icon.home()} onInput={(e) => { e.target.value = e.target.value.replace(/[^a-zA-Z0-9ก-๙\s.\-]/g, '') }} />
               </label>
 
               <label className="block">
@@ -978,12 +985,12 @@ export default function Signup() {
                     required
                   >
                     <option value="" disabled>เลือกประเภทร้านค้า</option>
-                      <option value="electronics">อิเล็กทรอนิกส์</option>
-                      <option value="appliance">เครื่องใช้ไฟฟ้า</option>
-                      <option value="furniture">เฟอร์นิเจอร์</option>
-                      <option value="automotive">ยานยนต์</option>
-                      <option value="machine">เครื่องจักร / เครื่องมือช่าง</option>
-                      <option value="other">อื่น ๆ</option>
+                    <option value="electronics">อิเล็กทรอนิกส์</option>
+                    <option value="appliance">เครื่องใช้ไฟฟ้า</option>
+                    <option value="furniture">เฟอร์นิเจอร์</option>
+                    <option value="automotive">ยานยนต์</option>
+                    <option value="machine">เครื่องจักร / เครื่องมือช่าง</option>
+                    <option value="other">อื่น ๆ</option>
                   </select>
                 </div>
               </label>
@@ -1000,7 +1007,14 @@ export default function Signup() {
 
               <label className="block">
                 <span className="block text-sm font-medium text-gray-700">เบอร์โทรศัพท์</span>
-                <InputIcon name="phone" placeholder="กรอกเบอร์โทรศัพท์" required left={Icon.phone()} />
+                <InputIcon
+                  name="phone"
+                  placeholder="กรอกเบอร์โทรศัพท์"
+                  required
+                  left={Icon.phone()}
+                  maxLength={10}
+                  onInput={(e) => { e.target.value = e.target.value.replace(/[^0-9]/g, '') }}
+                />
               </label>
 
               <label className="block">
@@ -1044,11 +1058,11 @@ export default function Signup() {
                           <option value="" disabled>เลือกจังหวัด</option>
                           {provincesList.length > 0
                             ? provincesList.map((p) => (
-                                <option key={p.code} value={p.code}>{p.name}</option>
-                              ))
+                              <option key={p.code} value={p.code}>{p.name}</option>
+                            ))
                             : TH_PROVINCES.map((p) => (
-                                <option key={p} value={p}>{p}</option>
-                              ))}
+                              <option key={p} value={p}>{p}</option>
+                            ))}
                         </select>
                         <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">▾</span>
                       </div>
@@ -1114,7 +1128,8 @@ export default function Signup() {
                       <input
                         name="addr_postcode"
                         value={addressPostcode}
-                        onChange={(e) => updateAddress({ postcode: e.target.value })}
+                        onChange={(e) => updateAddress({ postcode: e.target.value.replace(/[^0-9]/g, '') })}
+                        maxLength={5}
                         placeholder="เช่น 10110"
                         inputMode="numeric"
                         pattern="[0-9]*"
@@ -1160,14 +1175,14 @@ export default function Signup() {
                   </div>
                   <div className="flex flex-col gap-3">
                     {[
-                      ['mon','จ.' ],
-                      ['tue','อ.' ],
-                      ['wed','พ.' ],
-                      ['thu','พฤ.' ],
-                      ['fri','ศ.' ],
-                      ['sat','ส.' ],
-                      ['sun','อา.']
-                    ].map(([key,label]) => (
+                      ['mon', 'จ.'],
+                      ['tue', 'อ.'],
+                      ['wed', 'พ.'],
+                      ['thu', 'พฤ.'],
+                      ['fri', 'ศ.'],
+                      ['sat', 'ส.'],
+                      ['sun', 'อา.']
+                    ].map(([key, label]) => (
                       <div key={key} className="flex flex-col md:flex-row items-center justify-between gap-4 px-2 py-2 rounded-md hover:bg-slate-50">
                         <div className="flex items-center gap-3 md:w-36 w-full">
                           <input
