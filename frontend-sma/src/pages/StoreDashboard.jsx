@@ -23,6 +23,7 @@ export default function StoreDashboard() {
   const [error, setError] = useState('')
   const [profile, setProfile] = useState(null)
   const [warranties, setWarranties] = useState([])
+  const [chartMode, setChartMode] = useState('created') // 'created' | 'expiring'
   // Profile modal states (copied from WarrantyDashboard to allow inline editing)
   const [isProfileModalOpen, setProfileModalOpen] = useState(false)
   const [profileTab, setProfileTab] = useState('info')
@@ -80,7 +81,7 @@ export default function StoreDashboard() {
           fetchOrFallback(SUBDISTRICTS_JSON_LOCAL, SUBDISTRICTS_JSON_FALLBACK),
         ])
         if (!mounted) return
-        setProvincesList(provData.map((p) => ({ name: p.name_th || p.name, code: p.id ?? p.code })))
+        setProvincesList(provData.map((p) => ({ name: p.name_th || p.name, code: p.id ?? p.code })).sort((a, b) => a.name.localeCompare(b.name, 'th')))
         setDistrictsCache(districtData)
         setSubdistrictsCache(subData)
         const dmap = {}
@@ -119,11 +120,11 @@ export default function StoreDashboard() {
         provinceCode = p?.code
       }
       const pid = String(provinceCode)
-      if (districtsMap) { const list = districtsMap[pid] || []; setDistrictOptions(list.map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code }))); return }
+      if (districtsMap) { const list = districtsMap[pid] || []; setDistrictOptions(list.map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code })).sort((a, b) => a.name.localeCompare(b.name, 'th'))); return }
       let districtsData = districtsCache
       if (!districtsData) { let res = await fetch(DISTRICTS_JSON_LOCAL); if (!res.ok) res = await fetch(DISTRICTS_JSON_FALLBACK); districtsData = await res.json(); setDistrictsCache(districtsData) }
       const filtered = districtsData.filter((d) => String(d.province_id ?? d.province_code) === pid)
-      setDistrictOptions(filtered.map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code })))
+      setDistrictOptions(filtered.map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code })).sort((a, b) => a.name.localeCompare(b.name, 'th')))
     } catch (err) { console.error('loadDistrictsForProvince error', err); setDistrictOptions([]) }
   }
 
@@ -131,11 +132,11 @@ export default function StoreDashboard() {
     try {
       if (!districtCode) { setSubdistrictOptions([]); return }
       const did = String(districtCode)
-      if (subdistrictsMap) { const list = subdistrictsMap[did] || []; setSubdistrictOptions(list.map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip }))); return }
+      if (subdistrictsMap) { const list = subdistrictsMap[did] || []; setSubdistrictOptions(list.map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip })).sort((a, b) => a.name.localeCompare(b.name, 'th'))); return }
       let subs = subdistrictsCache
       if (!subs) { let res = await fetch(SUBDISTRICTS_JSON_LOCAL); if (!res.ok) res = await fetch(SUBDISTRICTS_JSON_FALLBACK); subs = await res.json(); setSubdistrictsCache(subs) }
       const filtered = subs.filter((s) => String(s.district_id ?? s.district_code) === did)
-      setSubdistrictOptions(filtered.map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip })))
+      setSubdistrictOptions(filtered.map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip })).sort((a, b) => a.name.localeCompare(b.name, 'th')))
     } catch (err) { console.error('loadSubdistrictsForDistrict error', err); setSubdistrictOptions([]) }
   }
 
@@ -612,25 +613,49 @@ export default function StoreDashboard() {
 
         {/* Monthly Warranty Chart - Responsive (No Scroll, 6 Months) */}
         <div className="mb-6">
+          {/* ✅ Dropdown เลือกโหมดกราฟ */}
+          <div className="flex flex-wrap items-center gap-3 mb-2">
+            <select
+              value={chartMode}
+              onChange={e => setChartMode(e.target.value)}
+              className="rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-sm text-slate-700 focus:border-sky-400 focus:outline-none shadow-sm"
+            >
+              <option value="created">ใบรับประกันที่สร้าง</option>
+              <option value="expiring">ใบรับประกันที่ใกล้หมดอายุ</option>
+            </select>
+          </div>
           <BarChart
             data={(() => {
-              // Generate 6 months of data (for better mobile readability)
               const now = new Date()
               return [...Array(6)].map((_, i) => {
                 const date = new Date(now.getFullYear(), now.getMonth() - (5 - i))
                 const monthLabel = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'][date.getMonth()]
-                const count = (filteredWarranties || []).filter((w) => {
-                  const wDate = new Date(w.createdAt || w.created_at)
-                  return wDate.getMonth() === date.getMonth() && wDate.getFullYear() === date.getFullYear()
-                }).length
+                let count = 0
+                if (chartMode === 'created') {
+                  count = (filteredWarranties || []).filter((w) => {
+                    const wDate = new Date(w.createdAt || w.created_at)
+                    return wDate.getMonth() === date.getMonth() && wDate.getFullYear() === date.getFullYear()
+                  }).length
+                } else {
+                  // expiring: นับจำนวนรายการ (items) ที่ใกล้หมดอายุในเดือนนั้น
+                  for (const w of (filteredWarranties || [])) {
+                    for (const item of (w.items || [])) {
+                      if (!item.expiryDate) continue
+                      const exp = new Date(item.expiryDate)
+                      if (exp.getMonth() === date.getMonth() && exp.getFullYear() === date.getFullYear()) {
+                        count++
+                      }
+                    }
+                  }
+                }
                 return { label: monthLabel, value: count }
               })
             })()}
-            height={300} // Reduce height slightly for mobile
-            title="ใบรับประกันรายเดือน (ย้อนหลัง 6 เดือน)"
-            subtitle="แกนซ้าย: จำนวนใบรับประกัน"
+            height={300}
+            title={chartMode === 'created' ? 'ใบรับประกันรายเดือน (ย้อนหลัง 6 เดือน)' : 'สินค้าที่ใกล้หมดอายุรายเดือน (ย้อนหลัง 6 เดือน)'}
+            subtitle={chartMode === 'created' ? 'แกนซ้าย: จำนวนใบรับประกัน' : 'แกนซ้าย: จำนวนสินค้าที่ใกล้หมดอายุ'}
             showLine={false}
-            yAxisMax={50} // Fixed scale 0-50
+            yAxisMax={50}
           />
         </div>
 
@@ -1042,7 +1067,8 @@ export default function StoreDashboard() {
                               <input
                                 placeholder="รหัสไปรษณีย์"
                                 value={addressParts.postcode}
-                                onChange={(e) => setAddressParts((p) => ({ ...p, postcode: e.target.value }))}
+                                onChange={(e) => setAddressParts((p) => ({ ...p, postcode: e.target.value.replace(/[^0-9]/g, '') }))}
+                                maxLength={5}
                                 className="mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none bg-sky-50/60"
                                 type="text"
                               />
@@ -1053,8 +1079,14 @@ export default function StoreDashboard() {
                           <input
                             required
                             value={profile?.[key] ?? ''}
-                            onChange={(e) => setProfile((prev) => ({ ...prev, [key]: e.target.value }))}
+                            onChange={(e) => {
+                              let val = e.target.value
+                              if (key === 'phone') val = val.replace(/[^0-9]/g, '')
+                              if (key === 'storeName' || key === 'contactName') val = val.replace(/[^a-zA-Z0-9ก-๙\s.\-]/g, '')
+                              setProfile((prev) => ({ ...prev, [key]: val }))
+                            }}
                             readOnly={key === 'email'}
+                            maxLength={key === 'phone' ? 10 : undefined}
                             className={`mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none ${key === 'email' ? 'bg-slate-100' : 'bg-sky-50/60'}`}
                             type="text"
                           />

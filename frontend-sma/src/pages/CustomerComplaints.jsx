@@ -395,7 +395,7 @@ export default function CustomerComplaints() {
                 </label>
                 <input
                   value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
+                  onChange={(e) => setSubject(e.target.value.replace(/[?/=&:"'.#$%<>]/g, ''))}
                   placeholder="เช่น ดาวน์โหลด PDF ไม่ได้"
                   className="w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-sky-200"
                 />
@@ -409,7 +409,7 @@ export default function CustomerComplaints() {
                 <textarea
                   rows={6}
                   value={message}
-                  onChange={(e) => setMessage(e.target.value)}
+                  onChange={(e) => setMessage(e.target.value.replace(/[?/=&:"'.#$%<>]/g, ''))}
                   placeholder="อธิบายปัญหา/รายละเอียดเพิ่มเติม เช่น ขั้นตอนที่ทำ, วันเวลา, ข้อความ error ฯลฯ"
                   className="w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-sky-200"
                 />

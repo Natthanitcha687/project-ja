@@ -96,7 +96,7 @@ export default function SignUpGoogleCustomer() {
   const location = useLocation();
   const [params] = useSearchParams();
 
-  const { setToken } = useAuth?.() ?? { setToken: () => {} };
+  const { setToken } = useAuth?.() ?? { setToken: () => { } };
 
   // ===== UI state =====
   const [submitting, setSubmitting] = useState(false);
@@ -457,9 +457,9 @@ export default function SignUpGoogleCustomer() {
               <div className="w-full flex justify-center">
                 <div ref={googleWrapRef} className="w-full max-w-[420px] flex justify-center overflow-visible">
                   <div
-                     ref={googleBtnRef}
-                     className="w-full flex justify-center min-h-[56px] overflow-visible origin-center scale-[1.08]"
-                     aria-label="สมัครด้วย Google (ลูกค้า)"
+                    ref={googleBtnRef}
+                    className="w-full flex justify-center min-h-[56px] overflow-visible origin-center scale-[1.08]"
+                    aria-label="สมัครด้วย Google (ลูกค้า)"
                   />
                 </div>
               </div>
@@ -494,7 +494,7 @@ export default function SignUpGoogleCustomer() {
                   <span className="block text-sm font-medium text-gray-700">ชื่อ</span>
                   <InputIcon
                     value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
+                    onChange={(e) => setFirstName(e.target.value.replace(/[^a-zA-Z0-9ก-๙\s.\-]/g, ''))}
                     placeholder="ชื่อผู้ใช้"
                     required
                     left={Icon.user()}
@@ -504,7 +504,7 @@ export default function SignUpGoogleCustomer() {
                   <span className="block text-sm font-medium text-gray-700">นามสกุล</span>
                   <InputIcon
                     value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
+                    onChange={(e) => setLastName(e.target.value.replace(/[^a-zA-Z0-9ก-๙\s.\-]/g, ''))}
                     placeholder="นามสกุล"
                     required
                     left={Icon.user()}
@@ -516,7 +516,8 @@ export default function SignUpGoogleCustomer() {
                 <span className="block text-sm font-medium text-gray-700">เบอร์โทรศัพท์</span>
                 <InputIcon
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, ''))}
+                  maxLength={10}
                   placeholder="กรอกเบอร์โทรศัพท์"
                   required
                   left={Icon.phone()}

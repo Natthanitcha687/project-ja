@@ -92,14 +92,14 @@ function InputIcon({ left, className = "", ...props }) {
 
 // รายชื่อจังหวัด 77 จังหวัด (ชื่อภาษาไทย) (fallback)
 const TH_PROVINCES = [
-  "กรุงเทพมหานคร","กระบี่","กาญจนบุรี","กาฬสินธุ์","กำแพงเพชร","ขอนแก่น","จันทบุรี","ฉะเชิงเทรา","ชลบุรี","ชัยนาท",
-  "ชัยภูมิ","ชุมพร","เชียงราย","เชียงใหม่","ตรัง","ตราด","ตาก","นครนายก","นครปฐม","นครพนม",
-  "นครราชสีมา","นครศรีธรรมราช","นนทบุรี","นราธิวาส","น่าน","บึงกาฬ","บุรีรัมย์","ปทุมธานี","ประจวบคีรีขันธ์","ปราจีนบุรี",
-  "ปัตตานี","พระนครศรีอยุธยา","พังงา","พัทลุง","พิจิตร","พิษณุโลก","เพชรบุรี","เพชรบูรณ์","แพร่","ภูเก็ต",
-  "มหาสารคาม","มุกดาหาร","แม่ฮ่องสอน","ยะลา","ยโสธร","ร้อยเอ็ด","ระนอง","ระยอง","ราชบุรี","ลพบุรี",
-  "ลำปาง","ลำพูน","เลย","ศรีสะเกษ","สกลนคร","สงขลา","สตูล","สมุทรปราการ","สมุทรสงคราม","สมุทรสาคร",
-  "สระแก้ว","สระบุรี","สิงห์บุรี","สุโขทัย","สุพรรณบุรี","สุราษฎร์ธานี","สุรินทร์","หนองคาย","หนองบัวลำภู","อ่างทอง",
-  "อุดรธานี","อุทัยธานี","อุบลราชธานี","อำนาจเจริญ","อุตรดิตถ์"
+  "กรุงเทพมหานคร", "กระบี่", "กาญจนบุรี", "กาฬสินธุ์", "กำแพงเพชร", "ขอนแก่น", "จันทบุรี", "ฉะเชิงเทรา", "ชลบุรี", "ชัยนาท",
+  "ชัยภูมิ", "ชุมพร", "เชียงราย", "เชียงใหม่", "ตรัง", "ตราด", "ตาก", "นครนายก", "นครปฐม", "นครพนม",
+  "นครราชสีมา", "นครศรีธรรมราช", "นนทบุรี", "นราธิวาส", "น่าน", "บึงกาฬ", "บุรีรัมย์", "ปทุมธานี", "ประจวบคีรีขันธ์", "ปราจีนบุรี",
+  "ปัตตานี", "พระนครศรีอยุธยา", "พังงา", "พัทลุง", "พิจิตร", "พิษณุโลก", "เพชรบุรี", "เพชรบูรณ์", "แพร่", "ภูเก็ต",
+  "มหาสารคาม", "มุกดาหาร", "แม่ฮ่องสอน", "ยะลา", "ยโสธร", "ร้อยเอ็ด", "ระนอง", "ระยอง", "ราชบุรี", "ลพบุรี",
+  "ลำปาง", "ลำพูน", "เลย", "ศรีสะเกษ", "สกลนคร", "สงขลา", "สตูล", "สมุทรปราการ", "สมุทรสงคราม", "สมุทรสาคร",
+  "สระแก้ว", "สระบุรี", "สิงห์บุรี", "สุโขทัย", "สุพรรณบุรี", "สุราษฎร์ธานี", "สุรินทร์", "หนองคาย", "หนองบัวลำภู", "อ่างทอง",
+  "อุดรธานี", "อุทัยธานี", "อุบลราชธานี", "อำนาจเจริญ", "อุตรดิตถ์"
 ];
 
 /* =========================
@@ -146,7 +146,7 @@ export default function SignUpGoogleStore() {
   const location = useLocation();
   const [params] = useSearchParams();
 
-  const { setToken } = useAuth?.() ?? { setToken: () => {} };
+  const { setToken } = useAuth?.() ?? { setToken: () => { } };
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -170,6 +170,7 @@ export default function SignUpGoogleStore() {
   // ===== store form state =====
   const [storeName, setStoreName] = useState("");
   const [typeStore, setTypeStore] = useState("");
+  const [customTypeStore, setCustomTypeStore] = useState("");
   const [ownerStore, setOwnerStore] = useState("");
   const [phone, setPhone] = useState("");
 
@@ -299,7 +300,7 @@ export default function SignUpGoogleStore() {
 
         if (!mounted) return;
 
-        setProvincesList(provData.map((p) => ({ name: p.name_th || p.name, code: p.id ?? p.code })));
+        setProvincesList(provData.map((p) => ({ name: p.name_th || p.name, code: p.id ?? p.code })).sort((a, b) => a.name.localeCompare(b.name, 'th')));
         setDistrictsCache(districtData);
         setSubdistrictsCache(subData);
 
@@ -348,7 +349,7 @@ export default function SignUpGoogleStore() {
       const pid = String(provinceCode);
       if (districtsMap) {
         const list = districtsMap[pid] || [];
-        setDistrictOptions(list.map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code })));
+        setDistrictOptions(list.map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code })).sort((a, b) => a.name.localeCompare(b.name, 'th')));
         return;
       }
 
@@ -361,7 +362,7 @@ export default function SignUpGoogleStore() {
       }
 
       const filtered = districtsData.filter((d) => String(d.province_id ?? d.province_code) === pid);
-      setDistrictOptions(filtered.map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code })));
+      setDistrictOptions(filtered.map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code })).sort((a, b) => a.name.localeCompare(b.name, 'th')));
     } catch (err) {
       console.error("loadDistrictsForProvince error", err);
       setDistrictOptions([]);
@@ -377,7 +378,7 @@ export default function SignUpGoogleStore() {
       const did = String(districtCode);
       if (subdistrictsMap) {
         const list = subdistrictsMap[did] || [];
-        setSubdistrictOptions(list.map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip })));
+        setSubdistrictOptions(list.map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip })).sort((a, b) => a.name.localeCompare(b.name, 'th')));
         return;
       }
 
@@ -390,7 +391,7 @@ export default function SignUpGoogleStore() {
       }
 
       const filtered = subs.filter((s) => String(s.district_id ?? s.district_code) === did);
-      setSubdistrictOptions(filtered.map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip })));
+      setSubdistrictOptions(filtered.map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip })).sort((a, b) => a.name.localeCompare(b.name, 'th')));
     } catch (err) {
       console.error("loadSubdistrictsForDistrict error", err);
       setSubdistrictOptions([]);
@@ -542,10 +543,14 @@ export default function SignUpGoogleStore() {
         postcode: addressPostcode,
       });
 
+      const finalTypeStore = typeStore === "other"
+        ? `other:${String(customTypeStore || "").trim()}`
+        : String(typeStore || "").trim();
+
       const payload = {
         signupToken,
         storeName: String(storeName || "").trim(),
-        typeStore: String(typeStore || "").trim(),
+        typeStore: finalTypeStore,
         ownerStore: String(ownerStore || "").trim(),
         phone: String(phone || "").trim(),
         address: addressJson,
@@ -673,12 +678,12 @@ export default function SignUpGoogleStore() {
               <div className="w-full flex justify-center">
                 <div ref={googleWrapRef} className="w-full max-w-[420px] flex justify-center overflow-visible">
                   <div
-                      ref={googleBtnRef}
-                      className="w-full flex justify-center min-h-[56px] overflow-visible origin-center scale-[1.12]"
-                      aria-label="สมัครด้วย Google (ร้านค้า)"
+                    ref={googleBtnRef}
+                    className="w-full flex justify-center min-h-[56px] overflow-visible origin-center scale-[1.12]"
+                    aria-label="สมัครด้วย Google (ร้านค้า)"
                   />
                 </div>
-             </div>
+              </div>
 
               {!googleReady && !googleErr ? (
                 <div className="mt-2 text-center text-xs text-gray-400">กำลังโหลดปุ่ม Google...</div>
@@ -700,7 +705,7 @@ export default function SignUpGoogleStore() {
 
               <label className="block">
                 <span className="block text-sm font-medium text-gray-700">ชื่อร้านค้า</span>
-                <InputIcon value={storeName} onChange={(e) => setStoreName(e.target.value)} placeholder="ชื่อร้านค้า" required left={Icon.home()} />
+                <InputIcon value={storeName} onChange={(e) => setStoreName(e.target.value.replace(/[^a-zA-Z0-9ก-๙\s.\-]/g, ''))} placeholder="ชื่อร้านค้า" required left={Icon.home()} />
               </label>
 
               <label className="block">
@@ -709,7 +714,10 @@ export default function SignUpGoogleStore() {
                   <span className="absolute left-3 top-1/2 -translate-y-1/2">{Icon.home()}</span>
                   <select
                     value={typeStore}
-                    onChange={(e) => setTypeStore(e.target.value)}
+                    onChange={(e) => {
+                      setTypeStore(e.target.value);
+                      if (e.target.value !== "other") setCustomTypeStore("");
+                    }}
                     className="mt-1 w-full h-10 rounded-xl border border-gray-300 bg-white pl-10 pr-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   >
@@ -722,16 +730,26 @@ export default function SignUpGoogleStore() {
                     <option value="other">อื่น ๆ</option>
                   </select>
                 </div>
+                {typeStore === "other" && (
+                  <InputIcon
+                    value={customTypeStore}
+                    onChange={(e) => setCustomTypeStore(e.target.value.replace(/[^a-zA-Z0-9ก-๙\s.\-\/]/g, ''))}
+                    placeholder="ระบุประเภทร้านค้า"
+                    required
+                    left={Icon.home()}
+                    className="mt-2"
+                  />
+                )}
               </label>
 
               <label className="block">
                 <span className="block text-sm font-medium text-gray-700">ชื่อเจ้าของร้าน</span>
-                <InputIcon value={ownerStore} onChange={(e) => setOwnerStore(e.target.value)} placeholder="ชื่อเจ้าของร้าน" required left={Icon.user()} />
+                <InputIcon value={ownerStore} onChange={(e) => setOwnerStore(e.target.value.replace(/[^a-zA-Z0-9ก-๙\s.\-]/g, ''))} placeholder="ชื่อเจ้าของร้าน" required left={Icon.user()} />
               </label>
 
               <label className="block">
                 <span className="block text-sm font-medium text-gray-700">เบอร์โทรศัพท์</span>
-                <InputIcon value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="กรอกเบอร์โทรศัพท์" required left={Icon.phone()} />
+                <InputIcon value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, ''))} maxLength={10} placeholder="กรอกเบอร์โทรศัพท์" required left={Icon.phone()} />
               </label>
 
               {/* Address (เหมือน SignUp.jsx) */}
@@ -770,11 +788,11 @@ export default function SignUpGoogleStore() {
                           <option value="" disabled>เลือกจังหวัด</option>
                           {provincesList.length > 0
                             ? provincesList.map((p) => (
-                                <option key={p.code} value={p.code}>{p.name}</option>
-                              ))
+                              <option key={p.code} value={p.code}>{p.name}</option>
+                            ))
                             : TH_PROVINCES.map((p) => (
-                                <option key={p} value={p}>{p}</option>
-                              ))}
+                              <option key={p} value={p}>{p}</option>
+                            ))}
                         </select>
                         <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">▾</span>
                       </div>
@@ -833,7 +851,8 @@ export default function SignUpGoogleStore() {
                       <label className="block text-xs font-medium text-gray-600 mb-1">รหัสไปรษณีย์</label>
                       <input
                         value={addressPostcode}
-                        onChange={(e) => updateAddress({ postcode: e.target.value })}
+                        onChange={(e) => updateAddress({ postcode: e.target.value.replace(/[^0-9]/g, '') })}
+                        maxLength={5}
                         placeholder="เช่น 10110"
                         inputMode="numeric"
                         pattern="[0-9]*"
