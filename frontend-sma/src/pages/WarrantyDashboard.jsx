@@ -515,6 +515,11 @@ export default function WarrantyDashboard() {
 
   // ✅ Modal สำหรับแสดงเงื่อนไขการรับประกัน
   const [conditionsModal, setConditionsModal] = useState({ open: false, conditions: [], custom: '' })
+  // ✅ State สำหรับช่องเพิ่มเงื่อนไขใหม่ (ปุ่ม "+")
+  const [editAddConditionText, setEditAddConditionText] = useState('')
+  const [editAddConditionOpen, setEditAddConditionOpen] = useState(false)
+  const [createAddConditionText, setCreateAddConditionText] = useState({})
+  const [createAddConditionOpen, setCreateAddConditionOpen] = useState({})
 
   // ✅ สำหรับแก้ไขอีเมลลูกค้าระดับใบ
   const [editHeaderEmail, setEditHeaderEmail] = useState('')
@@ -1139,6 +1144,14 @@ export default function WarrantyDashboard() {
         if (!(it.customer_email || '').trim()) missing.push(`รายการที่ ${i + 1}: อีเมลลูกค้า`)
         if (!(it.product_name || '').trim()) missing.push(`รายการที่ ${i + 1}: ชื่อสินค้า`)
         if (!(it.purchase_date || '').trim()) missing.push(`รายการที่ ${i + 1}: วันที่ซื้อ`)
+        // ✅ ตรวจ custom duration ต้อง >= 1
+        if (it.duration_mode === 'custom' && (!it.custom_value || Number(it.custom_value) < 1)) {
+          missing.push(`รายการที่ ${i + 1}: จำนวนวัน/เดือน (ต้อง 1 ขึ้นไป)`)
+        }
+        // ✅ ตรวจเงื่อนไขอย่างน้อย 1 ข้อ
+        if (!Array.isArray(it.selectedConditions) || it.selectedConditions.length === 0) {
+          missing.push(`รายการที่ ${i + 1}: เงื่อนไขการรับประกัน (เลือกอย่างน้อย 1 ข้อ)`)
+        }
       }
       if (missing.length > 0) {
         Swal.fire({
@@ -1156,6 +1169,28 @@ export default function WarrantyDashboard() {
           icon: 'warning',
           title: 'ข้อมูลไม่ครบถ้วน',
           text: 'กรุณากรอกชื่อสินค้าและวันที่ซื้อ',
+          confirmButtonText: 'ตกลง',
+          confirmButtonColor: '#0284c7',
+        })
+        return
+      }
+      // ✅ ตรวจ custom duration ต้อง >= 1
+      if (editForm?.duration_mode === 'custom' && (!editForm?.custom_value || Number(editForm.custom_value) < 1)) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'ข้อมูลไม่ถูกต้อง',
+          text: 'จำนวนวัน/เดือนต้องเป็นตัวเลข 1 ขึ้นไป',
+          confirmButtonText: 'ตกลง',
+          confirmButtonColor: '#0284c7',
+        })
+        return
+      }
+      // ✅ ตรวจเงื่อนไขอย่างน้อย 1 ข้อ (โหมดแก้ไข)
+      if (!Array.isArray(editForm?.selectedConditions) || editForm.selectedConditions.length === 0) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'ข้อมูลไม่ครบถ้วน',
+          text: 'กรุณาเลือกเงื่อนไขการรับประกันอย่างน้อย 1 ข้อ',
           confirmButtonText: 'ตกลง',
           confirmButtonColor: '#0284c7',
         })
@@ -2037,7 +2072,7 @@ export default function WarrantyDashboard() {
                         {/* spacer on dark header */}
                       </label>
                       <label className="text-sm text-gray-600 block">
-                        อีเมลลูกค้า
+                        อีเมลลูกค้า <span className="text-red-500">*</span>
                         <div className="mt-1 w-full rounded-2xl border border-gray-200 bg-gray-100 px-4 py-2 text-sm text-gray-600">
                           {editHeaderEmail || '-'}
                         </div>
@@ -2045,7 +2080,7 @@ export default function WarrantyDashboard() {
 
                       {/* ฟอร์มแก้ไขแบบ controlled + auto-expiry */}
                       <label className="mt-3 text-sm text-gray-600">
-                        ชื่อสินค้าที่ทำการซ่อม
+                        ชื่อสินค้าที่ทำการซ่อม <span className="text-red-500">*</span>
                         <input
                           name="product_name"
                           value={editForm?.product_name ?? ''}
@@ -2136,7 +2171,7 @@ export default function WarrantyDashboard() {
                               inputMode="numeric"
                               value={editForm?.custom_value ?? ''}
                               onChange={e => {
-                                const val = e.target.value
+                                const val = e.target.value.replace(/[^0-9]/g, '')
                                 setEditForm(f => {
                                   const next = { ...f, custom_value: val }
                                   next.expiry_date = computeExpiry(next.purchase_date, {
@@ -2148,7 +2183,7 @@ export default function WarrantyDashboard() {
                               }}
                               className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                               placeholder="เช่น 45"
-                              type="number"
+                              type="text"
                               min="1"
                             />
                           </label>
@@ -2196,7 +2231,7 @@ export default function WarrantyDashboard() {
 
                       <div className="mt-3 grid gap-3 md:grid-cols-2">
                         <label className="text-sm text-gray-600">
-                          วันเริ่มการรับประกัน
+                          วันเริ่มการรับประกัน <span className="text-red-500">*</span>
                           <input
                             name="purchase_date"
                             value={editForm?.purchase_date ?? ''}
@@ -2227,16 +2262,37 @@ export default function WarrantyDashboard() {
                         </label>
                       </div>
 
-                      {/* ✅ เงื่อนไขการรับประกัน - แบบ Checkbox */}
+                      {/* ✅ เงื่อนไขการรับประกัน - แบบ Checkbox + เลือกทั้งหมด + ปุ่มเพิ่ม */}
                       <div className="mt-3">
-                        <div className="text-sm text-gray-600 mb-2">เงื่อนไขการรับประกัน</div>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="text-sm text-gray-600">เงื่อนไขการรับประกัน <span className="text-red-500">*</span></div>
+                          {(() => {
+                            const conditionsData = getConditionsForStoreType(storeProfile.storeType)
+                            const allConds = [...conditionsData.conditions, ...((editForm?.selectedConditions || []).filter(c => !conditionsData.conditions.includes(c)))]
+                            const allSelected = allConds.length > 0 && allConds.every(c => (editForm?.selectedConditions || []).includes(c))
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditForm(f => ({ ...f, selectedConditions: allSelected ? [] : [...allConds] }))
+                                }}
+                                className="rounded-lg border border-sky-300 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700 hover:bg-sky-100 transition"
+                              >
+                                {allSelected ? '☐ ยกเลิกทั้งหมด' : '☑ เลือกทั้งหมด'}
+                              </button>
+                            )
+                          })()}
+                        </div>
                         <div className="rounded-2xl border border-sky-100 bg-sky-50/60 p-3 max-h-60 overflow-y-auto">
                           {(() => {
                             const conditionsData = getConditionsForStoreType(storeProfile.storeType)
+                            // รวมเงื่อนไขเทมเพลต + เงื่อนไขที่ user เพิ่มเอง
+                            const customAdded = (editForm?.selectedConditions || []).filter(c => !conditionsData.conditions.includes(c))
+                            const allConds = [...conditionsData.conditions, ...customAdded]
                             return (
                               <>
                                 <div className="text-xs text-gray-500 mb-2">ประเภท: {conditionsData.label}</div>
-                                {conditionsData.conditions.map((cond, i) => (
+                                {allConds.map((cond, i) => (
                                   <label key={i} className="flex items-start gap-2 py-1.5 border-b border-sky-100 last:border-0 cursor-pointer hover:bg-sky-100/50 rounded px-1">
                                     <input
                                       type="checkbox"
@@ -2251,23 +2307,84 @@ export default function WarrantyDashboard() {
                                       }}
                                       className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 shrink-0"
                                     />
-                                    <span className="text-sm text-gray-700">{cond}</span>
+                                    <span className="text-sm text-gray-700 flex-1">{cond}</span>
+                                    {/* ปุ่มลบเฉพาะเงื่อนไขที่เพิ่มเอง */}
+                                    {i >= conditionsData.conditions.length && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const selected = (editForm?.selectedConditions || []).filter(c => c !== cond)
+                                          setEditForm(f => ({ ...f, selectedConditions: selected }))
+                                        }}
+                                        className="text-rose-400 hover:text-rose-600 text-lg leading-none shrink-0 ml-1"
+                                        title="ลบเงื่อนไขนี้"
+                                      >
+                                        ×
+                                      </button>
+                                    )}
                                   </label>
                                 ))}
                               </>
                             )
                           })()}
+                          {/* ปุ่ม "+" เพิ่มเงื่อนไขใหม่ */}
+                          {editAddConditionOpen ? (
+                            <div className="mt-2 flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={editAddConditionText}
+                                onChange={e => setEditAddConditionText(e.target.value)}
+                                className="flex-1 rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-sm focus:border-sky-400 focus:outline-none"
+                                placeholder="พิมพ์เงื่อนไขใหม่..."
+                                autoFocus
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter' && editAddConditionText.trim()) {
+                                    e.preventDefault()
+                                    const newCond = editAddConditionText.trim()
+                                    const selected = editForm?.selectedConditions || []
+                                    if (!selected.includes(newCond)) {
+                                      setEditForm(f => ({ ...f, selectedConditions: [...selected, newCond] }))
+                                    }
+                                    setEditAddConditionText('')
+                                    setEditAddConditionOpen(false)
+                                  }
+                                }}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (editAddConditionText.trim()) {
+                                    const newCond = editAddConditionText.trim()
+                                    const selected = editForm?.selectedConditions || []
+                                    if (!selected.includes(newCond)) {
+                                      setEditForm(f => ({ ...f, selectedConditions: [...selected, newCond] }))
+                                    }
+                                  }
+                                  setEditAddConditionText('')
+                                  setEditAddConditionOpen(false)
+                                }}
+                                className="rounded-lg bg-sky-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-600"
+                              >
+                                เพิ่ม
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setEditAddConditionText(''); setEditAddConditionOpen(false) }}
+                                className="text-gray-400 hover:text-gray-600 text-lg"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setEditAddConditionOpen(true)}
+                              className="mt-2 flex items-center gap-1.5 rounded-lg border border-dashed border-sky-300 bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-100 hover:border-sky-400 transition"
+                            >
+                              <span className="text-base leading-none">＋</span> เพิ่มเงื่อนไขใหม่
+                            </button>
+                          )}
                         </div>
-                        {/* ช่องเงื่อนไขเพิ่มเติม */}
-                        <label className="mt-2 block">
-                          <span className="text-sm text-gray-600">เงื่อนไขเพิ่มเติม (อื่นๆ)</span>
-                          <textarea
-                            value={editForm?.customCondition ?? ''}
-                            onChange={e => setEditForm(f => ({ ...f, customCondition: e.target.value }))}
-                            className="mt-1 min-h-[60px] w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
-                            placeholder="พิมพ์เงื่อนไขเพิ่มเติม (ถ้ามี)"
-                          />
-                        </label>
                       </div>
 
                       <div className="mt-3 space-y-2">
@@ -2296,7 +2413,7 @@ export default function WarrantyDashboard() {
                           </div>
 
                           <label className="text-sm text-gray-600 block">
-                            อีเมลลูกค้า
+                            อีเมลลูกค้า <span className="text-red-500">*</span>
                             <input
                               value={it.customer_email}
                               onChange={e => patchItem(idx, { customer_email: e.target.value })}
@@ -2415,7 +2532,7 @@ export default function WarrantyDashboard() {
                           )}
 
                           <label className="mt-3 text-sm text-gray-600 block">
-                            ชื่อสินค้าที่ทำการซ่อม
+                            ชื่อสินค้าที่ทำการซ่อม <span className="text-red-500">*</span>
                             <input
                               value={it.product_name}
                               onChange={e => patchItem(idx, { product_name: e.target.value })}
@@ -2494,10 +2611,10 @@ export default function WarrantyDashboard() {
                                 <input
                                   inputMode="numeric"
                                   value={it.custom_value}
-                                  onChange={e => patchItem(idx, { custom_value: e.target.value })}
+                                  onChange={e => patchItem(idx, { custom_value: e.target.value.replace(/[^0-9]/g, '') })}
                                   className="mt-1 w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                                   placeholder="เช่น 45"
-                                  type="number"
+                                  type="text"
                                   min="1"
                                 />
                               </label>
@@ -2529,7 +2646,7 @@ export default function WarrantyDashboard() {
 
                           <div className="mt-3 grid gap-3 md:grid-cols-2">
                             <label className="text-sm text-gray-600 block">
-                              วันที่เริ่มรับประกัน
+                              วันที่เริ่มรับประกัน <span className="text-red-500">*</span>
                               <input
                                 value={it.purchase_date}
                                 onChange={e => patchItem(idx, { purchase_date: e.target.value })}
@@ -2549,16 +2666,37 @@ export default function WarrantyDashboard() {
                             </label>
                           </div>
 
-                          {/* ✅ เงื่อนไขการรับประกัน - แบบ Checkbox */}
+                          {/* ✅ เงื่อนไขการรับประกัน - แบบ Checkbox + เลือกทั้งหมด + ปุ่มเพิ่ม */}
                           <div className="mt-3">
-                            <div className="text-sm text-gray-600 mb-2">เงื่อนไขการรับประกัน</div>
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="text-sm text-gray-600">เงื่อนไขการรับประกัน <span className="text-red-500">*</span></div>
+                              {(() => {
+                                const conditionsData = getConditionsForStoreType(storeProfile.storeType)
+                                const customAdded = (it.selectedConditions || []).filter(c => !conditionsData.conditions.includes(c))
+                                const allConds = [...conditionsData.conditions, ...customAdded]
+                                const allSelected = allConds.length > 0 && allConds.every(c => (it.selectedConditions || []).includes(c))
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      patchItem(idx, { selectedConditions: allSelected ? [] : [...allConds] })
+                                    }}
+                                    className="rounded-lg border border-sky-300 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700 hover:bg-sky-100 transition"
+                                  >
+                                    {allSelected ? '☐ ยกเลิกทั้งหมด' : '☑ เลือกทั้งหมด'}
+                                  </button>
+                                )
+                              })()}
+                            </div>
                             <div className="rounded-2xl border border-sky-100 bg-white p-3 max-h-60 overflow-y-auto">
                               {(() => {
                                 const conditionsData = getConditionsForStoreType(storeProfile.storeType)
+                                const customAdded = (it.selectedConditions || []).filter(c => !conditionsData.conditions.includes(c))
+                                const allConds = [...conditionsData.conditions, ...customAdded]
                                 return (
                                   <>
                                     <div className="text-xs text-gray-500 mb-2">ประเภท: {conditionsData.label}</div>
-                                    {conditionsData.conditions.map((cond, i) => (
+                                    {allConds.map((cond, i) => (
                                       <label key={i} className="flex items-start gap-2 py-1.5 border-b border-sky-100 last:border-0 cursor-pointer hover:bg-sky-100/50 rounded px-1">
                                         <input
                                           type="checkbox"
@@ -2573,23 +2711,86 @@ export default function WarrantyDashboard() {
                                           }}
                                           className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 shrink-0"
                                         />
-                                        <span className="text-sm text-gray-700">{cond}</span>
+                                        <span className="text-sm text-gray-700 flex-1">{cond}</span>
+                                        {i >= conditionsData.conditions.length && (
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              const selected = (it.selectedConditions || []).filter(c => c !== cond)
+                                              patchItem(idx, { selectedConditions: selected })
+                                            }}
+                                            className="text-rose-400 hover:text-rose-600 text-lg leading-none shrink-0 ml-1"
+                                            title="ลบเงื่อนไขนี้"
+                                          >
+                                            ×
+                                          </button>
+                                        )}
                                       </label>
                                     ))}
                                   </>
                                 )
                               })()}
+                              {/* ปุ่ม "+" เพิ่มเงื่อนไขใหม่ */}
+                              {createAddConditionOpen[idx] ? (
+                                <div className="mt-2 flex items-center gap-2">
+                                  <input
+                                    type="text"
+                                    value={createAddConditionText[idx] || ''}
+                                    onChange={e => setCreateAddConditionText(prev => ({ ...prev, [idx]: e.target.value }))}
+                                    className="flex-1 rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-sm focus:border-sky-400 focus:outline-none"
+                                    placeholder="พิมพ์เงื่อนไขใหม่..."
+                                    autoFocus
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter' && (createAddConditionText[idx] || '').trim()) {
+                                        e.preventDefault()
+                                        const newCond = createAddConditionText[idx].trim()
+                                        const selected = it.selectedConditions || []
+                                        if (!selected.includes(newCond)) {
+                                          patchItem(idx, { selectedConditions: [...selected, newCond] })
+                                        }
+                                        setCreateAddConditionText(prev => ({ ...prev, [idx]: '' }))
+                                        setCreateAddConditionOpen(prev => ({ ...prev, [idx]: false }))
+                                      }
+                                    }}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const text = (createAddConditionText[idx] || '').trim()
+                                      if (text) {
+                                        const selected = it.selectedConditions || []
+                                        if (!selected.includes(text)) {
+                                          patchItem(idx, { selectedConditions: [...selected, text] })
+                                        }
+                                      }
+                                      setCreateAddConditionText(prev => ({ ...prev, [idx]: '' }))
+                                      setCreateAddConditionOpen(prev => ({ ...prev, [idx]: false }))
+                                    }}
+                                    className="rounded-lg bg-sky-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-600"
+                                  >
+                                    เพิ่ม
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setCreateAddConditionText(prev => ({ ...prev, [idx]: '' }))
+                                      setCreateAddConditionOpen(prev => ({ ...prev, [idx]: false }))
+                                    }}
+                                    className="text-gray-400 hover:text-gray-600 text-lg"
+                                  >
+                                    ×
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setCreateAddConditionOpen(prev => ({ ...prev, [idx]: true }))}
+                                  className="mt-2 flex items-center gap-1.5 rounded-lg border border-dashed border-sky-300 bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-100 hover:border-sky-400 transition"
+                                >
+                                  <span className="text-base leading-none">＋</span> เพิ่มเงื่อนไขใหม่
+                                </button>
+                              )}
                             </div>
-                            {/* ช่องเงื่อนไขเพิ่มเติม */}
-                            <label className="mt-2 block">
-                              <span className="text-sm text-gray-600">เงื่อนไขเพิ่มเติม (อื่นๆ)</span>
-                              <textarea
-                                value={it.customCondition || ''}
-                                onChange={e => patchItem(idx, { customCondition: e.target.value })}
-                                className="mt-1 min-h-[60px] w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
-                                placeholder="พิมพ์เงื่อนไขเพิ่มเติม (ถ้ามี)"
-                              />
-                            </label>
                           </div>
 
                           {/* แนบรูปตอนสร้างเลย */}
