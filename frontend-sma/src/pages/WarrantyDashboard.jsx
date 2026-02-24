@@ -11,6 +11,9 @@ import ImagePreview from '../components/ImagePreview'
 import AppLogo from '../components/AppLogo'
 import Footer from '../components/Footer' // ✅
 import StoreTabs from '../components/StoreTabs'
+import WelcomeOnboardingModal from '../components/WelcomeOnboardingModal'
+import introJs from 'intro.js'
+import 'intro.js/introjs.css'
 import { getConditionsForStoreType } from '../data/warrantyConditionTemplates'
 
 
@@ -292,6 +295,79 @@ export default function WarrantyDashboard() {
   const [subdistrictsCache, setSubdistrictsCache] = useState(null)
   const [districtsMap, setDistrictsMap] = useState(null)
   const [subdistrictsMap, setSubdistrictsMap] = useState(null)
+
+  // ===== Onboarding welcome modal & Joyride (แสดงเฉพาะหน้า การรับประกัน) =====
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false)
+  useEffect(() => {
+    try {
+      const key = `wp_seen_welcome_${storeIdResolved}`
+      const seen = typeof window !== 'undefined' ? window.localStorage.getItem(key) : null
+      if (storeIdResolved && !seen) {
+        setShowWelcomeModal(true)
+        if (typeof window !== 'undefined') window.localStorage.setItem(key, '1')
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, [storeIdResolved])
+
+  const tourSteps = useMemo(() => [
+    {
+      element: '#step-create-warranty',
+      intro: 'คลิกที่นี่เพื่อสร้างใบรับประกันใหม่ให้ลูกค้า',
+      position: 'bottom',
+    },
+    {
+      element: '#step-search-filter',
+      intro: 'ค้นหาใบรับประกัน หรือกรองดูตามสถานะการคุ้มครองได้ที่นี่',
+      position: 'bottom',
+    },
+    {
+      element: '#step-warranty-list',
+      intro: 'รายการใบรับประกันทั้งหมดของคุณจะแสดงอยู่ที่นี่',
+      position: 'bottom',
+    },
+  ], [])
+
+  const handleStartTour = () => {
+    // รอจน DOM พร้อมครบทุก element ที่ต้องใช้ในทัวร์
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return
+    }
+
+    let attempts = 0
+    const maxAttempts = 20 // รวม ~5 วินาที
+    const intervalMs = 250
+    let timer = null
+
+    const tryStart = () => {
+      attempts += 1
+      const createEl = document.querySelector('#step-create-warranty')
+      const filterEl = document.querySelector('#step-search-filter')
+      const listEl = document.querySelector('#step-warranty-list')
+
+      if ((createEl && filterEl && listEl) || attempts >= maxAttempts) {
+        if (timer) window.clearInterval(timer)
+
+        const intro = introJs()
+        intro.setOptions({
+          steps: tourSteps,
+          showProgress: true,
+          showBullets: false,
+          exitOnOverlayClick: false,
+          overlayOpacity: 0.5,
+          nextLabel: 'ถัดไป',
+          prevLabel: 'ย้อนกลับ',
+          skipLabel: 'ข้าม',
+          doneLabel: 'เสร็จสิ้น',
+          showStepNumbers: false,
+        })
+        intro.start()
+      }
+    }
+
+    timer = window.setInterval(tryStart, intervalMs)
+  }
 
   // load provinces/districts/subdistricts and build lookup maps
   useEffect(() => {
@@ -682,18 +758,6 @@ export default function WarrantyDashboard() {
 
   // click outside handler for notifications dropdown
   // notifications dropdown is handled by the shared DashboardLayout
-
-  // helper: determine if account is new (show welcome message)
-  const isNewAccount = useMemo(() => {
-    if (!user) return false
-    if (user.isNew) return true
-    const created = user.createdAt || user.created_at || user.registeredAt || user.created
-    if (!created) return false
-    const d = new Date(created)
-    if (isNaN(d.getTime())) return false
-    const days = (Date.now() - d.getTime()) / (1000 * 3600 * 24)
-    return days <= 7
-  }, [user])
 
   async function fetchNotifications() {
     if (!storeIdResolved) return
@@ -1431,6 +1495,14 @@ export default function WarrantyDashboard() {
 
 
         <main className="mx-auto mt-8 max-w-6xl px-2 sm:px-6 lg:px-8">
+          {/* Welcome modal shown only for new store accounts on Warranty page */}
+          <WelcomeOnboardingModal
+            open={showWelcomeModal}
+            onClose={() => setShowWelcomeModal(false)}
+            title="ยินดีต้อนรับสู่ระบบการรับประกัน"
+            description="สร้างใบรับประกันแรกของคุณและดูวิธีใช้งานฟีเจอร์สำคัญในไม่กี่ขั้นตอน"
+            onStart={handleStartTour}
+          />
           {/* 🟦 กล่องแจ้ง error: ใช้โทนฟ้าแบบโค้ด1 */}
           {dashboardError && (
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-700">
@@ -1459,10 +1531,6 @@ export default function WarrantyDashboard() {
             <StoreTabs />
           </div>
 
-          <div className="mb-6 px-2 sm:px-0">
-
-          </div>
-
           <div className="rounded-3xl border border-sky-100 bg-gradient-to-b from-white to-sky-50 p-4 sm:p-6 shadow-xl min-w-0">
             {dashboardLoading ? (
               <div className="grid min-h-[320px] place-items-center text-sm text-slate-500">กำลังโหลดข้อมูล...</div>
@@ -1480,18 +1548,20 @@ export default function WarrantyDashboard() {
                   <div className="flex items-center gap-3">
                     <div className="flex gap-2 rounded-full bg-white p-1"></div>
                     <button
+                      id="step-create-warranty"
                       type="button"
                       onClick={() => openWarrantyModal('create')}
-                      className="rounded-full bg-sky-600 px-4 py-2 text-sm font-medium text-white shadow hover:-translate-y-0.5 hover:bg-sky-500 transition"
+                      className="rounded-full bg-sky-600 px-4 py-2 text-sm font-medium text-white shadow hover:-translate-y-0.5 hover:bg-sky-500 transition wp-tour-create-button"
                     >
                       สร้างใบรับประกัน
                     </button>
                   </div>
                 </div>
 
-
-
-                <div className="mb-6 flex flex-wrap items-center gap-2 sm:gap-3">
+                <div
+                  id="step-search-filter"
+                  className="mb-6 flex flex-wrap items-center gap-2 sm:gap-3 wp-tour-filter-area"
+                >
                   <div className="flex w-full sm:flex-1 sm:w-auto min-w-0 items-center rounded-2xl bg-white px-3 py-2 sm:px-4 shadow ring-1 ring-black/5">
                     <span className="text-slate-400">🔍</span>
                     <input
@@ -1537,7 +1607,10 @@ export default function WarrantyDashboard() {
                 </div>
 
                 {/* รายการใบรับประกัน (แบ่งหน้า 5 ใบ/หน้า) */}
-                <div className="mb-8 grid gap-4">
+                <div
+                  id="step-warranty-list"
+                  className="mb-8 grid gap-4 wp-tour-warranty-list"
+                >
                   {paginatedHeaders.length === 0 ? (
                     <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
                       ยังไม่มีใบรับประกัน
@@ -2908,6 +2981,7 @@ export default function WarrantyDashboard() {
             onClose={() => setImagePreview({ open: false, images: [], index: 0 })}
           />
         )}
+
       </div>
 
       {/* ✅ วาง Footer นอก div ที่มี pb-12 เพื่อไม่ให้ลอย/มีช่องว่างด้านล่าง */}

@@ -44,3 +44,102 @@ button[disabled],
     transform: translateX(-40%) !important;
   }
 }
+
+/* Intro.js premium tour styling */
+/* กล่อง Tooltip แบบพรีเมียม */
+.introjs-tooltip {
+  position: relative !important;
+  padding: 40px 20px 20px 20px !important; /* เว้นที่ด้านบนให้ปุ่มข้าม */
+  border-radius: 16px !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* จัดข้อความให้อ่านง่ายและดูโปร่ง */
+.introjs-tooltiptext {
+  font-size: 15px !important;
+  color: #4b5563 !important;
+  line-height: 1.6 !important;
+  text-align: center !important;
+  margin-bottom: 16px !important;
+}
+
+/* แถบความคืบหน้า (Progress Bar) แบบบางเฉียบ มินิมอล */
+.introjs-progress {
+  height: 4px !important;
+  border-radius: 4px !important;
+  background-color: #e5e7eb !important;
+  margin: 10px 0 20px 0 !important;
+}
+
+.introjs-progressbar {
+  background-color: #0ea5e9 !important; /* สีฟ้าสว่าง */
+  border-radius: 4px !important;
+}
+
+/* ปุ่ม 'ข้าม' ให้กลายเป็นตัวหนังสือเล็กๆ เรียบๆ */
+.introjs-skipbutton {
+  position: absolute !important;
+  top: 12px !important;
+  right: 15px !important;
+  font-size: 13px !important;
+  color: #9ca3af !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  text-decoration: underline !important;
+}
+
+.introjs-skipbutton:hover {
+  color: #ef4444 !important; /* โฮเวอร์แล้วเป็นสีแดงอ่อนๆ */
+}
+
+/* จัดระเบียบปุ่มด้านล่าง (ย้อนกลับ / ถัดไป / เสร็จสิ้น) ไม่ให้ซ้อนกัน */
+.introjs-tooltipbuttons {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  margin-top: 20px !important;
+  border-top: none !important;
+}
+
+/* รีเซ็ตมาร์จิ้นของปุ่มกด และตัด pseudo-element ที่ทำให้ตัวหนังสือซ้อน */
+.introjs-button {
+  margin: 0 !important;
+  border-radius: 8px !important;
+  padding: 8px 16px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1.4 !important;
+  background-image: none !important;
+  text-shadow: none !important;
+  position: relative !important;
+  transition: all 0.2s ease !important;
+}
+
+.introjs-button::before,
+.introjs-button::after {
+  content: none !important;
+}
+
+.introjs-prevbutton {
+  background-color: transparent !important;
+  border: 1px solid #e5e7eb !important;
+  color: #6b7280 !important;
+}
+
+.introjs-prevbutton:hover {
+  background-color: #f9fafb !important;
+}
+
+.introjs-nextbutton,
+.introjs-donebutton {
+  background-color: #0ea5e9 !important;
+  border: none !important;
+  color: white !important;
+  box-shadow: 0 4px 6px -1px rgba(14, 165, 233, 0.2) !important;
+}
+
+.introjs-nextbutton:hover,
+.introjs-donebutton:hover {
+  background-color: #0284c7 !important;
+}

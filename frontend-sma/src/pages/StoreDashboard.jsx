@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation } from 'react-router-dom'
-import { useNavigate, Link } from 'react-router-dom'
+import { useLocation, useNavigate, Link } from 'react-router-dom'
 import { api, API_URL, getToken } from '../lib/api'
 import { useAuth } from '../store/auth'
 import StoreTabs from '../components/StoreTabs'
@@ -9,8 +8,9 @@ import BarChart from '../components/BarChart'
 import ExtendWarrantyModal from '../components/ExtendWarrantyModal'
 import AppLogo from '../components/AppLogo'
 import EmptyStateCard from '../components/EmptyStateCard'
-import WelcomeOnboardingModal from '../components/WelcomeOnboardingModal'
 import warrantyCopy from '../lib/warranty_copy.json'
+import introJs from 'intro.js'
+import 'intro.js/introjs.css'
 
 export default function StoreDashboard() {
   const { user, logout } = useAuth() // ✅ มี logout เหมือนอีกหน้า
@@ -387,26 +387,7 @@ export default function StoreDashboard() {
     return days <= 7
   }, [user])
 
-  // show welcome modal only once per user session (or based on localStorage)
-  const [showWelcomeModal, setShowWelcomeModal] = useState(false)
-  useEffect(() => {
-    try {
-      // TEMP: clear any existing seen flags so modal shows for testing/demo
-      if (typeof window !== 'undefined') {
-        Object.keys(window.localStorage).forEach((k) => {
-          if (k && k.startsWith('wp_seen_welcome_')) window.localStorage.removeItem(k)
-        })
-      }
-      const key = `wp_seen_welcome_${storeIdResolved}`
-      const seen = typeof window !== 'undefined' ? window.localStorage.getItem(key) : null
-      if (isNewAccount && !seen) {
-        setShowWelcomeModal(true)
-        if (typeof window !== 'undefined') window.localStorage.setItem(key, '1')
-      }
-    } catch (e) {
-      // ignore
-    }
-  }, [isNewAccount, storeIdResolved])
+  // Welcome onboarding modal ถูกย้ายไปหน้า WarrantyDashboard (default page)
 
   // ---------- ออกจากระบบ (ให้เหมือนหน้า Warranty) ----------
   const handleLogout = () => {
@@ -477,6 +458,20 @@ export default function StoreDashboard() {
     }).reverse()
   }, [filteredWarranties])
 
+  // ---------- Intro.js tour สำหรับแท็บ "ภาพรวม" ----------
+  const overviewTourSteps = useMemo(() => [
+    {
+      element: '#step-overview-stats',
+      intro: 'ดูสรุปสถิติทั้งหมดของร้านคุณได้ที่นี่ เพื่อติดตามการเติบโต',
+      position: 'bottom',
+    },
+    {
+      element: '#step-overview-chart',
+      intro: 'ตรวจสอบจำนวนใบรับประกันที่สถานะปกติ, ใกล้หมดอายุ หรือหมดอายุแล้ว ได้อย่างรวดเร็ว',
+      position: 'bottom',
+    },
+  ], [])
+
   // Export current overview or aggregates to Excel
   // Export current overview or aggregates to Excel
   async function exportOverviewToExcel() {
@@ -515,6 +510,57 @@ export default function StoreDashboard() {
     }
   }
 
+  // Run overview tour ครั้งแรกที่เข้าแท็บนี้ (per store + browser)
+  useEffect(() => {
+    if (loading) return
+    if (!storeIdResolved) return
+    if (!warranties || warranties.length === 0) return
+
+    try {
+      const key = `wp_seen_tour_overview_${storeIdResolved}`
+      const ls = typeof window !== 'undefined' ? window.localStorage : null
+      const seen = ls ? ls.getItem(key) : null
+      if (seen) return
+      if (ls) ls.setItem(key, '1')
+
+      if (typeof window === 'undefined' || typeof document === 'undefined') return
+
+      let attempts = 0
+      const maxAttempts = 20
+      const intervalMs = 250
+      let timer = null
+
+      const tryStart = () => {
+        attempts += 1
+        const statsEl = document.querySelector('#step-overview-stats')
+        const chartEl = document.querySelector('#step-overview-chart')
+
+        if ((statsEl && chartEl) || attempts >= maxAttempts) {
+          if (timer) window.clearInterval(timer)
+
+          const intro = introJs()
+          intro.setOptions({
+            steps: overviewTourSteps,
+            showProgress: true,
+            showBullets: false,
+            exitOnOverlayClick: false,
+            overlayOpacity: 0.5,
+            nextLabel: 'ถัดไป',
+            prevLabel: 'ย้อนกลับ',
+            skipLabel: 'ข้าม',
+            doneLabel: 'เสร็จสิ้น',
+            showStepNumbers: false,
+          })
+          intro.start()
+        }
+      }
+
+      timer = window.setInterval(tryStart, intervalMs)
+    } catch (e) {
+      // ignore
+    }
+  }, [loading, storeIdResolved, warranties, overviewTourSteps])
+
   if (loading) return <div className="p-6 text-sm text-slate-500">กำลังโหลดข้อมูลสรุป...</div>
   if (error) return <div className="p-6 text-sm text-rose-600">{error}</div>
 
@@ -549,14 +595,6 @@ export default function StoreDashboard() {
             ส่งออกข้อมูล Excel
           </button>
         </div>
-        {/* Welcome Onboarding Modal */}
-        <WelcomeOnboardingModal
-          open={showWelcomeModal}
-          onClose={() => setShowWelcomeModal(false)}
-          title={warrantyCopy.welcome?.shop}
-          description={warrantyCopy.emptyState?.dashboard?.message}
-        />
-
         {/* If no warranties show Empty State card */}
         {!loading && (!warranties || warranties.length === 0) ? (
           <div className="mb-6">
@@ -576,7 +614,10 @@ export default function StoreDashboard() {
         </h2>
 
         {/* Consolidated Stats & Donut Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        <div
+          id="step-overview-stats"
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6"
+        >
           {/* Card: ใบรับประกันทั้งหมด */}
           <div className="flex items-center gap-4 rounded-xl bg-white border border-black/10 p-4 shadow-sm">
             <div
@@ -621,7 +662,10 @@ export default function StoreDashboard() {
           </div>
 
           {/* Card: Status Donut (Compact) */}
-          <div className="flex items-center gap-4 rounded-xl bg-white border border-black/10 p-4 shadow-sm relative overflow-hidden">
+          <div
+            id="step-overview-chart"
+            className="flex items-center gap-4 rounded-xl bg-white border border-black/10 p-4 shadow-sm relative overflow-hidden"
+          >
             <div className="flex-shrink-0 relative z-10">
               <SimpleDonut counts={totals} size={110} thickness={15} />
             </div>

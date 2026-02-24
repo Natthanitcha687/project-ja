@@ -1,6 +1,6 @@
 import React from 'react'
 
-export default function WelcomeOnboardingModal({ open, onClose, title, description }) {
+export default function WelcomeOnboardingModal({ open, onClose, title, description, onStart }) {
   if (!open) return null
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -17,7 +17,15 @@ export default function WelcomeOnboardingModal({ open, onClose, title, descripti
             <h3 className="text-lg font-bold text-gray-900">{title}</h3>
             <p className="text-sm text-gray-600 mt-2">{description}</p>
             <div className="mt-4 flex gap-3">
-              <button onClick={onClose} className="px-4 py-2 bg-green-600 text-white rounded-md">เริ่มต้นเลย</button>
+              <button
+                onClick={() => {
+                  if (onStart) onStart()
+                  onClose?.()
+                }}
+                className="px-4 py-2 bg-green-600 text-white rounded-md"
+              >
+                เริ่มต้นเลย
+              </button>
               <button onClick={onClose} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md">ดูทีหลัง</button>
             </div>
           </div>
