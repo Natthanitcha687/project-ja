@@ -8,6 +8,9 @@ import SimpleDonut from '../components/SimpleDonut'
 import BarChart from '../components/BarChart'
 import ExtendWarrantyModal from '../components/ExtendWarrantyModal'
 import AppLogo from '../components/AppLogo'
+import EmptyStateCard from '../components/EmptyStateCard'
+import WelcomeOnboardingModal from '../components/WelcomeOnboardingModal'
+import warrantyCopy from '../lib/warranty_copy.json'
 
 export default function StoreDashboard() {
   const { user, logout } = useAuth() // ✅ มี logout เหมือนอีกหน้า
@@ -384,6 +387,21 @@ export default function StoreDashboard() {
     return days <= 7
   }, [user])
 
+  // show welcome modal only once per user session (or based on localStorage)
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false)
+  useEffect(() => {
+    try {
+      const key = `wp_seen_welcome_${storeIdResolved}`
+      const seen = typeof window !== 'undefined' ? window.localStorage.getItem(key) : null
+      if (isNewAccount && !seen) {
+        setShowWelcomeModal(true)
+        if (typeof window !== 'undefined') window.localStorage.setItem(key, '1')
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, [isNewAccount, storeIdResolved])
+
   // ---------- ออกจากระบบ (ให้เหมือนหน้า Warranty) ----------
   const handleLogout = () => {
     logout?.()
@@ -525,6 +543,26 @@ export default function StoreDashboard() {
             ส่งออกข้อมูล Excel
           </button>
         </div>
+        {/* Welcome Onboarding Modal */}
+        <WelcomeOnboardingModal
+          open={showWelcomeModal}
+          onClose={() => setShowWelcomeModal(false)}
+          title={warrantyCopy.welcome?.shop}
+          description={warrantyCopy.emptyState?.dashboard?.message}
+        />
+
+        {/* If no warranties show Empty State card */}
+        {!loading && (!warranties || warranties.length === 0) ? (
+          <div className="mb-6">
+            <EmptyStateCard
+              title={warrantyCopy.emptyState.dashboard.title}
+              message={warrantyCopy.emptyState.dashboard.message}
+              primaryText={warrantyCopy.emptyState.dashboard.primary_cta}
+              secondaryText={warrantyCopy.emptyState.dashboard.secondary_cta}
+              onPrimary={() => navigate('/dashboard/warranty')}
+            />
+          </div>
+        ) : null}
 
         {/* Title: ภาพรวม & การรับประกัน */}
         <h2 className="text-2xl font-bold text-black mb-4" style={{ fontFamily: 'Inter, sans-serif' }}>
