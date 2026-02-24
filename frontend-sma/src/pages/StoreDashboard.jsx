@@ -8,7 +8,6 @@ import SimpleDonut from '../components/SimpleDonut'
 import BarChart from '../components/BarChart'
 import ExtendWarrantyModal from '../components/ExtendWarrantyModal'
 import AppLogo from '../components/AppLogo'
-import * as XLSX from 'xlsx'
 
 export default function StoreDashboard() {
   const { user, logout } = useAuth() // ✅ มี logout เหมือนอีกหน้า
