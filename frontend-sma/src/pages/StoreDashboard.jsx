@@ -391,6 +391,12 @@ export default function StoreDashboard() {
   const [showWelcomeModal, setShowWelcomeModal] = useState(false)
   useEffect(() => {
     try {
+      // TEMP: clear any existing seen flags so modal shows for testing/demo
+      if (typeof window !== 'undefined') {
+        Object.keys(window.localStorage).forEach((k) => {
+          if (k && k.startsWith('wp_seen_welcome_')) window.localStorage.removeItem(k)
+        })
+      }
       const key = `wp_seen_welcome_${storeIdResolved}`
       const seen = typeof window !== 'undefined' ? window.localStorage.getItem(key) : null
       if (isNewAccount && !seen) {
@@ -734,14 +740,14 @@ export default function StoreDashboard() {
 
           if (allItems.length === 0) {
             return (
-              <div className="mt-6 rounded-xl bg-white border border-gray-200 p-6 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="text-3xl">📋</div>
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-700">ยังไม่มีรายการใบรับประกัน</h3>
-                    <p className="text-sm text-gray-500">สร้างใบรับประกันใหม่เพื่อเริ่มต้นใช้งาน</p>
-                  </div>
-                </div>
+              <div className="mt-6">
+                <EmptyStateCard
+                  title={warrantyCopy.emptyState.dashboard.title}
+                  message={warrantyCopy.emptyState.dashboard.message}
+                  primaryText={warrantyCopy.emptyState.dashboard.primary_cta}
+                  secondaryText={warrantyCopy.emptyState.dashboard.secondary_cta}
+                  onPrimary={() => navigate('/dashboard/warranty')}
+                />
               </div>
             )
           }
