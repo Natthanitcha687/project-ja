@@ -1,0 +1,11 @@
+# Root ignore rules for monorepo
+
+# Node dependencies (all apps)
+node_modules/
+
+# Environment files
+.env
+
+# Build outputs / debug logs
+/dist/
+*.log
