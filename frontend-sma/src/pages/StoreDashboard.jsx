@@ -465,11 +465,13 @@ export default function StoreDashboard() {
       element: '#step-overview-stats',
       intro: 'ดูสรุปสถิติทั้งหมดของร้านคุณได้ที่นี่ เพื่อติดตามการเติบโต',
       position: 'bottom',
+      tooltipClass: 'custom-tooltip-left',
     },
     {
       element: '#step-overview-chart',
       intro: 'ตรวจสอบสถานะการรับประกันและกราฟภาพรวมรายเดือนได้อย่างรวดเร็ว',
       position: 'bottom',
+      tooltipClass: 'custom-tooltip-left',
     },
     {
       element: '#step-header-complaint',
