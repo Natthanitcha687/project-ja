@@ -315,18 +315,21 @@ export async function downloadWarrantyPdf(req, res) {
 
     const items =
       (header.items || []).length
-        ? header.items.map((it) => ({
-          productName: it.productName || "-",
-          model: it.model || "-",
-          serialNumber: it.serial || "-",
-          serial: it.serial || "-", // เผื่อเรียกชื่อ field แบบอื่น
+        ? header.items.map((it) => {
+          const serial = it.serial ?? null;
+          return {
+            productName: it.productName || "-",
+            model: it.model || "-",
+            serialNumber: serial,
+            serial, // เผื่อเรียกชื่อ field แบบอื่น
           purchaseDate: it.purchaseDate || header.createdAt,
           expiryDate: it.expiryDate || null,
           coverageNote: it.coverageNote || null,
           // ✅ สำหรับ checkbox เงื่อนไข (ใช้ใน PDF template)
           selectedConditions: Array.isArray(it.selectedConditions) ? it.selectedConditions : [],
           customCondition: it.customCondition || null,
-        }))
+          };
+        })
         : [
           {
             productName: "-",
@@ -422,6 +425,11 @@ export async function updateWarrantyHeader(req, res) {
         ? String(body.customerPhone).trim()
         : null;
 
+    const inputAddress =
+      body.customerAddress != null && String(body.customerAddress).trim() !== ""
+        ? String(body.customerAddress).trim()
+        : null;
+
     let inputName = null;
     if (body.customerName != null && String(body.customerName).trim() !== "") {
       inputName = String(body.customerName).trim();
@@ -471,6 +479,7 @@ export async function updateWarrantyHeader(req, res) {
         customerUserId,
         customerName,
         customerPhone,
+        customerAddress: inputAddress ?? header.customerAddress,
       },
       include: { items: true },
     });
@@ -482,7 +491,8 @@ export async function updateWarrantyHeader(req, res) {
         header.customerEmail !== updated.customerEmail ||
         header.customerUserId !== updated.customerUserId ||
         header.customerName !== updated.customerName ||
-        header.customerPhone !== updated.customerPhone;
+        header.customerPhone !== updated.customerPhone ||
+        header.customerAddress !== updated.customerAddress;
 
       if (changed) {
         const codeLabel = updated.code ? `#${updated.code}` : "ของคุณ";

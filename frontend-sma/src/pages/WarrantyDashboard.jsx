@@ -1084,6 +1084,82 @@ export default function WarrantyDashboard() {
         customCondition: item.customCondition || '',
       })
       setEditHeaderEmail(item?._headerEmail || '') // ✅ อีเมลลูกค้าระดับใบ
+      setEditHeaderAddress(item?._headerAddress || '') // ✅ ที่อยู่ลูกค้าระดับใบ (raw JSON/string)
+
+      // ✅ แปลงที่อยู่ลูกค้า (JSON หรือสตริง) เป็นโครงสร้างสำหรับตัวเลือกจังหวัด/อำเภอ/ตำบล
+      try {
+        let parsed = item?._headerAddress || ''
+        if (parsed && typeof parsed === 'string') {
+          try {
+            parsed = JSON.parse(parsed)
+          } catch {
+            // ถ้าไม่ใช่ JSON ปล่อยให้เป็นสตริงธรรมดา แสดงใน street อย่างเดียว
+            setEditCustomerAddressParts({
+              street: String(parsed || ''),
+              province: '',
+              district: '',
+              subdistrict: '',
+              postcode: '',
+            })
+            setEditCustomerDistrictOptions([])
+            setEditCustomerSubdistrictOptions([])
+            setWarrantyModalOpen(true)
+            return
+          }
+        }
+
+        const street = parsed?.street || parsed?.address || ''
+        const provinceCode = parsed?.province?.id || parsed?.province?.code || ''
+        const districtCode = parsed?.district?.id || parsed?.district?.code || ''
+        const subdistrictCode = parsed?.subdistrict?.id || parsed?.subdistrict?.code || ''
+        const postcode = parsed?.postcode || parsed?.subdistrict?.zipcode || ''
+
+        const baseParts = {
+          street: String(street || ''),
+          province: provinceCode ? String(provinceCode) : '',
+          district: districtCode ? String(districtCode) : '',
+          subdistrict: subdistrictCode ? String(subdistrictCode) : '',
+          postcode: postcode ? String(postcode) : '',
+        }
+
+        setEditCustomerAddressParts(baseParts)
+
+        // โหลดตัวเลือกอำเภอ/ตำบลตาม province/district ที่มีอยู่
+        ;(async () => {
+          try {
+            if (baseParts.province) {
+              if (districtsMap) {
+                const list = (districtsMap[String(baseParts.province)] || []).map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code }))
+                setEditCustomerDistrictOptions(list.sort((a, b) => a.name.localeCompare(b.name, 'th')))
+              } else {
+                await loadCustomerDistrictsForProvince(baseParts.province)
+                setEditCustomerDistrictOptions(customerDistrictOptions)
+              }
+            } else {
+              setEditCustomerDistrictOptions([])
+            }
+
+            if (baseParts.district) {
+              if (subdistrictsMap) {
+                const list = (subdistrictsMap[String(baseParts.district)] || []).map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip }))
+                setEditCustomerSubdistrictOptions(list.sort((a, b) => a.name.localeCompare(b.name, 'th')))
+              } else {
+                await loadCustomerSubdistrictsForDistrict(baseParts.district)
+                setEditCustomerSubdistrictOptions(customerSubdistrictOptions)
+              }
+            } else {
+              setEditCustomerSubdistrictOptions([])
+            }
+          } catch {
+            setEditCustomerDistrictOptions([])
+            setEditCustomerSubdistrictOptions([])
+          }
+        })()
+      } catch {
+        setEditCustomerAddressParts({ street: '', province: '', district: '', subdistrict: '', postcode: '' })
+        setEditCustomerDistrictOptions([])
+        setEditCustomerSubdistrictOptions([])
+      }
       setManualExpiry(false)
     }
 
@@ -1164,6 +1240,12 @@ export default function WarrantyDashboard() {
       setProfileSubmitting(false)
     }
   }
+
+  // ที่อยู่ลูกค้า (ระดับใบ) สำหรับโหมดแก้ไข
+  const [editHeaderAddress, setEditHeaderAddress] = useState('')
+  const [editCustomerAddressParts, setEditCustomerAddressParts] = useState({ street: '', province: '', district: '', subdistrict: '', postcode: '' })
+  const [editCustomerDistrictOptions, setEditCustomerDistrictOptions] = useState([])
+  const [editCustomerSubdistrictOptions, setEditCustomerSubdistrictOptions] = useState([])
 
   const handlePasswordSubmit = async (event) => {
     event.preventDefault()
@@ -1320,14 +1402,53 @@ export default function WarrantyDashboard() {
           headers: { 'Content-Type': 'multipart/form-data' },
         })
 
-        // ✅ ถ้าอีเมลลูกค้า (ระดับใบ) เปลี่ยน ให้แพตช์ header
-        if (selectedItem?._headerId && (editHeaderEmail.trim() !== (selectedItem?._headerEmail || ''))) {
+        // ✅ ถ้าอีเมลหรือที่อยู่ลูกค้า (ระดับใบ) เปลี่ยน ให้แพตช์ header
+        if (selectedItem?._headerId) {
+          const emailTrim = editHeaderEmail.trim()
+
+          // สร้าง JSON ที่อยู่ลูกค้ารูปแบบเดียวกับตอนสร้างใบ
+          let addrJson = ''
           try {
-            await api.patch(`/warranties/${selectedItem._headerId}`, {
-              customerEmail: editHeaderEmail.trim(),
-            })
-          } catch (e) {
-            console.warn('Patch warranty header email failed:', e?.response?.data || e?.message)
+            const prov = provincesList.find((p) => String(p.code) === String(editCustomerAddressParts.province))
+            const dist = editCustomerDistrictOptions.find((d) => String(d.code) === String(editCustomerAddressParts.district))
+            const sub = editCustomerSubdistrictOptions.find((s) => String(s.code) === String(editCustomerAddressParts.subdistrict))
+            const postcode = (editCustomerAddressParts.postcode || sub?.zipcode || '').toString()
+
+            const anyAddr = ['street', 'province', 'district', 'subdistrict', 'postcode'].some(
+              (k) => String(editCustomerAddressParts?.[k] || '').trim()
+            )
+
+            if (anyAddr) {
+              addrJson = JSON.stringify({
+                street: (editCustomerAddressParts.street || '').toString(),
+                province: editCustomerAddressParts.province
+                  ? { id: editCustomerAddressParts.province, name: prov?.name || '' }
+                  : '',
+                district: editCustomerAddressParts.district
+                  ? { id: editCustomerAddressParts.district, name: dist?.name || '' }
+                  : '',
+                subdistrict: editCustomerAddressParts.subdistrict
+                  ? { id: editCustomerAddressParts.subdistrict, name: sub?.name || '', zipcode: postcode }
+                  : '',
+                postcode,
+              })
+            }
+          } catch {
+            addrJson = editHeaderAddress.trim() || ''
+          }
+
+          const emailChanged = emailTrim !== (selectedItem?._headerEmail || '')
+          const addrChanged = addrJson !== (selectedItem?._headerAddress || '')
+
+          if (emailChanged || addrChanged) {
+            try {
+              await api.patch(`/warranties/${selectedItem._headerId}`, {
+                customerEmail: emailTrim || null,
+                customerAddress: addrJson || null,
+              })
+            } catch (e) {
+              console.warn('Patch warranty header info failed:', e?.response?.data || e?.message)
+            }
           }
         }
 
@@ -1682,7 +1803,7 @@ export default function WarrantyDashboard() {
                       return (
                         // 🟦 การ์ดใบรับประกัน: โทนสเลทแบบโค้ด1
                         <div key={header.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-5 shadow-md transition hover:shadow-lg min-w-0">
-                          <div className="flex items-start justify-between gap-4">
+                          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                             <div className="flex-1 min-w-0">
                               <div className="text-lg font-semibold text-slate-900 truncate" title={titleText}>{titleText}</div>
                               <div className="mt-2 grid gap-1 text-sm text-slate-700 md:grid-cols-2">
@@ -1693,12 +1814,12 @@ export default function WarrantyDashboard() {
                               </div>
                             </div>
 
-                            <div className="flex flex-col items-end gap-2">
+                            <div className="flex flex-col gap-2 items-stretch md:items-end">
                               <button
                                 type="button"
                                 onClick={() => header && handleDownloadPdf(header.id)}
                                 disabled={!header || downloadingPdfId === header.id}
-                                className={`h-10 min-w-0 sm:min-w-[96px] rounded-full border border-sky-300 px-4 py-2 text-sm font-semibold text-sky-700 bg-white transition ${
+                                className={`h-9 w-full rounded-full border border-sky-300 px-3 py-1.5 text-xs font-semibold text-sky-700 bg-white transition md:h-10 md:w-auto md:min-w-[96px] md:px-4 md:py-2 md:text-sm ${
                                   !header || downloadingPdfId === header.id
                                     ? 'cursor-not-allowed opacity-70'
                                     : 'hover:-translate-y-0.5 hover:bg-sky-50'
@@ -1706,11 +1827,11 @@ export default function WarrantyDashboard() {
                               >
                                 {downloadingPdfId === header.id ? 'กำลังดาวน์โหลด…' : 'PDF'}
                               </button>
-                              <div className="flex items-center justify-end gap-3">
+                              <div className="flex flex-wrap items-center justify-end gap-2 md:gap-3">
                                 <button
                                   type="button"
                                   onClick={() => setExpandedByHeader(prev => ({ ...prev, [header.id]: !prev[header.id] }))}
-                                  className="rounded-full border border-sky-300 px-4 py-2 text-xs font-semibold text-sky-700 bg-white hover:-translate-y-0.5 hover:bg-sky-50 transition"
+                                  className="w-full rounded-full border border-sky-300 px-3 py-1.5 text-xs font-semibold text-sky-700 bg-white hover:-translate-y-0.5 hover:bg-sky-50 transition md:w-auto md:px-4 md:py-2"
                                 >
                                   {expanded ? 'ซ่อนรายละเอียด' : 'รายละเอียดเพิ่มเติม'}
                                 </button>
@@ -1829,7 +1950,7 @@ export default function WarrantyDashboard() {
 
                                     <button
                                       type="button"
-                                      onClick={() => openWarrantyModal('edit', { ...it, _headerId: header.id, _headerEmail: header.customerEmail })} // ✅ ส่งข้อมูลใบมาด้วย
+                                      onClick={() => openWarrantyModal('edit', { ...it, _headerId: header.id, _headerEmail: header.customerEmail, _headerAddress: header.customerAddress })} // ✅ ส่งข้อมูลใบมาด้วย
                                       className="flex items-center gap-2 rounded-full border border-sky-500 px-4 py-2 text-sm font-medium text-sky-700 bg-white hover:-translate-y-0.5 hover:bg-sky-50 transition"
                                     >
                                       <span>แก้ไข</span>
@@ -2229,6 +2350,147 @@ export default function WarrantyDashboard() {
                           {editHeaderEmail || '-'}
                         </div>
                       </label>
+
+                      {/* ✅ ที่อยู่ลูกค้า (ระดับใบ) – ใช้ selector แบบเดียวกับหน้าสร้างใบรับประกัน */}
+                      <div className="mt-3">
+                        <div className="text-sm text-gray-600">ที่อยู่ลูกค้า</div>
+
+                        <div className="mt-1 rounded-2xl border border-sky-100 bg-white p-4">
+                          <div className="text-xs text-gray-500">เลขที่ / ซอย / ถนน</div>
+                          <textarea
+                            value={editCustomerAddressParts.street}
+                            onChange={(e) => {
+                              const v = e.target.value.replace(/[@#$%^&*?|><]/g, '')
+                              setEditCustomerAddressParts((p) => ({ ...p, street: v }))
+                              setEditHeaderAddress((prev) => prev) // keep raw; will rebuild on submit
+                            }}
+                            className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                            placeholder="เช่น 123/4 ซ.สุขุมวิท 11"
+                            rows={2}
+                          />
+
+                          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                            <div>
+                              <div className="text-xs text-gray-500">จังหวัด</div>
+                              <select
+                                value={editCustomerAddressParts.province}
+                                onChange={async (e) => {
+                                  const code = e.target.value
+                                  setEditCustomerAddressParts((p) => ({ ...p, province: code, district: '', subdistrict: '', postcode: '' }))
+                                  try {
+                                    await loadCustomerDistrictsForProvince(code)
+                                    if (code) {
+                                      if (districtsMap) {
+                                        const list = (districtsMap[String(code)] || []).map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code }))
+                                        setEditCustomerDistrictOptions(list.sort((a, b) => a.name.localeCompare(b.name, 'th')))
+                                      } else {
+                                        setEditCustomerDistrictOptions(customerDistrictOptions)
+                                      }
+                                    } else {
+                                      setEditCustomerDistrictOptions([])
+                                    }
+                                    setEditCustomerSubdistrictOptions([])
+                                  } catch {
+                                    setEditCustomerDistrictOptions([])
+                                    setEditCustomerSubdistrictOptions([])
+                                  }
+                                }}
+                                className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                              >
+                                <option value="">เลือกจังหวัด</option>
+                                {provincesList.length > 0
+                                  ? provincesList.map((p) => (
+                                    <option key={p.code} value={p.code}>
+                                      {p.name}
+                                    </option>
+                                  ))
+                                  : TH_PROVINCES.map((pv) => (
+                                    <option key={pv} value={pv}>
+                                      {pv}
+                                    </option>
+                                  ))}
+                              </select>
+                            </div>
+
+                            <div>
+                              <div className="text-xs text-gray-500">อำเภอ/เขต</div>
+                              <select
+                                value={editCustomerAddressParts.district}
+                                onChange={async (e) => {
+                                  const code = e.target.value
+                                  setEditCustomerAddressParts((p) => ({ ...p, district: code, subdistrict: '', postcode: '' }))
+                                  try {
+                                    await loadCustomerSubdistrictsForDistrict(code)
+                                    if (code) {
+                                      if (subdistrictsMap) {
+                                        const list = (subdistrictsMap[String(code)] || []).map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip }))
+                                        setEditCustomerSubdistrictOptions(list.sort((a, b) => a.name.localeCompare(b.name, 'th')))
+                                      } else {
+                                        setEditCustomerSubdistrictOptions(customerSubdistrictOptions)
+                                      }
+                                    } else {
+                                      setEditCustomerSubdistrictOptions([])
+                                    }
+                                  } catch {
+                                    setEditCustomerSubdistrictOptions([])
+                                  }
+                                }}
+                                disabled={!editCustomerAddressParts.province}
+                                className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none disabled:opacity-60"
+                              >
+                                <option value="">{editCustomerAddressParts.province ? 'เลือกอำเภอ/เขต' : 'เลือกจังหวัดก่อน'}</option>
+                                {editCustomerDistrictOptions.map((d) => (
+                                  <option key={d.code} value={d.code}>
+                                    {d.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div>
+                              <div className="text-xs text-gray-500">ตำบล/แขวง</div>
+                              <select
+                                value={editCustomerAddressParts.subdistrict}
+                                onChange={(e) => {
+                                  const code = e.target.value
+                                  const found = editCustomerSubdistrictOptions.find((s) => String(s.code) === String(code))
+                                  setEditCustomerAddressParts((p) => ({ ...p, subdistrict: code, postcode: found?.zipcode || '' }))
+                                }}
+                                disabled={!editCustomerAddressParts.district}
+                                className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none disabled:opacity-60"
+                              >
+                                <option value="">{editCustomerAddressParts.district ? 'เลือกตำบล/แขวง' : 'เลือกอำเภอก่อน'}</option>
+                                {editCustomerSubdistrictOptions.map((s) => (
+                                  <option key={s.code} value={s.code}>
+                                    {s.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                            <div>
+                              <div className="text-xs text-gray-500">รหัสไปรษณีย์</div>
+                              <input
+                                value={editCustomerAddressParts.postcode}
+                                onChange={(e) => {
+                                  const v = e.target.value.replace(/[^0-9]/g, '')
+                                  setEditCustomerAddressParts((p) => ({ ...p, postcode: v }))
+                                }}
+                                maxLength={5}
+                                className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                                placeholder="เช่น 10110"
+                                type="text"
+                                inputMode="numeric"
+                              />
+                            </div>
+                            <div className="flex items-end text-xs text-gray-400">
+                              ตัวอย่าง: เลขที่/ซอย/ถนน, ตำบล, อำเภอ, จังหวัด, รหัสไปรษณีย์
+                            </div>
+                          </div>
+                        </div>
+                      </div>
 
                       {/* ฟอร์มแก้ไขแบบ controlled + auto-expiry */}
                       <label className="mt-3 text-sm text-gray-600">

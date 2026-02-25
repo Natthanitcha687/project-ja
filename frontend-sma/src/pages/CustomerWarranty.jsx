@@ -486,7 +486,7 @@ export default function CustomerWarranty() {
               return (
                 <article key={w.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-md transition hover:shadow-lg">
                   <div className="p-5">
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                       <div className="flex-1 min-w-0">
                         {/* หัวการ์ด: รหัสใบรับประกัน เป็น Title หลัก */}
                         <div className="text-lg font-semibold text-slate-900 truncate">
@@ -506,11 +506,11 @@ export default function CustomerWarranty() {
                         </div>
                       </div>
 
-                      <div className="flex flex-col items-end gap-2">
+                      <div className="flex flex-col gap-2 items-stretch md:items-end">
                         <button
                           id="customer-step-pdf"
                           onClick={() => onDownloadPdf(w.id)}
-                          className="h-10 min-w-[96px] rounded-full border border-sky-300 px-4 py-2 text-sm font-semibold text-sky-700 bg-white hover:-translate-y-0.5 hover:bg-sky-50 transition"
+                          className="h-9 w-full rounded-full border border-sky-300 px-3 py-1.5 text-xs font-semibold text-sky-700 bg-white hover:-translate-y-0.5 hover:bg-sky-50 transition md:h-10 md:w-auto md:min-w-[96px] md:px-4 md:py-2 md:text-sm"
                         >
                           PDF
                         </button>
@@ -523,7 +523,7 @@ export default function CustomerWarranty() {
                               [w.id]: !prev[w.id],
                             }))
                           }
-                          className="rounded-full border border-sky-300 px-4 py-2 text-xs font-semibold text-sky-700 bg-white hover:-translate-y-0.5 hover:bg-sky-50 transition"
+                          className="w-full rounded-full border border-sky-300 px-3 py-1.5 text-xs font-semibold text-sky-700 bg-white hover:-translate-y-0.5 hover:bg-sky-50 transition md:w-auto md:px-4 md:py-2"
                         >
                           {expanded ? "ซ่อนรายละเอียด" : "รายละเอียดเพิ่มเติม"}
                         </button>
@@ -564,12 +564,14 @@ export default function CustomerWarranty() {
                                 </div>
 
                                 <div className="grid gap-2 text-sm text-slate-600 md:grid-cols-2">
-                                  <div>
-                                    Serial No.:{" "}
-                                    <span className="font-medium text-slate-900">
-                                      {it.serial || "-"}
-                                    </span>
-                                  </div>
+                                  {it.serial && (
+                                    <div>
+                                      Serial No.:{" "}
+                                      <span className="font-medium text-slate-900">
+                                        {it.serial}
+                                      </span>
+                                    </div>
+                                  )}
                                   <div>
                                     วันที่ซื้อ:{" "}
                                     <span className="font-medium text-slate-900">
