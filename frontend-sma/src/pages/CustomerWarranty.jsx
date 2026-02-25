@@ -155,6 +155,7 @@ export default function CustomerWarranty() {
     name: "",
     note: "",
   });
+  const [showEmptyOnboarding, setShowEmptyOnboarding] = useState(false);
   // ✅ Modal สำหรับแสดงเงื่อนไขการรับประกัน
   const [conditionsModal, setConditionsModal] = useState({ open: false, conditions: [], custom: '' });
   const PAGE_SIZE = 5;
@@ -177,6 +178,19 @@ export default function CustomerWarranty() {
       );
       const rows = r.data?.data || [];
       setData(rows);
+
+      try {
+        const ls = typeof window !== "undefined" ? window.localStorage : null;
+        const firstKey = "wp_seen_customer_empty_onboarding_v1";
+        const hasSeenEmpty = ls ? ls.getItem(firstKey) : null;
+        if ((rows || []).length === 0 && !hasSeenEmpty) {
+          setShowEmptyOnboarding(true);
+        } else {
+          setShowEmptyOnboarding(false);
+        }
+      } catch {
+        // ignore localStorage errors
+      }
 
       // ถ้ามี focusWarrantyId จากการคลิกแจ้งเตือน ให้เลื่อนไปหน้าที่มีใบรับประกันนั้นและขยายการ์ด
       if (focusWarrantyId) {
@@ -228,47 +242,6 @@ export default function CustomerWarranty() {
       const intervalMs = 250;
       let timer = null;
 
-      const steps = [
-        {
-          element: "#customer-step-stats",
-          intro:
-            "ดูสรุปจำนวนใบรับประกันทั้งหมดของคุณได้ที่นี่ พร้อมสถานะว่าใบไหนยังใช้งานได้ หรือใกล้หมดอายุ",
-          position: "bottom",
-        },
-        {
-          element: "#customer-step-list",
-          intro:
-            "เลื่อนดูรายการใบรับประกันทั้งหมดได้จากส่วนนี้ สามารถค้นหาและกรองตามสถานะได้",
-          position: "bottom",
-        },
-        {
-          element: "#customer-step-details",
-          intro:
-            "กดปุ่ม 'รายละเอียดเพิ่มเติม' บนการ์ดใบรับประกัน เพื่อดูข้อมูลสินค้า วันหมดอายุ และเงื่อนไขการรับประกันอย่างละเอียด",
-          position: "bottom",
-          tooltipClass: "custom-tooltip-left",
-        },
-        {
-          element: "#customer-step-pdf",
-          intro:
-            "หากต้องการเก็บเอกสารไว้เอง สามารถกดปุ่ม PDF บนการ์ดใบรับประกัน เพื่อดาวน์โหลดใบรับประกันเป็นไฟล์เก็บไว้ได้",
-          position: "bottom",
-          tooltipClass: "introjs-pdf-step custom-tooltip-left",
-        },
-        {
-          element: "#customer-step-complaint",
-          intro:
-            "หากสินค้ามีปัญหา สามารถกดปุ่ม 'แจ้งปัญหา' เพื่อส่งเรื่องถึงทีมงาน/ร้านค้าได้ทันที",
-          position: "bottom",
-        },
-        {
-          element: "#customer-step-bell",
-          intro:
-            "เมื่อมีการแก้ไขหรือยกเลิกใบรับประกัน ระบบจะแจ้งเตือนให้ทราบที่กระดิ่งตรงนี้ เสมอ",
-          position: "bottom",
-        },
-      ];
-
       const tryStart = () => {
         attempts += 1;
         const statsEl = document.querySelector("#customer-step-stats");
@@ -278,13 +251,59 @@ export default function CustomerWarranty() {
         const complaintEl = document.querySelector("#customer-step-complaint");
         const bellEl = document.querySelector("#customer-step-bell");
 
-        const ready =
-          statsEl &&
-          listEl &&
-          detailsEl &&
-          pdfEl &&
-          complaintEl &&
-          bellEl;
+        const steps = [];
+        if (statsEl) {
+          steps.push({
+            element: "#customer-step-stats",
+            intro:
+              "ดูสรุปจำนวนใบรับประกันทั้งหมดของคุณได้ที่นี่ พร้อมสถานะว่าใบไหนยังใช้งานได้ หรือใกล้หมดอายุ",
+            position: "bottom",
+          });
+        }
+        if (listEl) {
+          steps.push({
+            element: "#customer-step-list",
+            intro:
+              "เลื่อนดูรายการใบรับประกันทั้งหมดได้จากส่วนนี้ สามารถค้นหาและกรองตามสถานะได้",
+            position: "bottom",
+          });
+        }
+        if (detailsEl) {
+          steps.push({
+            element: "#customer-step-details",
+            intro:
+              "กดปุ่ม 'รายละเอียดเพิ่มเติม' บนการ์ดใบรับประกัน เพื่อดูข้อมูลสินค้า วันหมดอายุ และเงื่อนไขการรับประกันอย่างละเอียด",
+            position: "bottom",
+            tooltipClass: "custom-tooltip-left",
+          });
+        }
+        if (pdfEl) {
+          steps.push({
+            element: "#customer-step-pdf",
+            intro:
+              "หากต้องการเก็บเอกสารไว้เอง สามารถกดปุ่ม PDF บนการ์ดใบรับประกัน เพื่อดาวน์โหลดใบรับประกันเป็นไฟล์เก็บไว้ได้",
+            position: "bottom",
+            tooltipClass: "introjs-pdf-step custom-tooltip-left",
+          });
+        }
+        if (complaintEl) {
+          steps.push({
+            element: "#customer-step-complaint",
+            intro:
+              "หากสินค้ามีปัญหา สามารถกดปุ่ม 'แจ้งปัญหา' เพื่อส่งเรื่องถึงทีมงาน/ร้านค้าได้ทันที",
+            position: "bottom",
+          });
+        }
+        if (bellEl) {
+          steps.push({
+            element: "#customer-step-bell",
+            intro:
+              "เมื่อมีการแก้ไขหรือยกเลิกใบรับประกัน ระบบจะแจ้งเตือนให้ทราบที่กระดิ่งตรงนี้ เสมอ",
+            position: "bottom",
+          });
+        }
+
+        const ready = steps.length > 0;
         const timedOut = attempts >= maxAttempts;
 
         if (!ready && !timedOut) return;
@@ -470,7 +489,34 @@ export default function CustomerWarranty() {
             </div>
           )}
 
-          {!loading && !hasData && (
+          {!loading && !hasData && showEmptyOnboarding && (
+            <div className="rounded-2xl border border-sky-200 bg-sky-50/80 p-8 text-center text-slate-700">
+              <h2 className="text-base sm:text-lg font-semibold text-slate-900">
+                ยินดีต้อนรับสู่สมุดรับประกันออนไลน์ของคุณ
+              </h2>
+              <p className="mt-2 text-xs sm:text-sm text-slate-600 max-w-xl mx-auto">
+                ตอนนี้ยังไม่มีใบรับประกันผูกกับบัญชีนี้ ระบบจะแสดงใบรับประกันอัตโนมัติเมื่อร้านค้าบันทึกใบรับประกันด้วยอีเมลของคุณ
+                คุณสามารถกลับมาดูที่หน้านี้ได้ทุกเมื่อ และใช้ทัวร์แนะนำด้านบนเพื่อเรียนรู้วิธีใช้งาน
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    const ls = typeof window !== "undefined" ? window.localStorage : null;
+                    if (ls) ls.setItem("wp_seen_customer_empty_onboarding_v1", "1");
+                  } catch {
+                    // ignore
+                  }
+                  setShowEmptyOnboarding(false);
+                }}
+                className="mt-4 inline-flex items-center justify-center rounded-full bg-sky-600 px-5 py-2 text-xs sm:text-sm font-semibold text-white shadow hover:bg-sky-500"
+              >
+                เข้าใจแล้ว ซ่อนข้อความนี้
+              </button>
+            </div>
+          )}
+
+          {!loading && !hasData && !showEmptyOnboarding && (
             <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-500">
               ไม่พบข้อมูล
             </div>
