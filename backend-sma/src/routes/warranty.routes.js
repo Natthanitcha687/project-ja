@@ -7,6 +7,7 @@ import {
   downloadWarrantyPdf,
   getWarrantyHeader,
   updateWarrantyHeader, // ✅
+  deleteWarrantyHeader,
 } from "../controllers/warranty.controller.js";
 
 const router = Router();
@@ -32,6 +33,26 @@ router.use(requireAuth, requireVerified, requireStore);
  *       '401': { description: Unauthorized }
  */
 router.get("/:warrantyId", getWarrantyHeader);
+
+/**
+ * @openapi
+ * /warranties/{warrantyId}:
+ *   delete:
+ *     tags: [Warranty]
+ *     summary: ลบใบรับประกัน (และรายการภายใน) ของร้าน
+ *     description: ลบใบรับประกันที่ระบุโดย warrantyId เฉพาะของร้านที่เป็นเจ้าของเท่านั้น
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: warrantyId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       '200': { description: ลบสำเร็จ }
+ *       '401': { description: Unauthorized }
+ *       '404': { description: ไม่พบใบรับประกัน }
+ */
+router.delete('/:warrantyId', deleteWarrantyHeader);
 
 /**
  * @openapi

@@ -15,6 +15,7 @@ import WelcomeOnboardingModal from '../components/WelcomeOnboardingModal'
 import introJs from 'intro.js'
 import 'intro.js/introjs.css'
 import { getConditionsForStoreType } from '../data/warrantyConditionTemplates'
+import { FiTrash2 } from 'react-icons/fi'
 
 
 
@@ -583,6 +584,7 @@ export default function WarrantyDashboard() {
   const [warrantySubmitting, setWarrantySubmitting] = useState(false)
   const [warrantyModalError, setWarrantyModalError] = useState('')
   const [downloadingPdfId, setDownloadingPdfId] = useState(null)
+  const [deletingWarrantyId, setDeletingWarrantyId] = useState(null)
 
   // รูปใน modal edit
   const [warrantyImages, setWarrantyImages] = useState([])
@@ -616,7 +618,8 @@ export default function WarrantyDashboard() {
     duration_mode: 'preset',      // 'preset' | 'custom'
     custom_unit: 'months',        // 'months' | 'days'
     custom_value: '',             // จำนวนที่ผู้ใช้กรอกเอง
-    serial: seedSN || nextSerialFromList(warranties),
+    // serial จะให้ผู้ใช้กรอกเอง (optional)
+    serial: seedSN || '',
     lockedEmail: !!lockEmail,
     purchase_date: '',
     expiry_date: '',
@@ -627,7 +630,7 @@ export default function WarrantyDashboard() {
     note: '',
     images: [],
   })
-  // start empty; modal open will seed the first item with a generated serial
+  // start empty; modal open will seed the first item (ไม่ auto-generate serial แล้ว)
   const [createItems, setCreateItems] = useState([])
 
   // ✅ เพิ่มรายการใหม่พร้อมดึงอีเมลจาก "รายการที่ 1" ให้เลย
@@ -636,9 +639,8 @@ export default function WarrantyDashboard() {
       // pick first non-empty email to seed, if any
       const emailSeed = (prev || []).find(p => p.customer_email)?.customer_email || ''
       const addrSeed = (prev || []).find(p => p.customer_address)?.customer_address || ''
-      const seedSN = generateUniqueSerial(warranties, prev, storeIdResolved)
-      // newly added items are locked for email editing
-      return [...prev, { ...makeItem(seedSN, true), customer_email: emailSeed, customer_address: addrSeed }]
+      // newly added items are locked for email editing; serial เริ่มว่าง ให้ผู้ใช้กรอกเอง
+      return [...prev, { ...makeItem(null, true), customer_email: emailSeed, customer_address: addrSeed }]
     })
 
   const removeItem = (idx) => setCreateItems(prev => prev.filter((_, i) => i !== idx))
@@ -1048,9 +1050,8 @@ export default function WarrantyDashboard() {
     setWarrantyImages(item?.images || [])
 
     if (mode === 'create') {
-      // generate an initial unique serial for the first item
-      const seed = generateUniqueSerial(warranties, [], storeIdResolved)
-      setCreateItems([makeItem(seed, false)])
+      // เริ่มต้นรายการแรกโดยไม่สร้าง Serial ให้เอง (ให้ผู้ใช้กรอกเองได้)
+      setCreateItems([makeItem(null, false)])
       setEditForm(null)
       setManualExpiry(false)
       setEditHeaderEmail('')
@@ -1450,6 +1451,48 @@ export default function WarrantyDashboard() {
     }
   }
 
+  const handleDeleteWarranty = async (header) => {
+    if (!header?.id) return
+
+    const result = await Swal.fire({
+      title: 'ลบใบรับประกัน?',
+      text: `คุณต้องการลบใบรับประกันรหัส ${header.code || '-'} นี้หรือไม่? การลบไม่สามารถย้อนกลับได้`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'ลบ',
+      cancelButtonText: 'ยกเลิก',
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#6b7280',
+    })
+
+    if (!result.isConfirmed) return
+
+    try {
+      setDeletingWarrantyId(header.id)
+      await api.delete(`/warranties/${header.id}`)
+      await fetchDashboard()
+      Swal.fire({
+        icon: 'success',
+        title: 'ลบใบรับประกันสำเร็จ',
+        showConfirmButton: false,
+        timer: 2000,
+      })
+    } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: 'ไม่สามารถลบใบรับประกันได้',
+        text:
+          error?.response?.data?.error?.message ||
+          error?.response?.data?.message ||
+          'เกิดข้อผิดพลาดในการลบใบรับประกัน',
+        confirmButtonText: 'ปิด',
+        confirmButtonColor: '#e11d48',
+      })
+    } finally {
+      setDeletingWarrantyId(null)
+    }
+  }
+
   // อัปโหลด/ลบรูปที่ “รายการ”
   const handleImageUpload = async (files) => {
     if (!selectedItem?.id) return
@@ -1618,14 +1661,32 @@ export default function WarrantyDashboard() {
                   ) : (
                     paginatedHeaders.map(header => {
                       const expanded = !!expandedByHeader[header.id]
+                      const totalItems = header._filteredItems?.length ?? header.items?.length ?? 0
+                      const firstItemName =
+                        (Array.isArray(header._filteredItems) && header._filteredItems[0]?.productName) ||
+                        (Array.isArray(header.items) && header.items[0]?.productName) ||
+                        null
+
+                      const titleText = header.code
+                        ? `ใบรับประกัน #${header.code}`
+                        : 'ใบรับประกัน'
+
+                      const createdAtDate = header.createdAt ? new Date(header.createdAt) : null
+                      const createdLabel = createdAtDate
+                        ? createdAtDate.toLocaleDateString('th-TH', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                          })
+                        : '-'
                       return (
                         // 🟦 การ์ดใบรับประกัน: โทนสเลทแบบโค้ด1
                         <div key={header.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-5 shadow-md transition hover:shadow-lg min-w-0">
                           <div className="flex items-start justify-between gap-4">
                             <div className="flex-1 min-w-0">
-                              <div className="text-lg font-semibold text-slate-900">Warranty Card</div>
+                              <div className="text-lg font-semibold text-slate-900 truncate" title={titleText}>{titleText}</div>
                               <div className="mt-2 grid gap-1 text-sm text-slate-700 md:grid-cols-2">
-                                <div>รหัสใบรับประกัน: <span className="font-medium text-slate-900">{header.code || '-'}</span></div>
+                                <div>วันที่ออกใบรับประกัน: <span className="font-medium text-slate-900">{createdLabel}</span></div>
                                 <div>ลูกค้า: <span className="font-medium text-slate-900">{header.customerName || '-'}</span></div>
                                 <div>เบอร์โทรศัพท์: <span className="font-medium text-slate-900">{header.customerPhone || '-'}</span></div>
                                 <div>อีเมลลูกค้า: <span className="font-medium text-slate-900">{header.customerEmail || '-'}</span></div>
@@ -1637,18 +1698,36 @@ export default function WarrantyDashboard() {
                                 type="button"
                                 onClick={() => header && handleDownloadPdf(header.id)}
                                 disabled={!header || downloadingPdfId === header.id}
-                                className={`h-10 min-w-0 sm:min-w-[96px] rounded-full border border-sky-300 px-4 py-2 text-sm font-semibold text-sky-700 bg-white transition ${!header || downloadingPdfId === header.id ? 'cursor-not-allowed opacity-70' : 'hover:-translate-y-0.5 hover:bg-sky-50'
-                                  }`}
+                                className={`h-10 min-w-0 sm:min-w-[96px] rounded-full border border-sky-300 px-4 py-2 text-sm font-semibold text-sky-700 bg-white transition ${
+                                  !header || downloadingPdfId === header.id
+                                    ? 'cursor-not-allowed opacity-70'
+                                    : 'hover:-translate-y-0.5 hover:bg-sky-50'
+                                }`}
                               >
                                 {downloadingPdfId === header.id ? 'กำลังดาวน์โหลด…' : 'PDF'}
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => setExpandedByHeader(prev => ({ ...prev, [header.id]: !prev[header.id] }))}
-                                className="rounded-full border border-sky-300 px-4 py-2 text-xs font-semibold text-sky-700 bg-white hover:-translate-y-0.5 hover:bg-sky-50 transition"
-                              >
-                                {expanded ? 'ซ่อนรายละเอียด' : 'รายละเอียดเพิ่มเติม'}
-                              </button>
+                              <div className="flex items-center justify-end gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedByHeader(prev => ({ ...prev, [header.id]: !prev[header.id] }))}
+                                  className="rounded-full border border-sky-300 px-4 py-2 text-xs font-semibold text-sky-700 bg-white hover:-translate-y-0.5 hover:bg-sky-50 transition"
+                                >
+                                  {expanded ? 'ซ่อนรายละเอียด' : 'รายละเอียดเพิ่มเติม'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteWarranty(header)}
+                                  disabled={deletingWarrantyId === header.id}
+                                  className={`p-2 rounded-full transition-colors ${
+                                    deletingWarrantyId === header.id
+                                      ? 'cursor-not-allowed text-rose-300'
+                                      : 'text-rose-500 hover:bg-rose-50 hover:text-rose-600'
+                                  }`}
+                                  aria-label="ลบใบรับประกัน"
+                                >
+                                  <FiTrash2 className="h-5 w-5" />
+                                </button>
+                              </div>
                             </div>
                           </div>
 
@@ -2229,9 +2308,8 @@ export default function WarrantyDashboard() {
                             value={editForm?.serial ?? ''}
                             onChange={e => setEditForm(f => ({ ...f, serial: e.target.value }))}
                             className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
-                            placeholder="กรอก Serial No."
+                            placeholder="กรอก Serial No. (ไม่บังคับ)"
                             type="text"
-                            required
                           />
                         </label>
                       </div>
@@ -2667,12 +2745,10 @@ export default function WarrantyDashboard() {
                               Serial No.
                               <input
                                 value={it.serial}
-                                // serial is generated for create-mode items and should not be edited by default
-                                readOnly
-                                className="mt-1 w-full rounded-2xl border border-sky-100 bg-slate-50 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
-                                placeholder="เช่น 2410290301AB"
+                                onChange={e => patchItem(idx, { serial: e.target.value })}
+                                className="mt-1 w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                                placeholder="กรอก Serial No. (ไม่บังคับ)"
                                 type="text"
-                                required
                               />
                             </label>
                           </div>

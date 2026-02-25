@@ -26,6 +26,8 @@ export default function CustomerNavbar() {
     // "อัปเดตใบรับประกัน" (หัวใบ / รายการ)
     "warranty_header_updated",
     "warranty_updated",
+    // ลบใบรับประกัน (ต้องให้ลูกค้าเห็นกระดิ่งด้วย)
+    "warranty_deleted",
   ]);
 
   function getNotifType(n) {
@@ -362,6 +364,10 @@ export default function CustomerNavbar() {
                         const type = getNotifType(n);
                         const read = !!n.read;
 
+                        const isPlainInfoOnly =
+                          n?.data?.type === "warranty_deleted" ||
+                          n?.data?.warrantyId == null;
+
                         return (
                           <div
                             key={id}
@@ -373,25 +379,14 @@ export default function CustomerNavbar() {
                               : type === "expired"
                                 ? "bg-rose-50 text-rose-700"
                                 : "bg-white text-slate-700"
-                              } ${read ? "opacity-70" : "font-semibold"} ${id != null ? "cursor-pointer" : ""
+                              } ${read ? "opacity-70" : "font-semibold"} ${!isPlainInfoOnly && id != null ? "cursor-pointer" : ""
                               }`}
                           >
                             <div className="whitespace-normal break-words">
                               <div className="text-sm font-semibold">{title}</div>
                               {body ? (
-                                <div
-                                  className="text-xs text-slate-500 mt-1 break-words"
-                                >
-                                  {((n.data?.type === 'warranty_updated') || (body && body.includes('<div')))
-                                    ? (
-                                      <span className="text-sky-600 font-medium">
-                                        กรุณาตรวจสอบรายละเอียดเพิ่มเติมที่อีเมลของคุณ ✉️
-                                      </span>
-                                    )
-                                    : (
-                                      <div dangerouslySetInnerHTML={{ __html: body }} />
-                                    )
-                                  }
+                                <div className="text-xs text-slate-500 mt-1 break-words">
+                                  <div dangerouslySetInnerHTML={{ __html: body }} />
                                 </div>
                               ) : null}
                             </div>

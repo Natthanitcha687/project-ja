@@ -63,6 +63,16 @@ function pad3(n) {
   const s = String(n);
   return s.length >= 3 ? s : "0".repeat(3 - s.length) + s;
 }
+
+// สุ่มสตริงตัวเลข+ตัวอักษรพิมพ์ใหญ่ ความยาวที่กำหนด
+function randomAlnum(length = 7) {
+  const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  let out = "";
+  for (let i = 0; i < length; i++) {
+    out += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return out;
+}
 function daysBetween(a, b) {
   return Math.ceil((b.getTime() - a.getTime()) / (24 * 3600 * 1000));
 }
@@ -138,18 +148,12 @@ async function auditCreateWarrantyBestEffort(req, storeId, createdHeader) {
 }
 
 /* ==================== Allocate WR (per store) ==================== */
-async function nextWarrantyCodeForStore(tx, storeId, { prefix = "WR" } = {}) {
-  const last = await tx.warranty.findFirst({
-    where: { storeId, code: { startsWith: prefix } },
-    orderBy: { code: "desc" },
-    select: { code: true },
-  });
-  let lastNum = 0;
-  if (last?.code) {
-    const m = last.code.match(/\d+$/);
-    if (m) lastNum = Number(m[0]);
-  }
-  return `${prefix}${pad3(lastNum + 1)}`;
+// สร้างรหัสใบรับประกันแบบสุ่มรูปแบบ WR-XXXXXX (per store)
+// prefix สามารถส่งมาเป็น "WR" หรือ "WR-" ได้ จะถูก normalize ให้มีขีดกลางเสมอ
+async function nextWarrantyCodeForStore(_tx, _storeId, { prefix = "WR" } = {}) {
+  const normPrefix = prefix.endsWith("-") ? prefix : `${prefix}-`;
+  const body = randomAlnum(7); // 6-7 ตัวอักษร: ใช้ 7 เป็นค่ากลาง
+  return `${normPrefix}${body}`;
 }
 async function allocateWarrantyCode(tx, storeId, opts) {
   for (let i = 0; i < 5; i++) {

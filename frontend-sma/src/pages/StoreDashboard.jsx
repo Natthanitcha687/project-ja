@@ -230,6 +230,7 @@ export default function StoreDashboard() {
   const [pivotByStatus, setPivotByStatus] = useState(false)
   const [pivotByMonth, setPivotByMonth] = useState(false)
   const [pivotFields, setPivotFields] = useState({ customer: true, customerEmail: false, product: true, serial: false, expiryDate: true, createdAt: true })
+  const overviewTourStartedRef = useRef(false)
 
   // helpers: ensure date-only UTC handling and status derivation (matches CustomerWarranty)
   function dateOnlyUTC(v) {
@@ -467,7 +468,17 @@ export default function StoreDashboard() {
     },
     {
       element: '#step-overview-chart',
-      intro: 'ตรวจสอบจำนวนใบรับประกันที่สถานะปกติ, ใกล้หมดอายุ หรือหมดอายุแล้ว ได้อย่างรวดเร็ว',
+      intro: 'ตรวจสอบสถานะการรับประกันและกราฟภาพรวมรายเดือนได้อย่างรวดเร็ว',
+      position: 'bottom',
+    },
+    {
+      element: '#step-header-complaint',
+      intro: 'หากพบปัญหาการใช้งาน หรือต้องการความช่วยเหลือ สามารถกดแจ้งปัญหาได้ที่นี่',
+      position: 'bottom',
+    },
+    {
+      element: '#step-header-profile',
+      intro: 'จัดการข้อมูลร้านค้า แก้ไขโปรไฟล์ หรือออกจากระบบได้ที่เมนูนี้',
       position: 'bottom',
     },
   ], [])
@@ -514,14 +525,13 @@ export default function StoreDashboard() {
   useEffect(() => {
     if (loading) return
     if (!storeIdResolved) return
-    if (!warranties || warranties.length === 0) return
+    if (overviewTourStartedRef.current) return
 
     try {
-      const key = `wp_seen_tour_overview_${storeIdResolved}`
+      const key = `wp_seen_tour_overview_v2_${storeIdResolved}`
       const ls = typeof window !== 'undefined' ? window.localStorage : null
       const seen = ls ? ls.getItem(key) : null
       if (seen) return
-      if (ls) ls.setItem(key, '1')
 
       if (typeof window === 'undefined' || typeof document === 'undefined') return
 
@@ -534,32 +544,46 @@ export default function StoreDashboard() {
         attempts += 1
         const statsEl = document.querySelector('#step-overview-stats')
         const chartEl = document.querySelector('#step-overview-chart')
+        const complaintEl = document.querySelector('#step-header-complaint')
+        const profileEl = document.querySelector('#step-header-profile')
 
-        if ((statsEl && chartEl) || attempts >= maxAttempts) {
-          if (timer) window.clearInterval(timer)
+        const ready = statsEl && chartEl && complaintEl && profileEl
+        const timedOut = attempts >= maxAttempts
 
-          const intro = introJs()
-          intro.setOptions({
-            steps: overviewTourSteps,
-            showProgress: true,
-            showBullets: false,
-            exitOnOverlayClick: false,
-            overlayOpacity: 0.5,
-            nextLabel: 'ถัดไป',
-            prevLabel: 'ย้อนกลับ',
-            skipLabel: 'ข้าม',
-            doneLabel: 'เสร็จสิ้น',
-            showStepNumbers: false,
-          })
-          intro.start()
-        }
+        if (!ready && !timedOut) return
+
+        if (timer) window.clearInterval(timer)
+
+        // ถ้า DOM ยังไม่พร้อมครบ แม้หมดเวลาแล้ว ให้ยกเลิกโดยไม่ mark ว่าเคยดู
+        if (!ready) return
+
+        if (ls) ls.setItem(key, '1')
+        overviewTourStartedRef.current = true
+
+        const intro = introJs()
+        intro.setOptions({
+          steps: overviewTourSteps,
+          showProgress: true,
+          showBullets: false,
+          exitOnOverlayClick: false,
+          overlayOpacity: 0.5,
+          nextLabel: 'ถัดไป',
+          prevLabel: 'ย้อนกลับ',
+          skipLabel: 'ข้าม',
+          doneLabel: 'เสร็จสิ้น',
+          showStepNumbers: false,
+        })
+        intro.start()
       }
 
       timer = window.setInterval(tryStart, intervalMs)
+      return () => {
+        if (timer) window.clearInterval(timer)
+      }
     } catch (e) {
       // ignore
     }
-  }, [loading, storeIdResolved, warranties, overviewTourSteps])
+  }, [loading, storeIdResolved, overviewTourSteps])
 
   if (loading) return <div className="p-6 text-sm text-slate-500">กำลังโหลดข้อมูลสรุป...</div>
   if (error) return <div className="p-6 text-sm text-rose-600">{error}</div>
@@ -608,15 +632,10 @@ export default function StoreDashboard() {
           </div>
         ) : null}
 
-        {/* Title: ภาพรวม & การรับประกัน */}
-        <h2 className="text-2xl font-bold text-black mb-4" style={{ fontFamily: 'Inter, sans-serif' }}>
-          ภาพรวม & การรับประกัน
-        </h2>
-
         {/* Consolidated Stats & Donut Row */}
         <div
           id="step-overview-stats"
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6"
+          className="mt-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6"
         >
           {/* Card: ใบรับประกันทั้งหมด */}
           <div className="flex items-center gap-4 rounded-xl bg-white border border-black/10 p-4 shadow-sm">
@@ -783,17 +802,8 @@ export default function StoreDashboard() {
           const pageItems = allItems.slice(startIdx, startIdx + ITEMS_PER_PAGE)
 
           if (allItems.length === 0) {
-            return (
-              <div className="mt-6">
-                <EmptyStateCard
-                  title={warrantyCopy.emptyState.dashboard.title}
-                  message={warrantyCopy.emptyState.dashboard.message}
-                  primaryText={warrantyCopy.emptyState.dashboard.primary_cta}
-                  secondaryText={warrantyCopy.emptyState.dashboard.secondary_cta}
-                  onPrimary={() => navigate('/dashboard/warranty')}
-                />
-              </div>
-            )
+            // ไม่มีรายการที่ใกล้หมดอายุ/หมดอายุ แสดงหน้าเปล่าเฉยๆ (ไม่ต้องซ้ำ EmptyState ด้านบน)
+            return null
           }
 
           return (
