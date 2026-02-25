@@ -5,6 +5,7 @@ import { pathToFileURL } from "url";
 import { prisma } from "../db/prisma.js";
 import { sendError, sendSuccess } from "../utils/http.js";
 import { createAndPublish as createNotification } from "../routes/notifications.routes.js";
+import { sendMail } from "../config/mail.js";
 
 // ✅ NEW: ใช้เทมเพลต PDF หน้าใหม่ (ข้อ 1)
 import { drawWarrantyCardPage } from "../pdf/warrantyCardTemplate_figma.js";
@@ -484,8 +485,10 @@ export async function updateWarrantyHeader(req, res) {
         header.customerPhone !== updated.customerPhone;
 
       if (changed) {
-        const title = `มีการแก้ไขข้อมูลใบรับประกัน ${updated.code || ""}`;
-        const bodyText = `ข้อมูลใบรับประกัน ${updated.code || ""} ถูกแก้ไข`;
+        const codeLabel = updated.code ? `#${updated.code}` : "ของคุณ";
+        const title = `[แก้ไขข้อมูล] ใบรับประกัน ${codeLabel}`;
+        const bodyText =
+          "รายละเอียดใบรับประกันของคุณได้รับการอัปเดตเรียบร้อยแล้ว สามารถตรวจสอบข้อมูลล่าสุดได้ในระบบ";
 
         // ✅ ตาม requirement ใหม่: "ร้าน" ไม่ต้องได้รับแจ้งเตือนประเภทนี้อีก
         // (คงไว้เฉพาะ expiry_daily_summary และ complaint_created ที่อื่น)
@@ -521,3 +524,177 @@ export async function updateWarrantyHeader(req, res) {
     return sendError(res, 500, "ไม่สามารถแก้ไขข้อมูลใบได้");
   }
 }
+
+/**
+ * DELETE /warranties/:warrantyId
+ * ลบใบรับประกัน (รวมทั้งรายการภายใน) สำหรับร้านเจ้าของเท่านั้น
+ */
+export async function deleteWarrantyHeader(req, res) {
+  const storeId = currentStoreId(req);
+  if (storeId == null) {
+    return sendError(res, 401, "ต้องเข้าสู่ระบบร้านค้าก่อน");
+  }
+
+  try {
+    const warrantyId = String(req.params.warrantyId);
+
+    const header = await prisma.warranty.findUnique({
+      where: { id: warrantyId },
+      include: {
+        items: { orderBy: { createdAt: "asc" }, take: 1 },
+        store: { include: { storeProfile: true } },
+      },
+    });
+    if (!header || header.storeId !== storeId) {
+      return sendError(res, 404, "ไม่พบใบรับประกัน");
+    }
+
+    const code = header.code || "";
+    const customerEmail = header.customerEmail || null;
+    const customerName = header.customerName || "ลูกค้า";
+
+    const storeName =
+      header.store?.storeProfile?.storeName ||
+      header.store?.name ||
+      "ร้านของเรา";
+
+    const storePhone =
+      header.store?.storeProfile?.phone ||
+      header.store?.phone ||
+      "-";
+
+    const firstProductName =
+      (Array.isArray(header.items) && header.items[0]?.productName) ||
+      "สินค้า";
+
+    // หา userId ฝั่งลูกค้าจาก customerUserId หรือ email (กรณีเดิมยังไม่ผูก)
+    let customerUserIdForNotify = header.customerUserId || null;
+    if (!customerUserIdForNotify && customerEmail) {
+      try {
+        const foundUser = await prisma.user.findFirst({
+          where: {
+            email: { equals: String(customerEmail).trim(), mode: "insensitive" },
+          },
+          select: { id: true },
+        });
+        if (foundUser) {
+          customerUserIdForNotify = foundUser.id;
+        }
+      } catch (lookupErr) {
+        console.warn(
+          "deleteWarrantyHeader: lookup customer by email failed (ignored)",
+          lookupErr?.message || lookupErr
+        );
+      }
+    }
+    console.log("Customer ID for Notify:", customerUserIdForNotify);
+
+    // In-app notification ฝั่งร้านค้า + ลูกค้า (กระดิ่ง)
+    try {
+      // ฝั่งร้านค้า
+      await createNotification({
+        prisma,
+        attrs: {
+          storeId: header.storeId,
+          title: code
+            ? `ลบใบรับประกันรหัส ${code} เรียบร้อยแล้ว`
+            : "ลบใบรับประกันเรียบร้อยแล้ว",
+          body: `ได้ทำการลบใบรับประกันรหัส ${code || "-"} ของคุณ ${
+            customerName || ""
+          } เรียบร้อยแล้ว`,
+          // ไม่ผูก warrantyId กับแจ้งเตือน เพื่อกันปัญหาอ้างอิงใบรับประกันที่ถูกลบแล้ว
+          data: { type: "warranty_deleted" },
+          sendEmail: false,
+        },
+      });
+
+      // ฝั่งลูกค้า (In-app notification กระดิ่ง)
+      if (customerUserIdForNotify) {
+        const customerTitle = `[แจ้งยกเลิก] ใบรับประกันรหัส ${code || "-"} ถูกลบออกจากระบบ`;
+        const customerBody = `ใบรับประกันสินค้า ${firstProductName} ของคุณได้ถูกยกเลิกโดยร้านค้า ${storeName} เรียบร้อยแล้ว หากมีข้อสงสัยโปรดติดต่อร้านค้าโดยตรง`;
+
+        await createNotification({
+          prisma,
+          attrs: {
+            userId: customerUserIdForNotify,
+            title: customerTitle,
+            body: customerBody,
+            // ไม่ผูก warrantyId เพื่อหลีกเลี่ยงปัญหากับใบรับประกันที่ถูกลบไปแล้ว
+            data: { type: "warranty_deleted" },
+            sendEmail: false,
+          },
+        });
+      }
+    } catch (e) {
+      console.warn(
+        "deleteWarrantyHeader: store/customer notification failed (ignored)",
+        e?.message || e
+      );
+    }
+
+    // ส่งอีเมลแจ้งลูกค้า (ใช้ email โดยตรง แม้ไม่มี customerUserId)
+    if (customerEmail) {
+      const subject = code
+        ? `แจ้งยกเลิกใบรับประกันสินค้า รหัส ${code}`
+        : "แจ้งยกเลิกใบรับประกันสินค้า";
+
+      const safeName = customerName || "ลูกค้า";
+
+      const baseFrontend =
+        process.env.FRONTEND_URL ||
+        process.env.CLIENT_URL ||
+        "http://localhost:5173";
+      const trimmedBase = baseFrontend.replace(/\/+$/, "");
+      const customerWarrantiesUrl = `${trimmedBase}/customer/warranties`;
+
+      const html = `
+        <div style="font-family: system-ui, Arial, sans-serif; background:#f3f4f6; padding:24px;">
+          <div style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:16px;padding:24px 28px;border:1px solid #e5e7eb;">
+            <h2 style="margin:0 0 12px 0;font-size:20px;color:#111827;">แจ้งยกเลิกใบรับประกันสินค้า</h2>
+            <p style="margin:0 0 8px 0;">เรียนคุณ ${safeName},</p>
+            <p style="margin:0 0 12px 0;">
+              ทางร้าน <b>${storeName}</b> ขอแจ้งให้ทราบว่า ใบรับประกันสินค้ารหัส
+              <b>${code || "-"}</b>
+              (รายการสินค้า: <b>${firstProductName}</b>) ของท่าน ได้ถูกยกเลิกออกจากระบบเรียบร้อยแล้ว
+            </p>
+            <p style="margin:0 0 20px 0;">คุณยังสามารถเข้าสู่ระบบเพื่อตรวจสอบสถานะการรับประกันอื่น ๆ ได้ที่ปุ่มด้านล่าง</p>
+
+            <div style="text-align:center;margin:24px 0;">
+              <a href="${customerWarrantiesUrl}" style="display:inline-block;background:#2563eb;color:#ffffff;padding:10px 20px;border-radius:999px;text-decoration:none;font-weight:600;">
+                ตรวจสอบสถานะการรับประกัน
+              </a>
+            </div>
+
+            <p style="margin:0 0 12px 0;font-size:12px;color:#6b7280;">
+              ถ้าปุ่มกดไม่ได้ ให้คัดลอกลิงก์นี้ไปวางในเบราว์เซอร์:<br />
+              <a href="${customerWarrantiesUrl}" style="color:#2563eb;">${customerWarrantiesUrl}</a>
+            </p>
+
+            <p style="margin:16px 0 0 0;">หากมีข้อสงสัยเพิ่มเติมสามารถติดต่อทางร้าน <b>${storeName}</b> (เบอร์ติดต่อ: <b>${storePhone}</b>)</p>
+          </div>
+        </div>
+      `;
+
+      try {
+        await sendMail({
+          to: customerEmail,
+          subject,
+          html,
+          text: `เรียนคุณ ${safeName}, ทางร้าน ${storeName} ขอแจ้งให้ทราบว่า ใบรับประกันสินค้ารหัส ${
+            code || "-"
+          } (รายการสินค้า: ${firstProductName}) ของท่าน ได้ถูกยกเลิกออกจากระบบแล้ว สามารถตรวจสอบสถานะการรับประกันได้ที่ ${customerWarrantiesUrl}`,
+        });
+      } catch (e) {
+        console.warn("deleteWarrantyHeader: sendMail to customer failed (ignored)", e?.message || e);
+      }
+    }
+
+    await prisma.warranty.delete({ where: { id: warrantyId } });
+
+    return sendSuccess(res, { ok: true });
+  } catch (e) {
+    console.error("deleteWarrantyHeader error", e);
+    return sendError(res, 500, "ลบใบรับประกันไม่สำเร็จ");
+  }
+}
+

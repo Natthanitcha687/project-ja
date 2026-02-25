@@ -168,12 +168,14 @@ export async function createAndPublish({ prisma, attrs }) {
       'complaint_created',
       'warranty_header_updated', // ร้านอัปเดตใบ (หัวใบ)
       'warranty_updated', // เผื่อมีการใช้ชื่อรวมในอนาคต
+      'warranty_deleted', // ลบใบรับประกัน
     ])
 
-    // ✅ STORE allowlist (เอาเท่าที่ต้องการ: summary รายวัน + (option) complaint_created)
+    // ✅ STORE allowlist (เอาเท่าที่ต้องการ: summary รายวัน + (option) complaint_created + warranty_deleted)
     const allowTypesStore = new Set([
       'expiry_daily_summary',
       'complaint_created',
+      'warranty_deleted',
     ])
 
     if (sendEmail === true) {

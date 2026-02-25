@@ -6,7 +6,8 @@ export default function SimpleDonut({ counts = {}, size = 120, thickness = 18 })
   const active = Number(counts.active || 0)
   const nearing = Number(counts.nearing || 0)
   const expired = Number(counts.expired || 0)
-  const total = Math.max(1, active + nearing + expired)
+  const rawTotal = active + nearing + expired
+  const drawTotal = rawTotal > 0 ? rawTotal : 1
 
   const radius = (size - thickness) / 2
   const circumference = 2 * Math.PI * radius
@@ -24,7 +25,7 @@ export default function SimpleDonut({ counts = {}, size = 120, thickness = 18 })
   let offset = 0
   const segProps = segments
     .map((s) => {
-    const fraction = s.value / total
+    const fraction = s.value / drawTotal
     const dash = fraction * circumference
     const prop = { dash, offset, color: s.color }
     offset += dash
@@ -65,7 +66,7 @@ export default function SimpleDonut({ counts = {}, size = 120, thickness = 18 })
       <circle cx={cx} cy={cy} r={Math.max(0, radius - thickness / 2)} fill="#ffffff" />
 
       {/* center text */}
-      <text x={cx} y={cy - 4} textAnchor="middle" fontSize="14" fill="#0F172A" fontWeight="700">{total}</text>
+  <text x={cx} y={cy - 4} textAnchor="middle" fontSize="14" fill="#0F172A" fontWeight="700">{Math.max(0, rawTotal)}</text>
       <text x={cx} y={cy + 12} textAnchor="middle" fontSize="10" fill="#64748B">รวมรายการ</text>
     </svg>
   )

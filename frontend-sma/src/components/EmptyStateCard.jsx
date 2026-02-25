@@ -2,7 +2,7 @@ import React from 'react'
 
 export default function EmptyStateCard({ title, message, primaryText, secondaryText, onPrimary }) {
   return (
-    <div className="max-w-3xl mx-auto mt-8 p-6 bg-white rounded-xl shadow-md border border-gray-100 text-center">
+    <div className="max-w-3xl mx-auto mt-8 p-6 bg-white rounded-xl shadow-md border border-gray-100 text-center wp-tour-empty-state">
       <div className="flex items-center justify-center mb-4">
         <div className="bg-green-100 text-green-700 rounded-full p-4">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">

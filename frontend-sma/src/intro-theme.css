@@ -1,0 +1,103 @@
+/* Modern minimal Intro.js theme matching SMA brand */
+
+/* Tooltip container */
+.introjs-tooltip {
+  border-radius: 12px;
+  border: none;
+  padding: 1rem 1.25rem;
+  background: #ffffff;
+  box-shadow: 0 20px 45px -18px rgba(15, 23, 42, 0.35);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.introjs-tooltip-header {
+  border-bottom: none;
+  padding-bottom: 0.25rem;
+}
+
+.introjs-tooltip-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.introjs-tooltiptext {
+  margin-top: 0.25rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #1f2933;
+}
+
+/* Progress bar */
+.introjs-progress {
+  margin-top: 0.6rem;
+  height: 4px;
+  border-radius: 9999px;
+  background-color: #e5e7eb;
+}
+
+.introjs-progressbar {
+  height: 100%;
+  border-radius: 9999px;
+  background-color: #0284c7;
+}
+
+/* Buttons base */
+.introjs-tooltipbuttons {
+  margin-top: 0.9rem;
+}
+
+.introjs-button {
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 0.4rem 0.95rem;
+  border-width: 0;
+  box-shadow: none;
+  text-shadow: none;
+}
+
+/* Primary buttons: next / done */
+.introjs-nextbutton,
+.introjs-donebutton {
+  background-color: #0284c7;
+  color: #ffffff;
+}
+
+.introjs-nextbutton:hover,
+.introjs-donebutton:hover {
+  background-color: #0369a1;
+}
+
+/* Secondary / ghost buttons: prev / skip */
+.introjs-prevbutton,
+.introjs-skipbutton {
+  background-color: transparent;
+  color: #4b5563;
+}
+
+.introjs-prevbutton:hover,
+.introjs-skipbutton:hover {
+  background-color: rgba(15, 23, 42, 0.04);
+}
+
+/* Arrow color to match tooltip background */
+.introjs-arrow {
+  border-color: transparent;
+}
+
+.introjs-arrow.top {
+  border-bottom-color: #ffffff;
+}
+
+.introjs-arrow.bottom {
+  border-top-color: #ffffff;
+}
+
+.introjs-arrow.left {
+  border-right-color: #ffffff;
+}
+
+.introjs-arrow.right {
+  border-left-color: #ffffff;
+}

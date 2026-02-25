@@ -1,7 +1,10 @@
 // frontend-sma/src/pages/CustomerWarranty.jsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../store/auth";
+import introJs from "intro.js";
+import "intro.js/introjs.css";
 // CustomerProfileModal removed here because top-level CustomerNavbar provides profile UI
 
 /* =======================
@@ -131,6 +134,10 @@ function StatusPill({ code }) {
  * ======================= */
 export default function CustomerWarranty() {
   const { user } = useAuth();
+  const location = useLocation();
+  const [focusWarrantyId, setFocusWarrantyId] = useState(
+    () => location.state?.focusWarrantyId || null
+  );
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [totals, setTotals] = useState({
@@ -152,6 +159,7 @@ export default function CustomerWarranty() {
   const [conditionsModal, setConditionsModal] = useState({ open: false, conditions: [], custom: '' });
   const PAGE_SIZE = 5;
   const [page, setPage] = useState(1);
+  const tourStartedRef = useRef(false);
 
   async function fetchData(opts = {}) {
     setLoading(true);
@@ -169,12 +177,30 @@ export default function CustomerWarranty() {
       );
       const rows = r.data?.data || [];
       setData(rows);
-      setPage(1);
-      setExpandedByHeader((prev) => {
-        const next = {};
-        for (const w of rows) if (prev[w.id]) next[w.id] = true;
-        return next;
-      });
+
+      // ถ้ามี focusWarrantyId จากการคลิกแจ้งเตือน ให้เลื่อนไปหน้าที่มีใบรับประกันนั้นและขยายการ์ด
+      if (focusWarrantyId) {
+        const idx = rows.findIndex(
+          (w) => String(w.id) === String(focusWarrantyId)
+        );
+        if (idx !== -1) {
+          const targetPage = Math.floor(idx / PAGE_SIZE) + 1;
+          setPage(targetPage);
+          setExpandedByHeader((prev) => ({
+            ...prev,
+            [focusWarrantyId]: true,
+          }));
+        }
+        // ใช้ครั้งเดียวต่อการนำทางจากแจ้งเตือน
+        setFocusWarrantyId(null);
+      } else {
+        setPage(1);
+        setExpandedByHeader((prev) => {
+          const next = {};
+          for (const w of rows) if (prev[w.id]) next[w.id] = true;
+          return next;
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -183,6 +209,118 @@ export default function CustomerWarranty() {
   useEffect(() => {
     fetchData();
   }, [filter]);
+
+  // Intro.js customer onboarding tour (run once per browser)
+  useEffect(() => {
+    if (loading) return;
+    if (tourStartedRef.current) return;
+
+    try {
+      const ls = typeof window !== "undefined" ? window.localStorage : null;
+      const key = "wp_seen_tour_customer_v1";
+      const seen = ls ? ls.getItem(key) : null;
+      if (seen) return;
+
+      if (typeof window === "undefined" || typeof document === "undefined") return;
+
+      let attempts = 0;
+      const maxAttempts = 20; // ~5 วินาที
+      const intervalMs = 250;
+      let timer = null;
+
+      const steps = [
+        {
+          element: "#customer-step-stats",
+          intro:
+            "ดูสรุปจำนวนใบรับประกันทั้งหมดของคุณได้ที่นี่ พร้อมสถานะว่าใบไหนยังใช้งานได้ หรือใกล้หมดอายุ",
+          position: "bottom",
+        },
+        {
+          element: "#customer-step-list",
+          intro:
+            "เลื่อนดูรายการใบรับประกันทั้งหมดได้จากส่วนนี้ สามารถค้นหาและกรองตามสถานะได้",
+          position: "bottom",
+        },
+        {
+          element: "#customer-step-details",
+          intro:
+            "กดปุ่ม 'รายละเอียดเพิ่มเติม' บนการ์ดใบรับประกัน เพื่อดูข้อมูลสินค้า วันหมดอายุ และเงื่อนไขการรับประกันอย่างละเอียด",
+          position: "bottom",
+          tooltipClass: "custom-tooltip-left",
+        },
+        {
+          element: "#customer-step-pdf",
+          intro:
+            "หากต้องการเก็บเอกสารไว้เอง สามารถกดปุ่ม PDF บนการ์ดใบรับประกัน เพื่อดาวน์โหลดใบรับประกันเป็นไฟล์เก็บไว้ได้",
+          position: "bottom",
+          tooltipClass: "introjs-pdf-step custom-tooltip-left",
+        },
+        {
+          element: "#customer-step-complaint",
+          intro:
+            "หากสินค้ามีปัญหา สามารถกดปุ่ม 'แจ้งปัญหา' เพื่อส่งเรื่องถึงทีมงาน/ร้านค้าได้ทันที",
+          position: "bottom",
+        },
+        {
+          element: "#customer-step-bell",
+          intro:
+            "เมื่อมีการแก้ไขหรือยกเลิกใบรับประกัน ระบบจะแจ้งเตือนให้ทราบที่กระดิ่งตรงนี้ เสมอ",
+          position: "bottom",
+        },
+      ];
+
+      const tryStart = () => {
+        attempts += 1;
+        const statsEl = document.querySelector("#customer-step-stats");
+        const listEl = document.querySelector("#customer-step-list");
+        const detailsEl = document.querySelector("#customer-step-details");
+        const pdfEl = document.querySelector("#customer-step-pdf");
+        const complaintEl = document.querySelector("#customer-step-complaint");
+        const bellEl = document.querySelector("#customer-step-bell");
+
+        const ready =
+          statsEl &&
+          listEl &&
+          detailsEl &&
+          pdfEl &&
+          complaintEl &&
+          bellEl;
+        const timedOut = attempts >= maxAttempts;
+
+        if (!ready && !timedOut) return;
+
+        if (timer) window.clearInterval(timer);
+        if (!ready) return;
+
+        tourStartedRef.current = true;
+        if (ls) ls.setItem(key, "1");
+
+        const intro = introJs();
+        intro.setOptions({
+          steps,
+          showProgress: true,
+          showBullets: false,
+          exitOnOverlayClick: false,
+          overlayOpacity: 0.5,
+          nextLabel: "ถัดไป",
+          prevLabel: "ย้อนกลับ",
+          skipLabel: "ข้าม",
+          doneLabel: "เสร็จสิ้น",
+          showStepNumbers: false,
+          scrollTo: "element",
+          scrollToElement: true,
+        });
+        intro.start();
+      };
+
+      timer = window.setInterval(tryStart, intervalMs);
+      return () => {
+        if (timer) window.clearInterval(timer);
+      };
+    } catch (e) {
+      // ignore
+    }
+  }, [loading]);
 
   // no per-page profile dropdown here — CustomerNavbar handles profile menu/modal
 
@@ -266,15 +404,21 @@ export default function CustomerWarranty() {
         </div>
 
         {/* Summary */}
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div
+          id="customer-step-stats"
+          className="grid grid-cols-2 gap-3 md:grid-cols-4"
+        >
           <StatBox value={totals.all} label="ใบรับประกันทั้งหมด" colorClass="bg-slate-900" />
           <StatBox value={totals.active} label="ใช้งานได้" colorClass="bg-emerald-500" />
           <StatBox value={totals.nearing_expiration} label="ใกล้หมดอายุ" colorClass="bg-amber-400" />
           <StatBox value={totals.expired} label="หมดอายุ" colorClass="bg-rose-500" />
         </div>
 
-        {/* Search + Filters */}
-        <div className="mt-6 flex flex-col items-stretch gap-3 md:flex-row md:items-center">
+        {/* Search + Filters / list controls */}
+        <div
+          id="customer-step-list"
+          className="mt-6 flex flex-col items-stretch gap-3 md:flex-row md:items-center"
+        >
           <div className="flex-1">
             <div className="flex items-center rounded-2xl bg-white px-4 py-2 shadow ring-1 ring-black/5">
               <span className="text-slate-400">🔍</span>
@@ -344,18 +488,19 @@ export default function CustomerWarranty() {
                   <div className="p-5">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
-                        <div className="text-lg font-semibold text-slate-900">Warranty Card</div>
-                        <div className="mt-2 grid gap-1 text-sm text-slate-700 md:grid-cols-2">
+                        {/* หัวการ์ด: รหัสใบรับประกัน เป็น Title หลัก */}
+                        <div className="text-lg font-semibold text-slate-900 truncate">
+                          รหัสใบรับประกัน #{w.code}
+                        </div>
+
+                        {/* เนื้อหาหลัก: ชื่อร้านค้า + เบอร์โทรศัพท์ */}
+                        <div className="mt-3 text-sm text-slate-700 space-y-1">
                           <div className="truncate">
-                            รหัสใบรับประกัน:{" "}
-                            <span className="font-medium text-slate-900">{w.code}</span>
-                          </div>
-                          <div className="truncate">
-                            ร้านค้า:{" "}
+                            ร้านค้า: {" "}
                             <span className="font-medium text-slate-900">{storeName}</span>
                           </div>
                           <div className="truncate">
-                            เบอร์โทรศัพท์:{" "}
+                            เบอร์โทรศัพท์: {" "}
                             <span className="font-medium text-slate-900">{phone}</span>
                           </div>
                         </div>
@@ -363,12 +508,14 @@ export default function CustomerWarranty() {
 
                       <div className="flex flex-col items-end gap-2">
                         <button
+                          id="customer-step-pdf"
                           onClick={() => onDownloadPdf(w.id)}
                           className="h-10 min-w-[96px] rounded-full border border-sky-300 px-4 py-2 text-sm font-semibold text-sky-700 bg-white hover:-translate-y-0.5 hover:bg-sky-50 transition"
                         >
                           PDF
                         </button>
                         <button
+                          id="customer-step-details"
                           type="button"
                           onClick={() =>
                             setExpandedByHeader((prev) => ({

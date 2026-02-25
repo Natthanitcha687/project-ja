@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation } from 'react-router-dom'
-import { useNavigate, Link } from 'react-router-dom'
+import { useLocation, useNavigate, Link } from 'react-router-dom'
 import { api, API_URL, getToken } from '../lib/api'
 import { useAuth } from '../store/auth'
 import StoreTabs from '../components/StoreTabs'
@@ -9,8 +8,9 @@ import BarChart from '../components/BarChart'
 import ExtendWarrantyModal from '../components/ExtendWarrantyModal'
 import AppLogo from '../components/AppLogo'
 import EmptyStateCard from '../components/EmptyStateCard'
-import WelcomeOnboardingModal from '../components/WelcomeOnboardingModal'
 import warrantyCopy from '../lib/warranty_copy.json'
+import introJs from 'intro.js'
+import 'intro.js/introjs.css'
 
 export default function StoreDashboard() {
   const { user, logout } = useAuth() // ✅ มี logout เหมือนอีกหน้า
@@ -230,6 +230,7 @@ export default function StoreDashboard() {
   const [pivotByStatus, setPivotByStatus] = useState(false)
   const [pivotByMonth, setPivotByMonth] = useState(false)
   const [pivotFields, setPivotFields] = useState({ customer: true, customerEmail: false, product: true, serial: false, expiryDate: true, createdAt: true })
+  const overviewTourStartedRef = useRef(false)
 
   // helpers: ensure date-only UTC handling and status derivation (matches CustomerWarranty)
   function dateOnlyUTC(v) {
@@ -387,26 +388,7 @@ export default function StoreDashboard() {
     return days <= 7
   }, [user])
 
-  // show welcome modal only once per user session (or based on localStorage)
-  const [showWelcomeModal, setShowWelcomeModal] = useState(false)
-  useEffect(() => {
-    try {
-      // TEMP: clear any existing seen flags so modal shows for testing/demo
-      if (typeof window !== 'undefined') {
-        Object.keys(window.localStorage).forEach((k) => {
-          if (k && k.startsWith('wp_seen_welcome_')) window.localStorage.removeItem(k)
-        })
-      }
-      const key = `wp_seen_welcome_${storeIdResolved}`
-      const seen = typeof window !== 'undefined' ? window.localStorage.getItem(key) : null
-      if (isNewAccount && !seen) {
-        setShowWelcomeModal(true)
-        if (typeof window !== 'undefined') window.localStorage.setItem(key, '1')
-      }
-    } catch (e) {
-      // ignore
-    }
-  }, [isNewAccount, storeIdResolved])
+  // Welcome onboarding modal ถูกย้ายไปหน้า WarrantyDashboard (default page)
 
   // ---------- ออกจากระบบ (ให้เหมือนหน้า Warranty) ----------
   const handleLogout = () => {
@@ -477,6 +459,32 @@ export default function StoreDashboard() {
     }).reverse()
   }, [filteredWarranties])
 
+  // ---------- Intro.js tour สำหรับแท็บ "ภาพรวม" ----------
+  const overviewTourSteps = useMemo(() => [
+    {
+      element: '#step-overview-stats',
+      intro: 'ดูสรุปสถิติทั้งหมดของร้านคุณได้ที่นี่ เพื่อติดตามการเติบโต',
+      position: 'bottom',
+      tooltipClass: 'custom-tooltip-left',
+    },
+    {
+      element: '#step-overview-chart',
+      intro: 'ตรวจสอบสถานะการรับประกันและกราฟภาพรวมรายเดือนได้อย่างรวดเร็ว',
+      position: 'bottom',
+      tooltipClass: 'custom-tooltip-left',
+    },
+    {
+      element: '#step-header-complaint',
+      intro: 'หากพบปัญหาการใช้งาน หรือต้องการความช่วยเหลือ สามารถกดแจ้งปัญหาได้ที่นี่',
+      position: 'bottom',
+    },
+    {
+      element: '#step-header-profile',
+      intro: 'จัดการข้อมูลร้านค้า แก้ไขโปรไฟล์ หรือออกจากระบบได้ที่เมนูนี้',
+      position: 'bottom',
+    },
+  ], [])
+
   // Export current overview or aggregates to Excel
   // Export current overview or aggregates to Excel
   async function exportOverviewToExcel() {
@@ -515,6 +523,70 @@ export default function StoreDashboard() {
     }
   }
 
+  // Run overview tour ครั้งแรกที่เข้าแท็บนี้ (per store + browser)
+  useEffect(() => {
+    if (loading) return
+    if (!storeIdResolved) return
+    if (overviewTourStartedRef.current) return
+
+    try {
+      const key = `wp_seen_tour_overview_v2_${storeIdResolved}`
+      const ls = typeof window !== 'undefined' ? window.localStorage : null
+      const seen = ls ? ls.getItem(key) : null
+      if (seen) return
+
+      if (typeof window === 'undefined' || typeof document === 'undefined') return
+
+      let attempts = 0
+      const maxAttempts = 20
+      const intervalMs = 250
+      let timer = null
+
+      const tryStart = () => {
+        attempts += 1
+        const statsEl = document.querySelector('#step-overview-stats')
+        const chartEl = document.querySelector('#step-overview-chart')
+        const complaintEl = document.querySelector('#step-header-complaint')
+        const profileEl = document.querySelector('#step-header-profile')
+
+        const ready = statsEl && chartEl && complaintEl && profileEl
+        const timedOut = attempts >= maxAttempts
+
+        if (!ready && !timedOut) return
+
+        if (timer) window.clearInterval(timer)
+
+        // ถ้า DOM ยังไม่พร้อมครบ แม้หมดเวลาแล้ว ให้ยกเลิกโดยไม่ mark ว่าเคยดู
+        if (!ready) return
+
+        if (ls) ls.setItem(key, '1')
+        overviewTourStartedRef.current = true
+
+        const intro = introJs()
+        intro.setOptions({
+          steps: overviewTourSteps,
+          showProgress: true,
+          showBullets: false,
+          exitOnOverlayClick: false,
+          overlayOpacity: 0.5,
+          nextLabel: 'ถัดไป',
+          prevLabel: 'ย้อนกลับ',
+          skipLabel: 'ข้าม',
+          doneLabel: 'เสร็จสิ้น',
+          showStepNumbers: false,
+        })
+        intro.start()
+      }
+
+      timer = window.setInterval(tryStart, intervalMs)
+      return () => {
+        if (timer) window.clearInterval(timer)
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, [loading, storeIdResolved, overviewTourSteps])
+
   if (loading) return <div className="p-6 text-sm text-slate-500">กำลังโหลดข้อมูลสรุป...</div>
   if (error) return <div className="p-6 text-sm text-rose-600">{error}</div>
 
@@ -549,14 +621,6 @@ export default function StoreDashboard() {
             ส่งออกข้อมูล Excel
           </button>
         </div>
-        {/* Welcome Onboarding Modal */}
-        <WelcomeOnboardingModal
-          open={showWelcomeModal}
-          onClose={() => setShowWelcomeModal(false)}
-          title={warrantyCopy.welcome?.shop}
-          description={warrantyCopy.emptyState?.dashboard?.message}
-        />
-
         {/* If no warranties show Empty State card */}
         {!loading && (!warranties || warranties.length === 0) ? (
           <div className="mb-6">
@@ -570,13 +634,11 @@ export default function StoreDashboard() {
           </div>
         ) : null}
 
-        {/* Title: ภาพรวม & การรับประกัน */}
-        <h2 className="text-2xl font-bold text-black mb-4" style={{ fontFamily: 'Inter, sans-serif' }}>
-          ภาพรวม & การรับประกัน
-        </h2>
-
         {/* Consolidated Stats & Donut Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        <div
+          id="step-overview-stats"
+          className="mt-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6"
+        >
           {/* Card: ใบรับประกันทั้งหมด */}
           <div className="flex items-center gap-4 rounded-xl bg-white border border-black/10 p-4 shadow-sm">
             <div
@@ -621,7 +683,10 @@ export default function StoreDashboard() {
           </div>
 
           {/* Card: Status Donut (Compact) */}
-          <div className="flex items-center gap-4 rounded-xl bg-white border border-black/10 p-4 shadow-sm relative overflow-hidden">
+          <div
+            id="step-overview-chart"
+            className="flex items-center gap-4 rounded-xl bg-white border border-black/10 p-4 shadow-sm relative overflow-hidden"
+          >
             <div className="flex-shrink-0 relative z-10">
               <SimpleDonut counts={totals} size={110} thickness={15} />
             </div>
@@ -739,17 +804,8 @@ export default function StoreDashboard() {
           const pageItems = allItems.slice(startIdx, startIdx + ITEMS_PER_PAGE)
 
           if (allItems.length === 0) {
-            return (
-              <div className="mt-6">
-                <EmptyStateCard
-                  title={warrantyCopy.emptyState.dashboard.title}
-                  message={warrantyCopy.emptyState.dashboard.message}
-                  primaryText={warrantyCopy.emptyState.dashboard.primary_cta}
-                  secondaryText={warrantyCopy.emptyState.dashboard.secondary_cta}
-                  onPrimary={() => navigate('/dashboard/warranty')}
-                />
-              </div>
-            )
+            // ไม่มีรายการที่ใกล้หมดอายุ/หมดอายุ แสดงหน้าเปล่าเฉยๆ (ไม่ต้องซ้ำ EmptyState ด้านบน)
+            return null
           }
 
           return (

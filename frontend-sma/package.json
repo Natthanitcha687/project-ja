@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "test": "vitest",
     "prepare:thai-data": "node ./tools/fetch-thai-data.js",
     "build": "vite build",
     "lint": "eslint .",
@@ -16,12 +17,15 @@
     "axios": "^1.11.0",
     "exceljs": "^4.4.0",
     "i18next": "^25.8.13",
+    "intro.js": "^8.3.2",
+    "intro.js-react": "^1.0.0",
     "jwt-decode": "^4.0.0",
     "lucide-react": "^0.532.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-google-recaptcha": "^3.1.0",
     "react-i18next": "^16.5.4",
+    "react-icons": "^5.5.0",
     "react-router-dom": "^7.7.1",
     "sweetalert2": "^11.26.18",
     "tailwindcss": "^4.1.11"
@@ -35,6 +39,7 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^16.3.0",
-    "vite": "^7.0.4"
+    "vite": "^7.0.4",
+    "vitest": "^1.6.1"
   }
 }

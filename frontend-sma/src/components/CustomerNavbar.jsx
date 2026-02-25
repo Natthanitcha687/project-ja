@@ -4,6 +4,7 @@ import { api, API_URL, getToken } from "../lib/api";
 import { useAuth } from "../store/auth";
 import AppLogo from "../components/AppLogo"; // ✅ ใช้โลโก้จริง
 import CustomerProfileModal from "./CustomerProfileModal";
+import { HiOutlineBell, HiOutlineClipboardList } from "react-icons/hi";
 
 export default function CustomerNavbar() {
   const { user, logout, loadMe } = useAuth();
@@ -16,6 +17,8 @@ export default function CustomerNavbar() {
   const notifRef = useRef(null);
   const [notifications, setNotifications] = useState([]);
   const [notifLoading, setNotifLoading] = useState(false);
+  const [openNotifDetail, setOpenNotifDetail] = useState(false);
+  const [selectedNotification, setSelectedNotification] = useState(null);
 
   // ✅ แสดงเฉพาะ 5 ประเภท (รวม "อัปเดตใบ" รองรับ 2 type)
   const ALLOWED_TYPES = new Set([
@@ -26,6 +29,8 @@ export default function CustomerNavbar() {
     // "อัปเดตใบรับประกัน" (หัวใบ / รายการ)
     "warranty_header_updated",
     "warranty_updated",
+    // ลบใบรับประกัน (ต้องให้ลูกค้าเห็นกระดิ่งด้วย)
+    "warranty_deleted",
   ]);
 
   function getNotifType(n) {
@@ -306,6 +311,7 @@ export default function CustomerNavbar() {
             {/* 🔔 ปุ่มแจ้งเตือน */}
             <div className="relative" ref={notifRef}>
               <button
+                id="customer-step-bell"
                 title="การแจ้งเตือน"
                 onClick={async () => {
                   // คงของเดิม: toggle dropdown
@@ -319,7 +325,7 @@ export default function CustomerNavbar() {
                 }}
                 className="grid h-9 w-9 place-items-center rounded-full bg-white shadow ring-1 ring-sky-100 text-sky-600 hover:bg-sky-50 transition"
               >
-                <span className="text-lg">🔔</span>
+                <HiOutlineBell className="h-5 w-5" />
                 {/* ✅ คงของเดิม: badge unread */}
                 {unreadCount > 0 && (
                   <span className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-rose-500 text-[10px] text-white">
@@ -366,32 +372,25 @@ export default function CustomerNavbar() {
                           <div
                             key={id}
                             onClick={() => {
-                              if (!read && id != null) markOneAsRead(id);
+                              if (id != null) {
+                                if (!read) markOneAsRead(id);
+                                setSelectedNotification(n);
+                                setOpenNotifDetail(true);
+                              }
                             }}
-                            className={`px-4 py-3 text-sm border-b last:border-0 transition ${type === "nearing_expiration"
+                            className={`px-3 py-2 border-b last:border-0 transition ${type === "nearing_expiration"
                               ? "bg-amber-50 text-amber-800"
                               : type === "expired"
                                 ? "bg-rose-50 text-rose-700"
                                 : "bg-white text-slate-700"
-                              } ${read ? "opacity-70" : "font-semibold"} ${id != null ? "cursor-pointer" : ""
-                              }`}
+                              } ${read ? "opacity-70" : "font-semibold"} ${id != null ? "cursor-pointer" : ""}
+                              `}
                           >
                             <div className="whitespace-normal break-words">
-                              <div className="text-sm font-semibold">{title}</div>
+                              <div className="customer-notif-title font-semibold">{title}</div>
                               {body ? (
-                                <div
-                                  className="text-xs text-slate-500 mt-1 break-words"
-                                >
-                                  {((n.data?.type === 'warranty_updated') || (body && body.includes('<div')))
-                                    ? (
-                                      <span className="text-sky-600 font-medium">
-                                        กรุณาตรวจสอบรายละเอียดเพิ่มเติมที่อีเมลของคุณ ✉️
-                                      </span>
-                                    )
-                                    : (
-                                      <div dangerouslySetInnerHTML={{ __html: body }} />
-                                    )
-                                  }
+                                <div className="customer-notif-body mt-0.5">
+                                  <div dangerouslySetInnerHTML={{ __html: body }} />
                                 </div>
                               ) : null}
                             </div>
@@ -412,6 +411,7 @@ export default function CustomerNavbar() {
             {/* 📝 ปุ่มร้องเรียน (ลูกค้า) */}
             {isAuthenticated && (
               <Link
+                id="customer-step-complaint"
                 to="/customer/complaints"
                 title="ร้องเรียน/ติดต่อแอดมิน"
                 className="inline-flex items-center gap-2 rounded-full bg-white shadow ring-1 ring-sky-100 px-3 py-2 text-sm font-semibold text-sky-700 hover:bg-sky-50 transition"
@@ -420,7 +420,7 @@ export default function CustomerNavbar() {
                   setOpenNotif(false);
                 }}
               >
-                <span className="text-base leading-none">📝</span>
+                <HiOutlineClipboardList className="h-4 w-4" />
                 <span className="hidden md:inline">แจ้งปัญหา</span>
               </Link>
             )}
@@ -432,8 +432,11 @@ export default function CustomerNavbar() {
                 onClick={() => setOpenMenu((v) => !v)}
                 className="flex cursor-pointer items-center gap-3 rounded-full bg-sky-100 px-3 py-1.5 shadow ring-1 ring-slate-100 hover:bg-sky-200 transition"
               >
-                <div className="grid h-10 w-10 place-items-center rounded-full bg-sky-500 text-white text-lg font-semibold shadow">
-                  {initialFromString(displayName || displayEmail)}
+                {/* ใช้ avatar จำลองลูกค้ารูปเดียวกันทุกคน */}
+                <div className="grid h-10 w-10 place-items-center rounded-full bg-sky-500 text-white text-xl shadow">
+                  <span role="img" aria-label="customer-avatar">
+                    👤
+                  </span>
                 </div>
                 <div className="hidden sm:block text-left">
                   <div className="text-sm font-semibold text-slate-800">{displayName}</div>
@@ -493,6 +496,76 @@ export default function CustomerNavbar() {
           )}
         </nav>
       </header>
+
+      {/* Modal แสดงรายละเอียดแจ้งเตือนเต็มข้อความ */}
+      {openNotifDetail && selectedNotification && (
+        <div className="fixed inset-0 z-[1300] flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl overflow-hidden">
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+              <div className="text-sm font-semibold text-slate-800">รายละเอียดการแจ้งเตือน</div>
+              <button
+                type="button"
+                onClick={() => {
+                  setOpenNotifDetail(false);
+                }}
+                className="text-xs font-medium text-slate-400 hover:text-slate-600"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="px-4 py-3 text-sm text-slate-700 max-h-[60vh] overflow-y-auto">
+              <div className="customer-notif-title font-semibold text-slate-900">
+                {selectedNotification.title ||
+                  selectedNotification.message ||
+                  (selectedNotification.data && selectedNotification.data.type) ||
+                  "การแจ้งเตือน"}
+              </div>
+              {selectedNotification.body && (
+                <div className="mt-2 text-sm text-slate-700">
+                  <div
+                    dangerouslySetInnerHTML={{ __html: selectedNotification.body }}
+                  />
+                </div>
+              )}
+              {selectedNotification.createdAt && (
+                <div className="mt-3 text-xs text-slate-500">
+                  ได้รับเมื่อ {new Date(selectedNotification.createdAt).toLocaleString()}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 bg-slate-50/80">
+              <button
+                type="button"
+                onClick={() => setOpenNotifDetail(false)}
+                className="rounded-full border border-slate-300 bg-white px-4 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+              >
+                ปิด
+              </button>
+
+              {selectedNotification?.data?.warrantyId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const wid = selectedNotification?.data?.warrantyId;
+                    if (wid) {
+                      navigate("/customer/warranties", {
+                        state: { focusWarrantyId: wid },
+                      });
+                      setOpenNotifDetail(false);
+                      setOpenNotif(false);
+                    }
+                  }}
+                  className="rounded-full bg-sky-600 px-4 py-1.5 text-xs font-semibold text-white shadow hover:bg-sky-700"
+                >
+                  ไปที่ใบรับประกัน
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Render CustomerProfileModal when openModal is true */}
       {openModal && (

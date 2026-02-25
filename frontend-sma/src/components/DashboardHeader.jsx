@@ -4,6 +4,7 @@ import { useNavigate, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../store/auth'
 import AppLogo from './AppLogo'
 import { api } from '../lib/api'
+import { HiOutlineBell, HiOutlineClipboardList } from 'react-icons/hi'
 
 export default function DashboardHeader({ title, subtitle, notifications = [], onFetchNotifications, onEditProfile, notificationsLoading, onMarkAllRead }) {
   const { user, logout } = useAuth()
@@ -118,7 +119,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
               className="relative grid h-10 w-10 place-items-center rounded-full bg-white shadow ring-1 ring-black/5 hover:bg-gray-50 transition"
               aria-label="การแจ้งเตือน"
             >
-              <span className="text-xl">🔔</span>
+              <HiOutlineBell className="h-5 w-5 text-slate-700" />
               {unreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 flex h-4 min-w-[14px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] text-white">
                   {unreadCount}
@@ -170,26 +171,15 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
                       >
                         <div className="flex items-start gap-3">
                           <div className="h-8 w-8 shrink-0 rounded-full bg-sky-100 grid place-items-center text-xs text-sky-700">
-                            🔔
+                            <HiOutlineBell className="h-4 w-4" />
                           </div>
                           <div className="flex-1">
                             <div className="text-sm font-medium text-slate-900">
                               {n.title || n.message || 'การแจ้งเตือน'}
                             </div>
                             {n.body || n.message ? (
-                              <div
-                                className="text-xs text-slate-600 mt-1 break-words"
-                              >
-                                {((n.data?.type === 'warranty_updated') || (n.body && n.body.includes('<div')))
-                                  ? (
-                                    <span className="text-sky-600 font-medium">
-                                      กรุณาตรวจสอบรายละเอียดเพิ่มเติมที่อีเมลของคุณ ✉️
-                                    </span>
-                                  )
-                                  : (
-                                    <div dangerouslySetInnerHTML={{ __html: n.body || n.message }} />
-                                  )
-                                }
+                              <div className="text-xs text-slate-600 mt-1 break-words">
+                                <div dangerouslySetInnerHTML={{ __html: n.body || n.message }} />
                               </div>
                             ) : null}
                             <div className="text-[10px] text-slate-400 mt-1">
@@ -210,6 +200,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
           {/* ✅ ไอคอนแจ้งปัญหาแบบกลมข้างกระดิ่ง + ซ่อนเมื่ออยู่หน้าแจ้งปัญหา */}
           {isAuthenticated && !isOnComplaintsPage && (
             <Link
+              id="step-header-complaint"
               to="/dashboard/complaints"
               title="ร้องเรียน/ติดต่อแอดมิน"
               aria-label="ร้องเรียน/ติดต่อแอดมิน"
@@ -219,13 +210,14 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
                 setProfileMenuOpen(false)
               }}
             >
-              <span className="text-xl">📝</span>
+              <HiOutlineClipboardList className="h-4 w-4" />
               <span className="hidden md:inline">แจ้งปัญหา</span>
             </Link>
           )}
 
           <div>
             <button
+              id="step-header-profile"
               type="button"
               onClick={() => setProfileMenuOpen((p) => !p)}
               className="flex items-center gap-3 rounded-full bg-white px-3 py-2 shadow ring-1 ring-black/10 hover:-translate-y-0.5 hover:bg-slate-50 transition"
