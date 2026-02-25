@@ -4,6 +4,7 @@ import { useNavigate, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../store/auth'
 import AppLogo from './AppLogo'
 import { api } from '../lib/api'
+import { HiOutlineBell, HiOutlineClipboardList } from 'react-icons/hi'
 
 export default function DashboardHeader({ title, subtitle, notifications = [], onFetchNotifications, onEditProfile, notificationsLoading, onMarkAllRead }) {
   const { user, logout } = useAuth()
@@ -118,7 +119,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
               className="relative grid h-10 w-10 place-items-center rounded-full bg-white shadow ring-1 ring-black/5 hover:bg-gray-50 transition"
               aria-label="การแจ้งเตือน"
             >
-              <span className="text-xl">🔔</span>
+              <HiOutlineBell className="h-5 w-5 text-slate-700" />
               {unreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 flex h-4 min-w-[14px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] text-white">
                   {unreadCount}
@@ -170,7 +171,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
                       >
                         <div className="flex items-start gap-3">
                           <div className="h-8 w-8 shrink-0 rounded-full bg-sky-100 grid place-items-center text-xs text-sky-700">
-                            🔔
+                            <HiOutlineBell className="h-4 w-4" />
                           </div>
                           <div className="flex-1">
                             <div className="text-sm font-medium text-slate-900">
@@ -209,7 +210,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
                 setProfileMenuOpen(false)
               }}
             >
-              <span className="text-xl">📝</span>
+              <HiOutlineClipboardList className="h-4 w-4" />
               <span className="hidden md:inline">แจ้งปัญหา</span>
             </Link>
           )}

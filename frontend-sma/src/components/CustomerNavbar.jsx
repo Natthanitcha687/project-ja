@@ -4,6 +4,7 @@ import { api, API_URL, getToken } from "../lib/api";
 import { useAuth } from "../store/auth";
 import AppLogo from "../components/AppLogo"; // ✅ ใช้โลโก้จริง
 import CustomerProfileModal from "./CustomerProfileModal";
+import { HiOutlineBell, HiOutlineClipboardList } from "react-icons/hi";
 
 export default function CustomerNavbar() {
   const { user, logout, loadMe } = useAuth();
@@ -322,7 +323,7 @@ export default function CustomerNavbar() {
                 }}
                 className="grid h-9 w-9 place-items-center rounded-full bg-white shadow ring-1 ring-sky-100 text-sky-600 hover:bg-sky-50 transition"
               >
-                <span className="text-lg">🔔</span>
+                <HiOutlineBell className="h-5 w-5" />
                 {/* ✅ คงของเดิม: badge unread */}
                 {unreadCount > 0 && (
                   <span className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-rose-500 text-[10px] text-white">
@@ -417,7 +418,7 @@ export default function CustomerNavbar() {
                   setOpenNotif(false);
                 }}
               >
-                <span className="text-base leading-none">📝</span>
+                <HiOutlineClipboardList className="h-4 w-4" />
                 <span className="hidden md:inline">แจ้งปัญหา</span>
               </Link>
             )}
