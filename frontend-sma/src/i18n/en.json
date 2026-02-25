@@ -1,0 +1,55 @@
+{
+  "welcome": {
+    "shop": "Welcome to Warranty Platform 🎉 — Manage warranties and claims in one place, and get started quickly",
+    "customer": "Welcome! Check your warranty status and digital documents here 🔍"
+  },
+  "emptyState": {
+    "dashboard": {
+      "title": "You don't have any warranties yet",
+      "message": "Create your first warranty to track claims and enable automatic alerts — it only takes a few minutes",
+      "primary_cta": "Create warranty",
+      "secondary_cta": "Import customers / Preview",
+      "tooltip": "Takes < 2 minutes"
+    }
+  },
+  "tooltips": {
+    "createWarranty": {
+      "title": "Create warranty",
+      "text": "Start here to create a new warranty card — enter product ID and customer details, then save and send a link to the customer",
+      "action": "Create now",
+      "skip": "Skip"
+    },
+    "customers": {
+      "title": "Customers",
+      "text": "View or edit customer details. Search by email or phone to find related warranties",
+      "action": "Open customers",
+      "skip": "Skip"
+    },
+    "claims": {
+      "title": "Claims",
+      "text": "Track claim status, approve or reject requests, and view repair history",
+      "action": "View pending claims",
+      "skip": "Skip"
+    },
+    "alertsReports": {
+      "title": "Alerts & Reports",
+      "text": "Set expiry alerts and review claim statistics to improve your service",
+      "action": "Configure alerts",
+      "skip": "Skip"
+    }
+  },
+  "colorLabels": {
+    "green": { "label": "Active", "accessibility": "Active" },
+    "yellow": { "label": "Expiring", "accessibility": "Expiring" },
+    "red": { "label": "Expired", "accessibility": "Expired" }
+  },
+  "buttons": {
+    "create": "Create",
+    "save": "Save",
+    "import": "Import",
+    "preview": "Preview",
+    "setupAlerts": "Set alerts"
+  },
+  "labels": { "active": "Active", "expiring": "Expiring", "expired": "Expired" },
+  "accessibilityHints": { "colorAndText": "Use color + text (e.g. 'Active') and an icon to support users who have difficulty perceiving color" }
+}

@@ -8,7 +8,9 @@ import SimpleDonut from '../components/SimpleDonut'
 import BarChart from '../components/BarChart'
 import ExtendWarrantyModal from '../components/ExtendWarrantyModal'
 import AppLogo from '../components/AppLogo'
-import * as XLSX from 'xlsx'
+import EmptyStateCard from '../components/EmptyStateCard'
+import WelcomeOnboardingModal from '../components/WelcomeOnboardingModal'
+import warrantyCopy from '../lib/warranty_copy.json'
 
 export default function StoreDashboard() {
   const { user, logout } = useAuth() // ✅ มี logout เหมือนอีกหน้า
@@ -385,6 +387,27 @@ export default function StoreDashboard() {
     return days <= 7
   }, [user])
 
+  // show welcome modal only once per user session (or based on localStorage)
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false)
+  useEffect(() => {
+    try {
+      // TEMP: clear any existing seen flags so modal shows for testing/demo
+      if (typeof window !== 'undefined') {
+        Object.keys(window.localStorage).forEach((k) => {
+          if (k && k.startsWith('wp_seen_welcome_')) window.localStorage.removeItem(k)
+        })
+      }
+      const key = `wp_seen_welcome_${storeIdResolved}`
+      const seen = typeof window !== 'undefined' ? window.localStorage.getItem(key) : null
+      if (isNewAccount && !seen) {
+        setShowWelcomeModal(true)
+        if (typeof window !== 'undefined') window.localStorage.setItem(key, '1')
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, [isNewAccount, storeIdResolved])
+
   // ---------- ออกจากระบบ (ให้เหมือนหน้า Warranty) ----------
   const handleLogout = () => {
     logout?.()
@@ -526,6 +549,26 @@ export default function StoreDashboard() {
             ส่งออกข้อมูล Excel
           </button>
         </div>
+        {/* Welcome Onboarding Modal */}
+        <WelcomeOnboardingModal
+          open={showWelcomeModal}
+          onClose={() => setShowWelcomeModal(false)}
+          title={warrantyCopy.welcome?.shop}
+          description={warrantyCopy.emptyState?.dashboard?.message}
+        />
+
+        {/* If no warranties show Empty State card */}
+        {!loading && (!warranties || warranties.length === 0) ? (
+          <div className="mb-6">
+            <EmptyStateCard
+              title={warrantyCopy.emptyState.dashboard.title}
+              message={warrantyCopy.emptyState.dashboard.message}
+              primaryText={warrantyCopy.emptyState.dashboard.primary_cta}
+              secondaryText={warrantyCopy.emptyState.dashboard.secondary_cta}
+              onPrimary={() => navigate('/dashboard/warranty')}
+            />
+          </div>
+        ) : null}
 
         {/* Title: ภาพรวม & การรับประกัน */}
         <h2 className="text-2xl font-bold text-black mb-4" style={{ fontFamily: 'Inter, sans-serif' }}>
@@ -697,14 +740,14 @@ export default function StoreDashboard() {
 
           if (allItems.length === 0) {
             return (
-              <div className="mt-6 rounded-xl bg-white border border-gray-200 p-6 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="text-3xl">📋</div>
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-700">ยังไม่มีรายการใบรับประกัน</h3>
-                    <p className="text-sm text-gray-500">สร้างใบรับประกันใหม่เพื่อเริ่มต้นใช้งาน</p>
-                  </div>
-                </div>
+              <div className="mt-6">
+                <EmptyStateCard
+                  title={warrantyCopy.emptyState.dashboard.title}
+                  message={warrantyCopy.emptyState.dashboard.message}
+                  primaryText={warrantyCopy.emptyState.dashboard.primary_cta}
+                  secondaryText={warrantyCopy.emptyState.dashboard.secondary_cta}
+                  onPrimary={() => navigate('/dashboard/warranty')}
+                />
               </div>
             )
           }
