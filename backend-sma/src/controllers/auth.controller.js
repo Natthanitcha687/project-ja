@@ -906,6 +906,25 @@ export async function me(req, res) {
   }
 }
 
+// ✅ อัปเดตสถานะการดู Onboarding สำหรับผู้ใช้ปัจจุบัน
+export async function markOnboardingSeen(req, res) {
+  try {
+    const userId = Number(req.user?.id || req.user?.sub)
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' })
+
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { hasSeenOnboarding: true },
+      include: { customerProfile: true, storeProfile: true },
+    })
+
+    res.json({ ok: true, user })
+  } catch (err) {
+    console.error('markOnboardingSeen error:', err)
+    res.status(500).json({ message: 'เกิดข้อผิดพลาด' })
+  }
+}
+
 export async function requestPasswordReset(req, res) {
   try {
     const { email } = req.body

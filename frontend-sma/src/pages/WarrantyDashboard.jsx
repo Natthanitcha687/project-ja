@@ -252,7 +252,7 @@ function deriveItemStatusCode(item, notifyDays = 14) {
 }
 
 export default function WarrantyDashboard() {
-  const { user, logout } = useAuth()
+  const { user, logout, setUser } = useAuth()
   const navigate = useNavigate()
 
   const storeIdResolved = useMemo(() => {
@@ -302,17 +302,32 @@ export default function WarrantyDashboard() {
   // ===== Onboarding welcome modal & Joyride (แสดงเฉพาะหน้า การรับประกัน) =====
   const [showWelcomeModal, setShowWelcomeModal] = useState(false)
   useEffect(() => {
-    try {
-      const key = `wp_seen_welcome_${storeIdResolved}`
-      const seen = typeof window !== 'undefined' ? window.localStorage.getItem(key) : null
-      if (storeIdResolved && !seen) {
-        setShowWelcomeModal(true)
-        if (typeof window !== 'undefined') window.localStorage.setItem(key, '1')
-      }
-    } catch (e) {
-      // ignore
+    if (!user) return
+    if (user.role !== 'STORE') return
+    if (!user.hasSeenOnboarding) {
+      setShowWelcomeModal(true)
     }
-  }, [storeIdResolved])
+  }, [user?.id, user?.role, user?.hasSeenOnboarding])
+
+  async function markStoreOnboardingSeen() {
+    try {
+      await api.post('/auth/onboarding/seen')
+      if (setUser) {
+        setUser((prev) => (prev ? { ...prev, hasSeenOnboarding: true } : prev))
+      }
+      try {
+        const ls = typeof window !== 'undefined' ? window.localStorage : null
+        if (ls) {
+          const key = `wp_seen_welcome_${storeIdResolved}`
+          ls.removeItem(key)
+        }
+      } catch {
+        // ignore
+      }
+    } catch {
+      // ไม่ต้องบล็อก UX ถ้า API ล้มเหลว
+    }
+  }
 
   const tourSteps = useMemo(() => [
     {
@@ -1696,7 +1711,10 @@ export default function WarrantyDashboard() {
           {/* Welcome modal shown only for new store accounts on Warranty page */}
           <WelcomeOnboardingModal
             open={showWelcomeModal}
-            onClose={() => setShowWelcomeModal(false)}
+            onClose={() => {
+              markStoreOnboardingSeen()
+              setShowWelcomeModal(false)
+            }}
             title="ยินดีต้อนรับสู่ระบบการรับประกัน"
             description="สร้างใบรับประกันแรกของคุณและดูวิธีใช้งานฟีเจอร์สำคัญในไม่กี่ขั้นตอน"
             onStart={handleStartTour}

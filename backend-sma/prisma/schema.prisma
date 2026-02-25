@@ -36,6 +36,9 @@ model User {
   suspendedUntil   DateTime?
   lastLoginAt      DateTime?
 
+  // ✅ สถานะการดู Onboarding (สำหรับ Dashboard/ไกด์ไลน์)
+  hasSeenOnboarding Boolean @default(false)
+
   // ✅ เพิ่ม: Login rate limiting (ป้องกัน brute force)
   failedLoginAttempts  Int       @default(0)    // จำนวนครั้งที่ login ผิด
   failedLoginAt        DateTime?               // เวลาที่เริ่มนับ

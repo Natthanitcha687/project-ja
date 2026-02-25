@@ -16,7 +16,8 @@ import {
   googleStart,
   googleCompleteCustomer,
   googleCompleteStore,
-  submitAppeal
+  submitAppeal,
+  markOnboardingSeen,
 } from '../controllers/auth.controller.js'
 
 // ✅ ใช้ middleware ตัวจริงที่เช็ค DB (กัน token เก่า + กันบัญชี SUSPENDED)
@@ -232,6 +233,9 @@ router.post('/google/complete/store', googleCompleteStore)
  *         description: บัญชีถูกระงับการใช้งาน
  */
 router.get('/me', requireAuth, me)
+
+// ✅ อัปเดตสถานะการดู Onboarding (Dashboard / ไกด์ไลน์)
+router.post('/onboarding/seen', requireAuth, markOnboardingSeen)
 
 /**
  * @openapi
