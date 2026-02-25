@@ -871,9 +871,35 @@ export default function SignUpGoogleStore() {
               <label className="block">
                 <span className="block text-sm font-medium text-gray-700">เวลาทำการ</span>
                 <div className="mt-2 rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
-                  <div className="flex items-center justify-between text-sm text-gray-700 mb-3">
-                    <div className="font-medium">เลือกวันที่เปิด</div>
-                    <div className="text-xs text-gray-400">คลิกที่วันเพื่อเปิด/ปิด แล้วเลือกเวลาเริ่ม–จบ</div>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-3">
+                    <div className="text-xs text-gray-500">
+                      กำหนดเวลาเปิด-ปิดในแต่ละวัน หรือใช้ทางลัดเพื่อตั้งเวลาเดียวกันทุกวัน
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const entries = Object.entries(schedule)
+                        const firstOn = entries.find(([, v]) => v && v.on && v.start && v.end)
+                        if (!firstOn) return
+                        const [, firstVal] = firstOn
+                        setSchedule((prev) => {
+                          const next = { ...prev }
+                          for (const k of Object.keys(next)) {
+                            if (next[k].on) {
+                              next[k] = {
+                                ...next[k],
+                                start: firstVal.start,
+                                end: firstVal.end,
+                              }
+                            }
+                          }
+                          return next
+                        })
+                      }}
+                      className="inline-flex items-center justify-center rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-100 hover:border-sky-300 whitespace-nowrap"
+                    >
+                      ใช้เวลาเดียวกันทุกวันที่เลือก
+                    </button>
                   </div>
                   <div className="flex flex-col gap-3">
                     {[
@@ -890,7 +916,20 @@ export default function SignUpGoogleStore() {
                           <input
                             type="checkbox"
                             checked={!!schedule[key].on}
-                            onChange={() => setSchedule((s) => ({ ...s, [key]: { ...s[key], on: !s[key].on } }))}
+                            onChange={() =>
+                              setSchedule((s) => {
+                                const cur = s[key]
+                                const nextOn = !cur.on
+                                const next = { ...s }
+                                next[key] = {
+                                  ...cur,
+                                  on: nextOn,
+                                  start: nextOn ? (cur.start || '09:00') : cur.start,
+                                  end: nextOn ? (cur.end || '18:00') : cur.end,
+                                }
+                                return next
+                              })
+                            }
                             className="h-4 w-4 rounded border-gray-300 text-blue-600"
                           />
                           <div className="flex flex-col">

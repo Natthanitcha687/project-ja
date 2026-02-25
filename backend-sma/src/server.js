@@ -25,10 +25,6 @@ import adminRoutes from './routes/admin.routes.js';
 // ✅ แบบที่ 2: readiness ต้องเช็ค DB
 import { prisma } from './db/prisma.js';
 
-// Swagger
-import swaggerUi from 'swagger-ui-express';
-import swaggerSpec from './docs/swagger.js';
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -112,9 +108,8 @@ function makeRequestId() {
 
 function shouldSkipAccessLog(req) {
   const p = (req.originalUrl || req.url || '').toString();
-  // ลด noise จาก static + swagger
+  // ลด noise จาก static
   if (p.startsWith('/uploads')) return true;
-  if (p.startsWith('/docs')) return true;
 
   // ✅ แบบที่ 1: ลด noise จาก Render health check (ยิงถี่)
   if (p === '/healthz') return true;
@@ -161,9 +156,6 @@ app.use((req, res, next) => {
 
   next();
 });
-
-// Swagger
-app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 /* =========================================================
  * ✅ Serve uploaded files (IMPORTANT for Render Disk)
@@ -296,7 +288,6 @@ function msUntilNextMidnightTH() {
 
 app.listen(port, () => {
   console.log(`🚀 API running on ${baseUrl}`);
-  console.log(`📚 Swagger UI -> ${baseUrl}/docs`);
   console.log(`✅ Allowed origins: ${allowedOrigins.join(', ')}`);
   // start expiry notification job: run once at startup and then every TH midnight
   try {
