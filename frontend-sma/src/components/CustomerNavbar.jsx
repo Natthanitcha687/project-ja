@@ -429,8 +429,11 @@ export default function CustomerNavbar() {
                 onClick={() => setOpenMenu((v) => !v)}
                 className="flex cursor-pointer items-center gap-3 rounded-full bg-sky-100 px-3 py-1.5 shadow ring-1 ring-slate-100 hover:bg-sky-200 transition"
               >
-                <div className="grid h-10 w-10 place-items-center rounded-full bg-sky-500 text-white text-lg font-semibold shadow">
-                  {initialFromString(displayName || displayEmail)}
+                {/* ใช้ avatar จำลองลูกค้ารูปเดียวกันทุกคน */}
+                <div className="grid h-10 w-10 place-items-center rounded-full bg-sky-500 text-white text-xl shadow">
+                  <span role="img" aria-label="customer-avatar">
+                    👤
+                  </span>
                 </div>
                 <div className="hidden sm:block text-left">
                   <div className="text-sm font-semibold text-slate-800">{displayName}</div>
