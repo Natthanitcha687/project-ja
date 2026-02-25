@@ -170,3 +170,19 @@ button[disabled],
 .introjs-donebutton:hover {
   background-color: #0284c7 !important;
 }
+
+/* ---------------- Customer notification dropdown ---------------- */
+.customer-notif-title {
+  font-size: 0.875rem; /* 14px */
+  line-height: 1.4;
+}
+
+.customer-notif-body {
+  font-size: 0.8rem; /* ~12-13px */
+  line-height: 1.5;
+  color: #6b7280; /* text-slate-500 */
+  display: -webkit-box;
+  -webkit-line-clamp: 2; /* แสดงไม่เกิน 2 บรรทัด */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

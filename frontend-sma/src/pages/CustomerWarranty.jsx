@@ -1,5 +1,6 @@
 // frontend-sma/src/pages/CustomerWarranty.jsx
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../store/auth";
 import introJs from "intro.js";
@@ -133,6 +134,10 @@ function StatusPill({ code }) {
  * ======================= */
 export default function CustomerWarranty() {
   const { user } = useAuth();
+  const location = useLocation();
+  const [focusWarrantyId, setFocusWarrantyId] = useState(
+    () => location.state?.focusWarrantyId || null
+  );
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [totals, setTotals] = useState({
@@ -172,12 +177,30 @@ export default function CustomerWarranty() {
       );
       const rows = r.data?.data || [];
       setData(rows);
-      setPage(1);
-      setExpandedByHeader((prev) => {
-        const next = {};
-        for (const w of rows) if (prev[w.id]) next[w.id] = true;
-        return next;
-      });
+
+      // ถ้ามี focusWarrantyId จากการคลิกแจ้งเตือน ให้เลื่อนไปหน้าที่มีใบรับประกันนั้นและขยายการ์ด
+      if (focusWarrantyId) {
+        const idx = rows.findIndex(
+          (w) => String(w.id) === String(focusWarrantyId)
+        );
+        if (idx !== -1) {
+          const targetPage = Math.floor(idx / PAGE_SIZE) + 1;
+          setPage(targetPage);
+          setExpandedByHeader((prev) => ({
+            ...prev,
+            [focusWarrantyId]: true,
+          }));
+        }
+        // ใช้ครั้งเดียวต่อการนำทางจากแจ้งเตือน
+        setFocusWarrantyId(null);
+      } else {
+        setPage(1);
+        setExpandedByHeader((prev) => {
+          const next = {};
+          for (const w of rows) if (prev[w.id]) next[w.id] = true;
+          return next;
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -465,18 +488,19 @@ export default function CustomerWarranty() {
                   <div className="p-5">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
-                        <div className="text-lg font-semibold text-slate-900">Warranty Card</div>
-                        <div className="mt-2 grid gap-1 text-sm text-slate-700 md:grid-cols-2">
+                        {/* หัวการ์ด: รหัสใบรับประกัน เป็น Title หลัก */}
+                        <div className="text-lg font-semibold text-slate-900 truncate">
+                          รหัสใบรับประกัน #{w.code}
+                        </div>
+
+                        {/* เนื้อหาหลัก: ชื่อร้านค้า + เบอร์โทรศัพท์ */}
+                        <div className="mt-3 text-sm text-slate-700 space-y-1">
                           <div className="truncate">
-                            รหัสใบรับประกัน:{" "}
-                            <span className="font-medium text-slate-900">{w.code}</span>
-                          </div>
-                          <div className="truncate">
-                            ร้านค้า:{" "}
+                            ร้านค้า: {" "}
                             <span className="font-medium text-slate-900">{storeName}</span>
                           </div>
                           <div className="truncate">
-                            เบอร์โทรศัพท์:{" "}
+                            เบอร์โทรศัพท์: {" "}
                             <span className="font-medium text-slate-900">{phone}</span>
                           </div>
                         </div>

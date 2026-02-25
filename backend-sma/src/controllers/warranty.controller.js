@@ -485,11 +485,10 @@ export async function updateWarrantyHeader(req, res) {
         header.customerPhone !== updated.customerPhone;
 
       if (changed) {
-        const title = updated.code
-          ? `มีการแก้ไขข้อมูลใบรับประกันรหัส ${updated.code}`
-          : "มีการแก้ไขข้อมูลใบรับประกันของคุณ";
+        const codeLabel = updated.code ? `#${updated.code}` : "ของคุณ";
+        const title = `[แก้ไขข้อมูล] ใบรับประกัน ${codeLabel}`;
         const bodyText =
-          "ข้อมูลใบรับประกันของคุณได้รับการแก้ไขแล้ว สามารถตรวจสอบรายละเอียดล่าสุดได้ในระบบทันที";
+          "รายละเอียดใบรับประกันของคุณได้รับการอัปเดตเรียบร้อยแล้ว สามารถตรวจสอบข้อมูลล่าสุดได้ในระบบ";
 
         // ✅ ตาม requirement ใหม่: "ร้าน" ไม่ต้องได้รับแจ้งเตือนประเภทนี้อีก
         // (คงไว้เฉพาะ expiry_daily_summary และ complaint_created ที่อื่น)
