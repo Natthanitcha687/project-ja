@@ -281,6 +281,8 @@ export default function WarrantyDashboard() {
   const [customerDistrictOptions, setCustomerDistrictOptions] = useState([])
   const [customerSubdistrictOptions, setCustomerSubdistrictOptions] = useState([])
   const [profileImage, setProfileImage] = useState({ file: null, preview: '' })
+  const [profileStoreTypeValue, setProfileStoreTypeValue] = useState('')
+  const [profileCustomStoreType, setProfileCustomStoreType] = useState('')
   // Dynamic province/district/subdistrict lists (reuse same data as SignUp)
   const PROVINCES_JSON_LOCAL = '/data/api_province.json'
   const DISTRICTS_JSON_LOCAL = '/data/api_district.json'
@@ -916,6 +918,29 @@ export default function WarrantyDashboard() {
     } catch (e) {
       setAddressParts({ street: String(storeProfile.address || '') || '', subdistrict: '', district: '', province: '', postcode: '' })
     }
+    // init store type selector from storeProfile.storeType
+    try {
+      const rawType = (storeProfile.storeType || '').toString().trim()
+      const known = ['electronics', 'appliance', 'furniture', 'automotive', 'machine']
+      let base = ''
+      let custom = ''
+      if (rawType) {
+        if (rawType.startsWith('other:')) {
+          base = 'other'
+          custom = rawType.slice(6).trim()
+        } else if (known.includes(rawType)) {
+          base = rawType
+        } else {
+          base = 'other'
+          custom = rawType
+        }
+      }
+      setProfileStoreTypeValue(base)
+      setProfileCustomStoreType(custom)
+    } catch (e) {
+      setProfileStoreTypeValue('')
+      setProfileCustomStoreType('')
+    }
     setProfileModalOpen(true)
     setProfileTab('info')
     setProfileMenuOpen(false)
@@ -1194,11 +1219,20 @@ export default function WarrantyDashboard() {
     setProfileSubmitting(true)
     setModalError('')
     try {
+      const baseType = (profileStoreTypeValue || '').toString().trim()
+      let finalStoreType = baseType
+      if (baseType === 'other') {
+        finalStoreType = `other:${String(profileCustomStoreType || '').trim()}`
+      }
+      if (!finalStoreType && storeProfile.storeType) {
+        finalStoreType = storeProfile.storeType
+      }
       const payload = {
         storeName: storeProfile.storeName,
         contactName: storeProfile.contactName,
         email: storeProfile.email,
         phone: storeProfile.phone,
+        storeType: finalStoreType,
         // send structured address as JSON string (matches signup format)
         address: JSON.stringify({
           street: addressParts.street || '',
@@ -2098,6 +2132,7 @@ export default function WarrantyDashboard() {
                       {[
                         ['storeName', 'ชื่อร้าน'],
                         ['contactName', 'ชื่อผู้ติดต่อ'],
+                        ['storeType', 'ประเภทร้านค้า'],
                         ['email', 'อีเมล'],
                         ['phone', 'เบอร์ติดต่อ'],
                         ['address', 'ที่อยู่'],
@@ -2187,6 +2222,39 @@ export default function WarrantyDashboard() {
                                 <div className="text-xs text-gray-400 flex items-center">ตัวอย่าง: เลขที่/ซอย/ถนน, ตำบล, อำเภอ, จังหวัด</div>
                               </div>
                             </div>
+                          ) : key === 'storeType' ? (
+                            <div className="mt-1 space-y-2">
+                              <select
+                                value={profileStoreTypeValue}
+                                onChange={(e) => {
+                                  const v = e.target.value
+                                  setProfileStoreTypeValue(v)
+                                  if (v !== 'other') setProfileCustomStoreType('')
+                                }}
+                                className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                                required
+                              >
+                                <option value="">เลือกประเภทร้านค้า</option>
+                                <option value="electronics">อิเล็กทรอนิกส์</option>
+                                <option value="appliance">เครื่องใช้ไฟฟ้า</option>
+                                <option value="furniture">เฟอร์นิเจอร์</option>
+                                <option value="automotive">ยานยนต์</option>
+                                <option value="machine">เครื่องจักร / เครื่องมือช่าง</option>
+                                <option value="other">อื่น ๆ</option>
+                              </select>
+                              {profileStoreTypeValue === 'other' && (
+                                <input
+                                  value={profileCustomStoreType}
+                                  onChange={(e) => {
+                                    const raw = e.target.value.replace(/[^a-zA-Z0-9ก-๙\s.\-/]/g, '')
+                                    setProfileCustomStoreType(raw)
+                                  }}
+                                  placeholder="ระบุประเภทร้านค้า"
+                                  className="w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none bg-sky-50/60"
+                                  type="text"
+                                />
+                              )}
+                            </div>
                           ) : key !== 'businessHours' ? (
                             <input
                               required
@@ -2198,7 +2266,33 @@ export default function WarrantyDashboard() {
                             />
                           ) : (
                             <div className="flex justify-center">
-                              <div className="mt-2 rounded-lg border border-sky-100 bg-white p-2 mx-auto max-w-sm">
+                              <div className="mt-2 rounded-lg border border-sky-100 bg-white p-2 mx-auto max-w-sm w-full">
+                                <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                  <div className="text-xs text-gray-500">
+                                    กำหนดเวลาเปิด-ปิดในแต่ละวัน หรือใช้ทางลัดเพื่อตั้งเวลาเดียวกันทุกวัน
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setBusinessSchedule((prev) => {
+                                        const entries = Object.entries(prev || {})
+                                        const firstOn = entries.find(([, v]) => v?.on && v.start && v.end)
+                                        if (!firstOn) return prev
+                                        const [, firstVal] = firstOn
+                                        const next = { ...prev }
+                                        for (const [k, v] of entries) {
+                                          if (v?.on) {
+                                            next[k] = { ...v, start: firstVal.start, end: firstVal.end }
+                                          }
+                                        }
+                                        return next
+                                      })
+                                    }}
+                                    className="inline-flex items-center justify-center rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-100 hover:border-sky-300 whitespace-nowrap"
+                                  >
+                                    ใช้เวลาเดียวกันทุกวันที่เลือก
+                                  </button>
+                                </div>
                                 <div className="grid grid-cols-1 gap-2">
                                   {[
                                     ['mon', 'จ.'],
@@ -2214,7 +2308,22 @@ export default function WarrantyDashboard() {
                                         <input
                                           type="checkbox"
                                           checked={!!businessSchedule[d]?.on}
-                                          onChange={() => setBusinessSchedule((s) => ({ ...s, [d]: { ...s[d], on: !s[d].on } }))}
+                                          onChange={() =>
+                                            setBusinessSchedule((s) => {
+                                              const current = s?.[d] || {}
+                                              const nextOn = !current.on
+                                              const next = { ...(s || {}) }
+                                              next[d] = {
+                                                ...current,
+                                                on: nextOn,
+                                                ...(nextOn && {
+                                                  start: current.start || '09:00',
+                                                  end: current.end || '18:00',
+                                                }),
+                                              }
+                                              return next
+                                            })
+                                          }
                                           className="h-4 w-4 rounded border-gray-300 text-blue-600"
                                         />
                                         <div className="w-8 text-xs text-gray-700">{lbl}</div>
