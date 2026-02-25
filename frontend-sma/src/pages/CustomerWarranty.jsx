@@ -1,7 +1,9 @@
 // frontend-sma/src/pages/CustomerWarranty.jsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { useAuth } from "../store/auth";
+import introJs from "intro.js";
+import "intro.js/introjs.css";
 // CustomerProfileModal removed here because top-level CustomerNavbar provides profile UI
 
 /* =======================
@@ -152,6 +154,7 @@ export default function CustomerWarranty() {
   const [conditionsModal, setConditionsModal] = useState({ open: false, conditions: [], custom: '' });
   const PAGE_SIZE = 5;
   const [page, setPage] = useState(1);
+  const tourStartedRef = useRef(false);
 
   async function fetchData(opts = {}) {
     setLoading(true);
@@ -183,6 +186,118 @@ export default function CustomerWarranty() {
   useEffect(() => {
     fetchData();
   }, [filter]);
+
+  // Intro.js customer onboarding tour (run once per browser)
+  useEffect(() => {
+    if (loading) return;
+    if (tourStartedRef.current) return;
+
+    try {
+      const ls = typeof window !== "undefined" ? window.localStorage : null;
+      const key = "wp_seen_tour_customer_v1";
+      const seen = ls ? ls.getItem(key) : null;
+      if (seen) return;
+
+      if (typeof window === "undefined" || typeof document === "undefined") return;
+
+      let attempts = 0;
+      const maxAttempts = 20; // ~5 วินาที
+      const intervalMs = 250;
+      let timer = null;
+
+      const steps = [
+        {
+          element: "#customer-step-stats",
+          intro:
+            "ดูสรุปจำนวนใบรับประกันทั้งหมดของคุณได้ที่นี่ พร้อมสถานะว่าใบไหนยังใช้งานได้ หรือใกล้หมดอายุ",
+          position: "bottom",
+        },
+        {
+          element: "#customer-step-list",
+          intro:
+            "เลื่อนดูรายการใบรับประกันทั้งหมดได้จากส่วนนี้ สามารถค้นหาและกรองตามสถานะได้",
+          position: "bottom",
+        },
+        {
+          element: "#customer-step-details",
+          intro:
+            "กดปุ่ม 'รายละเอียดเพิ่มเติม' บนการ์ดใบรับประกัน เพื่อดูข้อมูลสินค้า วันหมดอายุ และเงื่อนไขการรับประกันอย่างละเอียด",
+          position: "bottom",
+          tooltipClass: "custom-tooltip-left",
+        },
+        {
+          element: "#customer-step-pdf",
+          intro:
+            "หากต้องการเก็บเอกสารไว้เอง สามารถกดปุ่ม PDF บนการ์ดใบรับประกัน เพื่อดาวน์โหลดใบรับประกันเป็นไฟล์เก็บไว้ได้",
+          position: "bottom",
+          tooltipClass: "introjs-pdf-step custom-tooltip-left",
+        },
+        {
+          element: "#customer-step-complaint",
+          intro:
+            "หากสินค้ามีปัญหา สามารถกดปุ่ม 'แจ้งปัญหา' เพื่อส่งเรื่องถึงทีมงาน/ร้านค้าได้ทันที",
+          position: "bottom",
+        },
+        {
+          element: "#customer-step-bell",
+          intro:
+            "เมื่อมีการแก้ไขหรือยกเลิกใบรับประกัน ระบบจะแจ้งเตือนให้ทราบที่กระดิ่งตรงนี้ เสมอ",
+          position: "bottom",
+        },
+      ];
+
+      const tryStart = () => {
+        attempts += 1;
+        const statsEl = document.querySelector("#customer-step-stats");
+        const listEl = document.querySelector("#customer-step-list");
+        const detailsEl = document.querySelector("#customer-step-details");
+        const pdfEl = document.querySelector("#customer-step-pdf");
+        const complaintEl = document.querySelector("#customer-step-complaint");
+        const bellEl = document.querySelector("#customer-step-bell");
+
+        const ready =
+          statsEl &&
+          listEl &&
+          detailsEl &&
+          pdfEl &&
+          complaintEl &&
+          bellEl;
+        const timedOut = attempts >= maxAttempts;
+
+        if (!ready && !timedOut) return;
+
+        if (timer) window.clearInterval(timer);
+        if (!ready) return;
+
+        tourStartedRef.current = true;
+        if (ls) ls.setItem(key, "1");
+
+        const intro = introJs();
+        intro.setOptions({
+          steps,
+          showProgress: true,
+          showBullets: false,
+          exitOnOverlayClick: false,
+          overlayOpacity: 0.5,
+          nextLabel: "ถัดไป",
+          prevLabel: "ย้อนกลับ",
+          skipLabel: "ข้าม",
+          doneLabel: "เสร็จสิ้น",
+          showStepNumbers: false,
+          scrollTo: "element",
+          scrollToElement: true,
+        });
+        intro.start();
+      };
+
+      timer = window.setInterval(tryStart, intervalMs);
+      return () => {
+        if (timer) window.clearInterval(timer);
+      };
+    } catch (e) {
+      // ignore
+    }
+  }, [loading]);
 
   // no per-page profile dropdown here — CustomerNavbar handles profile menu/modal
 
@@ -266,15 +381,21 @@ export default function CustomerWarranty() {
         </div>
 
         {/* Summary */}
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div
+          id="customer-step-stats"
+          className="grid grid-cols-2 gap-3 md:grid-cols-4"
+        >
           <StatBox value={totals.all} label="ใบรับประกันทั้งหมด" colorClass="bg-slate-900" />
           <StatBox value={totals.active} label="ใช้งานได้" colorClass="bg-emerald-500" />
           <StatBox value={totals.nearing_expiration} label="ใกล้หมดอายุ" colorClass="bg-amber-400" />
           <StatBox value={totals.expired} label="หมดอายุ" colorClass="bg-rose-500" />
         </div>
 
-        {/* Search + Filters */}
-        <div className="mt-6 flex flex-col items-stretch gap-3 md:flex-row md:items-center">
+        {/* Search + Filters / list controls */}
+        <div
+          id="customer-step-list"
+          className="mt-6 flex flex-col items-stretch gap-3 md:flex-row md:items-center"
+        >
           <div className="flex-1">
             <div className="flex items-center rounded-2xl bg-white px-4 py-2 shadow ring-1 ring-black/5">
               <span className="text-slate-400">🔍</span>
@@ -363,12 +484,14 @@ export default function CustomerWarranty() {
 
                       <div className="flex flex-col items-end gap-2">
                         <button
+                          id="customer-step-pdf"
                           onClick={() => onDownloadPdf(w.id)}
                           className="h-10 min-w-[96px] rounded-full border border-sky-300 px-4 py-2 text-sm font-semibold text-sky-700 bg-white hover:-translate-y-0.5 hover:bg-sky-50 transition"
                         >
                           PDF
                         </button>
                         <button
+                          id="customer-step-details"
                           type="button"
                           onClick={() =>
                             setExpandedByHeader((prev) => ({

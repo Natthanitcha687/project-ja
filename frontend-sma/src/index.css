@@ -52,6 +52,33 @@ button[disabled],
   padding: 40px 20px 20px 20px !important; /* เว้นที่ด้านบนให้ปุ่มข้าม */
   border-radius: 16px !important;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1) !important;
+  max-width: 280px !important; /* จำกัดความกว้างไม่ให้แผ่ไปทับปุ่มทางขวา */
+}
+
+/* จำกัดความกว้างและระยะห่างของ tooltip สำหรับ Step ปุ่ม PDF ฝั่งลูกค้าโดยเฉพาะ */
+.introjs-tooltip.introjs-pdf-step {
+  max-width: 260px !important;
+  padding: 32px 16px 16px 16px !important; /* เล็กลงเล็กน้อยให้ไม่ทับปุ่ม */
+}
+
+/* สำหรับ tooltip ที่จัดด้านซ้าย (เช่น ปุ่ม PDF / รายละเอียดเพิ่มเติม) ให้ขยับเข้ามาเล็กน้อย */
+.introjs-left,
+.introjs-left-center-aligned {
+  margin-left: -20px !important;
+}
+
+/* คลาสเฉพาะสำหรับ step ที่เราบังคับให้ tooltip ไปอยู่ล่างกลางจอ */
+.introjs-tooltip.custom-tooltip-left {
+  position: fixed !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  top: auto !important;
+  bottom: 16px !important;
+  max-width: min(320px, 90vw) !important; /* กว้างสุดไม่เกิน 320px หรือ 90% ของจอ */
+}
+
+.introjs-tooltip.custom-tooltip-left .introjs-arrow {
+  display: none !important; /* ซ่อนลูกศรเพื่อไม่ให้ลูกศรไปทับปุ่ม */
 }
 
 /* จัดข้อความให้อ่านง่ายและดูโปร่ง */

@@ -308,6 +308,7 @@ export default function CustomerNavbar() {
             {/* 🔔 ปุ่มแจ้งเตือน */}
             <div className="relative" ref={notifRef}>
               <button
+                id="customer-step-bell"
                 title="การแจ้งเตือน"
                 onClick={async () => {
                   // คงของเดิม: toggle dropdown
@@ -407,6 +408,7 @@ export default function CustomerNavbar() {
             {/* 📝 ปุ่มร้องเรียน (ลูกค้า) */}
             {isAuthenticated && (
               <Link
+                id="customer-step-complaint"
                 to="/customer/complaints"
                 title="ร้องเรียน/ติดต่อแอดมิน"
                 className="inline-flex items-center gap-2 rounded-full bg-white shadow ring-1 ring-sky-100 px-3 py-2 text-sm font-semibold text-sky-700 hover:bg-sky-50 transition"
