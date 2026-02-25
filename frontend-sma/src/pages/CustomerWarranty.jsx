@@ -181,8 +181,21 @@ export default function CustomerWarranty() {
 
       try {
         const ls = typeof window !== "undefined" ? window.localStorage : null;
-        const firstKey = "wp_seen_customer_empty_onboarding_v1";
-        const hasSeenEmpty = ls ? ls.getItem(firstKey) : null;
+        const baseKey = "wp_seen_customer_empty_onboarding_v1";
+        let key = baseKey;
+
+        if (user) {
+          const idOrEmail =
+            user.id ||
+            user.email ||
+            user.customerProfile?.id ||
+            user.customerProfile?.email;
+          if (idOrEmail) {
+            key = `${baseKey}:${idOrEmail}`;
+          }
+        }
+
+        const hasSeenEmpty = ls ? ls.getItem(key) : null;
         if ((rows || []).length === 0 && !hasSeenEmpty) {
           setShowEmptyOnboarding(true);
         } else {
@@ -222,7 +235,7 @@ export default function CustomerWarranty() {
 
   useEffect(() => {
     fetchData();
-  }, [filter]);
+  }, [filter, user?.id]);
 
   // Intro.js customer onboarding tour (run once per browser)
   useEffect(() => {
@@ -503,7 +516,23 @@ export default function CustomerWarranty() {
                 onClick={() => {
                   try {
                     const ls = typeof window !== "undefined" ? window.localStorage : null;
-                    if (ls) ls.setItem("wp_seen_customer_empty_onboarding_v1", "1");
+                    if (ls) {
+                      const baseKey = "wp_seen_customer_empty_onboarding_v1";
+                      let key = baseKey;
+
+                      if (user) {
+                        const idOrEmail =
+                          user.id ||
+                          user.email ||
+                          user.customerProfile?.id ||
+                          user.customerProfile?.email;
+                        if (idOrEmail) {
+                          key = `${baseKey}:${idOrEmail}`;
+                        }
+                      }
+
+                      ls.setItem(key, "1");
+                    }
                   } catch {
                     // ignore
                   }
