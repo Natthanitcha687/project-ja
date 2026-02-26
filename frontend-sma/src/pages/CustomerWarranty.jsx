@@ -133,7 +133,7 @@ function StatusPill({ code }) {
  * Main Page
  * ======================= */
 export default function CustomerWarranty() {
-  const { user, setUser } = useAuth();
+  const { user } = useAuth();
   const location = useLocation();
   const [focusWarrantyId, setFocusWarrantyId] = useState(
     () => location.state?.focusWarrantyId || null
@@ -162,26 +162,6 @@ export default function CustomerWarranty() {
   const [page, setPage] = useState(1);
   const tourStartedRef = useRef(false);
 
-  async function markOnboardingSeen() {
-    try {
-      await api.post("/auth/onboarding/seen");
-      if (setUser) {
-        setUser((prev) => (prev ? { ...prev, hasSeenOnboarding: true } : prev));
-      }
-      try {
-        const ls = typeof window !== "undefined" ? window.localStorage : null;
-        if (ls) {
-          ls.removeItem("wp_seen_tour_customer_v1");
-          ls.removeItem("wp_seen_customer_empty_onboarding_v1");
-        }
-      } catch {
-        // ignore localStorage errors
-      }
-    } catch {
-      // ไม่ต้องบล็อก UX ถ้า API ล้มเหลว แค่ไม่อัปเดต flag
-    }
-  }
-
   async function fetchData(opts = {}) {
     setLoading(true);
     try {
@@ -199,11 +179,17 @@ export default function CustomerWarranty() {
       const rows = r.data?.data || [];
       setData(rows);
 
-      const hasSeen = !!user?.hasSeenOnboarding;
-      if ((rows || []).length === 0 && !hasSeen) {
-        setShowEmptyOnboarding(true);
-      } else {
-        setShowEmptyOnboarding(false);
+      try {
+        const ls = typeof window !== "undefined" ? window.localStorage : null;
+        const firstKey = "wp_seen_customer_empty_onboarding_v1";
+        const hasSeenEmpty = ls ? ls.getItem(firstKey) : null;
+        if ((rows || []).length === 0 && !hasSeenEmpty) {
+          setShowEmptyOnboarding(true);
+        } else {
+          setShowEmptyOnboarding(false);
+        }
+      } catch {
+        // ignore localStorage errors
       }
 
       // ถ้ามี focusWarrantyId จากการคลิกแจ้งเตือน ให้เลื่อนไปหน้าที่มีใบรับประกันนั้นและขยายการ์ด
@@ -236,15 +222,20 @@ export default function CustomerWarranty() {
 
   useEffect(() => {
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter, user?.id, user?.hasSeenOnboarding]);
+  }, [filter]);
 
-  // Intro.js customer onboarding tour (ใช้ flag จาก backend)
+  // Intro.js customer onboarding tour (run once per browser)
   useEffect(() => {
     if (loading) return;
     if (tourStartedRef.current) return;
-    if (user?.hasSeenOnboarding) return;
-    if (typeof window === "undefined" || typeof document === "undefined") return;
+
+    try {
+      const ls = typeof window !== "undefined" ? window.localStorage : null;
+      const key = "wp_seen_tour_customer_v1";
+      const seen = ls ? ls.getItem(key) : null;
+      if (seen) return;
+
+      if (typeof window === "undefined" || typeof document === "undefined") return;
 
       let attempts = 0;
       const maxAttempts = 20; // ~5 วินาที
@@ -321,6 +312,7 @@ export default function CustomerWarranty() {
         if (!ready) return;
 
         tourStartedRef.current = true;
+        if (ls) ls.setItem(key, "1");
 
         const intro = introJs();
         intro.setOptions({
@@ -337,12 +329,6 @@ export default function CustomerWarranty() {
           scrollTo: "element",
           scrollToElement: true,
         });
-        intro.oncomplete(() => {
-          markOnboardingSeen();
-        });
-        intro.onexit(() => {
-          markOnboardingSeen();
-        });
         intro.start();
       };
 
@@ -353,7 +339,7 @@ export default function CustomerWarranty() {
     } catch (e) {
       // ignore
     }
-  }, [loading, user?.hasSeenOnboarding]);
+  }, [loading]);
 
   // no per-page profile dropdown here — CustomerNavbar handles profile menu/modal
 
@@ -515,7 +501,12 @@ export default function CustomerWarranty() {
               <button
                 type="button"
                 onClick={() => {
-                  markOnboardingSeen();
+                  try {
+                    const ls = typeof window !== "undefined" ? window.localStorage : null;
+                    if (ls) ls.setItem("wp_seen_customer_empty_onboarding_v1", "1");
+                  } catch {
+                    // ignore
+                  }
                   setShowEmptyOnboarding(false);
                 }}
                 className="mt-4 inline-flex items-center justify-center rounded-full bg-sky-600 px-5 py-2 text-xs sm:text-sm font-semibold text-white shadow hover:bg-sky-500"
