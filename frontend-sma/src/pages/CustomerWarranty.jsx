@@ -133,7 +133,7 @@ function StatusPill({ code }) {
  * Main Page
  * ======================= */
 export default function CustomerWarranty() {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const location = useLocation();
   const [focusWarrantyId, setFocusWarrantyId] = useState(
     () => location.state?.focusWarrantyId || null
@@ -161,6 +161,17 @@ export default function CustomerWarranty() {
   const PAGE_SIZE = 5;
   const [page, setPage] = useState(1);
   const tourStartedRef = useRef(false);
+
+  async function markCustomerOnboardingSeen() {
+    try {
+      await api.post("/auth/onboarding/seen");
+      if (setUser) {
+        setUser((prev) => (prev ? { ...prev, hasSeenOnboarding: true } : prev));
+      }
+    } catch (e) {
+      // ไม่ต้องบล็อก UX ถ้า API ล้มเหลว
+    }
+  }
 
   async function fetchData(opts = {}) {
     setLoading(true);
@@ -224,14 +235,17 @@ export default function CustomerWarranty() {
     fetchData();
   }, [filter]);
 
-  // Intro.js customer onboarding tour (run once per browser)
+  // Intro.js customer onboarding tour (ผูกกับ user ทีละคน)
   useEffect(() => {
+    if (!user) return;
+    if (user.role !== "CUSTOMER") return;
+    if (user.hasSeenOnboarding) return;
     if (loading) return;
     if (tourStartedRef.current) return;
 
     try {
       const ls = typeof window !== "undefined" ? window.localStorage : null;
-      const key = "wp_seen_tour_customer_v1";
+      const key = `wp_seen_tour_customer_v1_${user.id}`;
       const seen = ls ? ls.getItem(key) : null;
       if (seen) return;
 
@@ -329,6 +343,12 @@ export default function CustomerWarranty() {
           scrollTo: "element",
           scrollToElement: true,
         });
+        intro.oncomplete(() => {
+          markCustomerOnboardingSeen();
+        });
+        intro.onexit(() => {
+          markCustomerOnboardingSeen();
+        });
         intro.start();
       };
 
@@ -339,7 +359,7 @@ export default function CustomerWarranty() {
     } catch (e) {
       // ignore
     }
-  }, [loading]);
+  }, [loading, user?.id, user?.role, user?.hasSeenOnboarding]);
 
   // no per-page profile dropdown here — CustomerNavbar handles profile menu/modal
 
