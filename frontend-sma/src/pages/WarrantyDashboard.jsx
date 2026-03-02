@@ -301,12 +301,20 @@ export default function WarrantyDashboard() {
 
   // ===== Onboarding welcome modal & Joyride (แสดงเฉพาะหน้า การรับประกัน) =====
   const [showWelcomeModal, setShowWelcomeModal] = useState(false)
+  const storeTourStartedRef = useRef(false)
   useEffect(() => {
     if (!user) return
     if (user.role !== 'STORE') return
-    if (!user.hasSeenOnboarding) {
-      setShowWelcomeModal(true)
+    // ถ้า backend บันทึกแล้ว หรือใน localStorage เคยบันทึกไว้แล้ว ให้ไม่ต้องแสดงอีก
+    try {
+      const ls = typeof window !== 'undefined' ? window.localStorage : null
+      const key = user?.id ? `wp_seen_tour_store_v1_${user.id}` : null
+      const seenInStorage = key && ls ? ls.getItem(key) : null
+      if (user.hasSeenOnboarding || seenInStorage) return
+    } catch {
+      // ignore localStorage errors
     }
+    setShowWelcomeModal(true)
   }, [user?.id, user?.role, user?.hasSeenOnboarding])
 
   async function markStoreOnboardingSeen() {
@@ -314,15 +322,6 @@ export default function WarrantyDashboard() {
       await api.post('/auth/onboarding/seen')
       if (setUser) {
         setUser((prev) => (prev ? { ...prev, hasSeenOnboarding: true } : prev))
-      }
-      try {
-        const ls = typeof window !== 'undefined' ? window.localStorage : null
-        if (ls) {
-          const key = `wp_seen_welcome_${storeIdResolved}`
-          ls.removeItem(key)
-        }
-      } catch {
-        // ignore
       }
     } catch {
       // ไม่ต้องบล็อก UX ถ้า API ล้มเหลว
@@ -348,6 +347,22 @@ export default function WarrantyDashboard() {
   ], [])
 
   const handleStartTour = () => {
+    if (!user) return
+    if (storeTourStartedRef.current) return
+    storeTourStartedRef.current = true
+
+    // บันทึกว่า user คนนี้เริ่มดูทัวร์แล้ว (ต่อ browser)
+    try {
+      const ls = typeof window !== 'undefined' ? window.localStorage : null
+      const key = user?.id ? `wp_seen_tour_store_v1_${user.id}` : null
+      if (ls && key) ls.setItem(key, '1')
+    } catch {
+      // ignore localStorage errors
+    }
+
+    // บันทึกที่ backend ว่าเห็น onboarding แล้ว (ผูกกับ user)
+    markStoreOnboardingSeen()
+
     // รอจน DOM พร้อมครบทุก element ที่ต้องใช้ในทัวร์
     if (typeof window === 'undefined' || typeof document === 'undefined') {
       return
