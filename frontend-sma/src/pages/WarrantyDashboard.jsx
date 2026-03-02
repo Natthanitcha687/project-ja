@@ -1727,7 +1727,6 @@ export default function WarrantyDashboard() {
           <WelcomeOnboardingModal
             open={showWelcomeModal}
             onClose={() => {
-              markStoreOnboardingSeen()
               setShowWelcomeModal(false)
             }}
             title="ยินดีต้อนรับสู่ระบบการรับประกัน"
