@@ -226,6 +226,15 @@ export default function CustomerWarranty() {
           return next;
         });
       }
+    } catch (e) {
+      console.error("fetch customer warranties failed", e);
+      setTotals({
+        all: 0,
+        active: 0,
+        nearing_expiration: 0,
+        expired: 0,
+      });
+      setData([]);
     } finally {
       setLoading(false);
     }
@@ -378,11 +387,24 @@ export default function CustomerWarranty() {
   }, [data, page]);
 
   async function onSaveNote() {
-    await api.patch(`/customer/warranty-items/${noteModal.itemId}/note`, {
-      note: noteModal.note,
-    });
-    setNoteModal({ open: false, itemId: null, name: "", note: "" });
-    fetchData();
+    if (!noteModal.itemId) {
+      setNoteModal({ open: false, itemId: null, name: "", note: "" });
+      return;
+    }
+    try {
+      await api.patch(`/customer/warranty-items/${noteModal.itemId}/note`, {
+        note: noteModal.note,
+      });
+      setNoteModal({ open: false, itemId: null, name: "", note: "" });
+      fetchData();
+    } catch (e) {
+      const msg =
+        e?.response?.data?.message ||
+        e?.response?.data?.error?.message ||
+        "ไม่สามารถบันทึกหมายเหตุได้";
+      // ใช้ alert แบบง่าย เพื่อไม่ให้ error เงียบหาย และหลีกเลี่ยง unhandled rejection
+      alert(msg);
+    }
   }
 
   async function onDownloadPdf(warrantyId) {
