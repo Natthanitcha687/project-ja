@@ -163,14 +163,10 @@ export default function CustomerWarranty() {
   const tourStartedRef = useRef(false);
 
   async function markCustomerOnboardingSeen() {
-    try {
-      await api.post("/auth/onboarding/seen");
-      if (setUser) {
-        setUser((prev) => (prev ? { ...prev, hasSeenOnboarding: true } : prev));
-      }
-    } catch (e) {
-      // ไม่ต้องบล็อก UX ถ้า API ล้มเหลว
+    if (setUser) {
+      setUser((prev) => (prev ? { ...prev, hasSeenOnboarding: true } : prev));
     }
+    // ไม่เรียก backend เพื่อเลี่ยง 404 บนโฮสต์ที่ยังไม่มี endpoint นี้
   }
 
   async function fetchData(opts = {}) {
