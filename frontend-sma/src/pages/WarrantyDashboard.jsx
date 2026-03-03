@@ -333,16 +333,19 @@ export default function WarrantyDashboard() {
       element: '#step-create-warranty',
       intro: 'คลิกที่นี่เพื่อสร้างใบรับประกันใหม่ให้ลูกค้า',
       position: 'bottom',
+      tooltipClass: 'custom-tooltip-left',
     },
     {
       element: '#step-search-filter',
       intro: 'ค้นหาใบรับประกัน หรือกรองดูตามสถานะการคุ้มครองได้ที่นี่',
       position: 'bottom',
+      tooltipClass: 'custom-tooltip-left',
     },
     {
       element: '#step-warranty-list',
       intro: 'รายการใบรับประกันทั้งหมดของคุณจะแสดงอยู่ที่นี่',
       position: 'bottom',
+      tooltipClass: 'custom-tooltip-left',
     },
   ], [])
 
