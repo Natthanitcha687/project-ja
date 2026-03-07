@@ -1246,6 +1246,53 @@ export async function restoreWarrantyFromComplaint(req, res) {
   const purchaseDate = snapshot.purchaseDate ? new Date(snapshot.purchaseDate) : new Date();
   const expiryDate = snapshot.expiryDate ? new Date(snapshot.expiryDate) : null;
 
+  // เตรียมข้อมูล items สำหรับกู้คืน
+  let itemsToCreate = [];
+
+  if (Array.isArray(snapshot.items) && snapshot.items.length > 0) {
+    itemsToCreate = snapshot.items.map((it) => ({
+      productName: it.productName || "ไม่ระบุ",
+      model: it.model || null,
+      serial: it.serial || null,
+      price: typeof it.price === "number" ? it.price : null,
+      purchaseDate: it.purchaseDate ? new Date(it.purchaseDate) : purchaseDate,
+      expiryDate: it.expiryDate ? new Date(it.expiryDate) : expiryDate,
+      durationMonths:
+        typeof it.durationMonths === "number" ? it.durationMonths : null,
+      durationDays:
+        typeof it.durationDays === "number" ? it.durationDays : null,
+      coverageNote: it.coverageNote || null,
+      note: it.note || null,
+      documents: it.documents ?? null,
+      images: it.images ?? null,
+      selectedConditions: it.selectedConditions ?? null,
+      customCondition: it.customCondition ?? null,
+      customerNote: it.customerNote ?? null,
+    }));
+  } else {
+    // backward-compatible: ใช้รูปแบบ snapshot เดิมที่มีแค่ฟิลด์บนหัวใบ + รายการแรก
+    itemsToCreate = [
+      {
+        productName: snapshot.productName || "ไม่ระบุ",
+        model: snapshot.model || null,
+        serial: snapshot.serial || null,
+        price: typeof snapshot.price === "number" ? snapshot.price : null,
+        purchaseDate,
+        expiryDate,
+        durationMonths:
+          typeof snapshot.durationMonths === "number"
+            ? snapshot.durationMonths
+            : null,
+        durationDays:
+          typeof snapshot.durationDays === "number"
+            ? snapshot.durationDays
+            : null,
+        coverageNote: snapshot.coverageNote || null,
+        note: snapshot.note || null,
+      },
+    ];
+  }
+
   try {
     const [warranty] = await prisma.$transaction([
       prisma.warranty.create({
@@ -1256,23 +1303,9 @@ export async function restoreWarrantyFromComplaint(req, res) {
           customerName: snapshot.customerName || null,
           customerPhone: snapshot.customerPhone || null,
           customerAddress: snapshot.customerAddress || null,
+          customerUserId: snapshot.customerUserId || null,
           items: {
-            create: [
-              {
-                productName: snapshot.productName || "ไม่ระบุ",
-                model: snapshot.model || null,
-                serial: snapshot.serial || null,
-                price: typeof snapshot.price === "number" ? snapshot.price : null,
-                purchaseDate,
-                expiryDate,
-                durationMonths:
-                  typeof snapshot.durationMonths === "number" ? snapshot.durationMonths : null,
-                durationDays:
-                  typeof snapshot.durationDays === "number" ? snapshot.durationDays : null,
-                coverageNote: snapshot.coverageNote || null,
-                note: snapshot.note || null,
-              },
-            ],
+            create: itemsToCreate,
           },
         },
       }),
