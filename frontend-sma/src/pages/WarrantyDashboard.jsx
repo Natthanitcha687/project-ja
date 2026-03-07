@@ -1856,14 +1856,6 @@ export default function WarrantyDashboard() {
               <div className="grid min-h-[320px] place-items-center text-center text-sm text-slate-500">
                 <div>
                   <div className="text-base font-medium text-slate-700">หน้านี้สำหรับบัญชีร้านค้าเท่านั้น</div>
-                <Footer />
-
-                {/* Popup แบบประเมินความพึงพอใจของร้านค้า (หน้า Dashboard การรับประกัน) */}
-                <SatisfactionSurveyModal
-                  open={surveyOpen}
-                  onClose={() => setSurveyOpen(false)}
-                  context="store"
-                />
                 </div>
               </div>
             ) : (
@@ -3614,6 +3606,13 @@ export default function WarrantyDashboard() {
 
       {/* ✅ วาง Footer นอก div ที่มี pb-12 เพื่อไม่ให้ลอย/มีช่องว่างด้านล่าง */}
       <Footer />
+
+      {/* Popup แบบประเมินความพึงพอใจของร้านค้า (หน้า Dashboard การรับประกัน) */}
+      <SatisfactionSurveyModal
+        open={surveyOpen}
+        onClose={() => setSurveyOpen(false)}
+        context="store"
+      />
     </>
   )
 }
