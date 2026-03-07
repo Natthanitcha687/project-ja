@@ -65,7 +65,7 @@ export default function CustomerProfileModal({ open, onClose, initialTab = 'info
         setLastName(data?.lastName || "");
         setPhone(data?.phone || "");
         setIsConsent(!!data?.isConsent);
-        setProfileImage({ file: null, preview: data?.avatarUrl || '' })
+        setProfileImage({ file: null, preview: data?.avatarUrl || "" });
         // ✅ โหลดวันแจ้งเตือน
         setNotifyDaysArray(data?.notifyDaysArray?.length > 0 ? data.notifyDaysArray : [15])
       } catch (err) {
@@ -84,7 +84,7 @@ export default function CustomerProfileModal({ open, onClose, initialTab = 'info
 
   const resetAndClose = () => {
     setOldPassword(""); setNewPassword(""); setConfirmNew("");
-    setProfileImage({ file: null, preview: '' })
+    setProfileImage({ file: null, preview: "" });
     onClose?.();
   };
 
@@ -190,6 +190,58 @@ export default function CustomerProfileModal({ open, onClose, initialTab = 'info
         <div className="px-6 py-5 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 220px)' }}>
           {tab === "info" && (
             <div className="space-y-4">
+              {/* Avatar + ปุ่มอัปโหลด */}
+              <div className="flex items-center gap-4">
+                <div className="relative h-16 w-16 shrink-0">
+                  <div className="grid h-16 w-16 place-items-center rounded-full bg-sky-200 text-2xl overflow-hidden border border-sky-300">
+                    {profileImage.preview ? (
+                      // แสดงรูปโปรไฟล์ที่อัปโหลดหรือที่เคยบันทึกไว้
+                      // ใช้ object-cover เพื่อไม่ให้ภาพเบี้ยว
+                      <img
+                        src={profileImage.preview}
+                        alt="รูปโปรไฟล์ลูกค้า"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span role="img" aria-label="avatar">
+                        👤
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2 text-sm text-slate-700">
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => profileImageInputRef.current?.click()}
+                      className="rounded-full bg-sky-600 px-4 py-1.5 text-sm font-medium text-white shadow hover:bg-sky-700"
+                    >
+                      เปลี่ยนรูปโปรไฟล์
+                    </button>
+                    {profileImage.preview && (
+                      <button
+                        type="button"
+                        onClick={() => setProfileImage({ file: null, preview: "" })}
+                        className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100"
+                      >
+                        ลบรูปภาพ
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    รองรับไฟล์รูปภาพเช่น JPG, PNG ขนาดไม่เกินประมาณ 10MB
+                  </p>
+                  {/* input file แบบซ่อน */}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    ref={profileImageInputRef}
+                    className="hidden"
+                    onChange={handleProfileAvatarSelect}
+                  />
+                </div>
+              </div>
+
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-sm text-gray-600">ชื่อ</label>
