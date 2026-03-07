@@ -6,15 +6,25 @@ import AppLogo from './AppLogo'
 import { api } from '../lib/api'
 import { HiOutlineBell, HiOutlineClipboardList } from 'react-icons/hi'
 
+function getNotifType(n) {
+  if (!n) return null
+  if (n.type) return n.type
+  if (n.data && typeof n.data === 'object' && n.data.type) return n.data.type
+  return null
+}
+
 export default function DashboardHeader({ title, subtitle, notifications = [], onFetchNotifications, onEditProfile, notificationsLoading, onMarkAllRead }) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
   const [notifOpen, setNotifOpen] = useState(false)
+  const [openNotifDetail, setOpenNotifDetail] = useState(false)
+  const [selectedNotification, setSelectedNotification] = useState(null)
   const [isProfileMenuOpen, setProfileMenuOpen] = useState(false)
   const [notifLoading, setNotifLoading] = useState(false)
   const [suppressEmptyOnOpen, setSuppressEmptyOnOpen] = useState(false)
+  const [notifRecoveredCache, setNotifRecoveredCache] = useState({})
 
   const notifRef = useRef(null)
   const profileMenuRef = useRef(null)
@@ -27,6 +37,60 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
   }, [notifOpen])
+
+  // ถ้าเปิดดูแจ้งเตือน "ลบใบรับประกัน" ของร้านค้า
+  // ให้ลองเช็กสถานะใบจริงจาก API ว่ามีใบนี้อยู่ในแดชบอร์ดแล้วหรือยัง
+  // เพื่อรองรับเคสเก่าที่ notification.data.recovered ยังไม่มี
+  useEffect(() => {
+    if (!openNotifDetail || !selectedNotification) return
+
+    const type = getNotifType(selectedNotification)
+    if (type !== 'warranty_deleted') return
+
+    if (selectedNotification?.data?.recovered) return
+
+    const id = selectedNotification.id
+    if (!id) return
+
+    if (notifRecoveredCache[id]) {
+      setSelectedNotification((prev) =>
+        prev && prev.id === id
+          ? { ...prev, data: { ...(prev.data || {}), recovered: true } }
+          : prev
+      )
+      return
+    }
+
+    const code = selectedNotification?.data?.warrantySnapshot?.code
+    if (!code) return
+
+    const storeId = user?.id
+    if (!storeId) return
+
+    let cancelled = false
+    ;(async () => {
+      try {
+        const resp = await api.get(`/store/${storeId}/dashboard`)
+        const payload = resp?.data?.data || {}
+        const headers = Array.isArray(payload.warranties) ? payload.warranties : []
+        const has = headers.some((h) => String(h.code) === String(code))
+        if (!cancelled && has) {
+          setNotifRecoveredCache((prev) => ({ ...prev, [id]: true }))
+          setSelectedNotification((prev) =>
+            prev && prev.id === id
+              ? { ...prev, data: { ...(prev.data || {}), recovered: true } }
+              : prev
+          )
+        }
+      } catch {
+        // ignore
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [openNotifDetail, selectedNotification, notifRecoveredCache, user?.id])
 
   // fetch notifications once on mount so badge is populated before user interaction
   useEffect(() => {
@@ -81,6 +145,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
   const isOnComplaintsPage = location.pathname.startsWith('/dashboard/complaints')
 
   return (
+    <>
     <header className="sticky top-0 z-40 border-b border-sky-100 bg-white/80 py-3 backdrop-blur">
       <div className="mx-auto max-w-6xl px-4 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-3">
@@ -161,11 +226,8 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
                               // do not call onFetchNotifications here to avoid toggling loading state
                             })()
                           }
-                          if (n?.data?.warrantyId) {
-                            try {
-                              navigate(`/warranty/${n.data.warrantyId}`)
-                            } catch { }
-                          }
+                          setSelectedNotification(n)
+                          setOpenNotifDetail(true)
                           setNotifOpen(false)
                         }}
                       >
@@ -279,5 +341,171 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
         </div>
       </div>
     </header>
+
+    {openNotifDetail && selectedNotification && (
+      <div className="fixed inset-0 z-[1300] flex items-center justify-center bg-black/40 px-4">
+        <div className="w-full max-w-md rounded-2xl bg-white shadow-xl overflow-hidden">
+          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+            <div className="text-sm font-semibold text-slate-800">รายละเอียดการแจ้งเตือน</div>
+            <button
+              type="button"
+              onClick={() => setOpenNotifDetail(false)}
+              className="text-xs font-medium text-slate-400 hover:text-slate-600"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="px-4 py-3 text-sm text-slate-700 max-h-[60vh] overflow-y-auto">
+            <div className="font-semibold text-slate-900">
+              {selectedNotification.title ||
+                selectedNotification.message ||
+                (selectedNotification.data && selectedNotification.data.type) ||
+                'การแจ้งเตือน'}
+            </div>
+            {selectedNotification.body && (
+              <div className="mt-2 text-sm text-slate-700">
+                <div
+                  dangerouslySetInnerHTML={{ __html: selectedNotification.body }}
+                />
+              </div>
+            )}
+
+            {getNotifType(selectedNotification) === 'warranty_deleted' &&
+              selectedNotification?.data?.warrantySnapshot && (
+                <div className="mt-3 rounded-xl bg-slate-50 px-3 py-3 text-xs text-slate-700 space-y-1">
+                  <div className="font-semibold text-slate-900">รายละเอียดใบรับประกัน (ก่อนถูกลบ)</div>
+                  <div>รหัสใบรับประกัน: <span className="font-medium">{selectedNotification.data.warrantySnapshot.code || '-'}</span></div>
+                  {selectedNotification.data.warrantySnapshot.productName && (
+                    <div>สินค้า: <span className="font-medium">{selectedNotification.data.warrantySnapshot.productName}</span></div>
+                  )}
+                  {selectedNotification.data.warrantySnapshot.model && (
+                    <div>รุ่น / รุ่นย่อย: <span className="font-medium">{selectedNotification.data.warrantySnapshot.model}</span></div>
+                  )}
+                  {selectedNotification.data.warrantySnapshot.serial && (
+                    <div>Serial No.: <span className="font-medium">{selectedNotification.data.warrantySnapshot.serial}</span></div>
+                  )}
+                  {selectedNotification.data.warrantySnapshot.purchaseDate && (
+                    <div>
+                      วันที่ซื้อสินค้า: <span className="font-medium">
+                        {new Date(selectedNotification.data.warrantySnapshot.purchaseDate).toLocaleDateString('th-TH', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                      </span>
+                    </div>
+                  )}
+                  {selectedNotification.data.warrantySnapshot.expiryDate && (
+                    <div>
+                      วันสิ้นสุดการรับประกัน: <span className="font-medium">
+                        {new Date(selectedNotification.data.warrantySnapshot.expiryDate).toLocaleDateString('th-TH', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                      </span>
+                    </div>
+                  )}
+                  {selectedNotification.data.warrantySnapshot.coverageNote && (
+                    <div>เงื่อนไขการรับประกัน: <span className="font-medium">{selectedNotification.data.warrantySnapshot.coverageNote}</span></div>
+                  )}
+                  {selectedNotification.data.warrantySnapshot.note && (
+                    <div>หมายเหตุเพิ่มเติม: <span className="font-medium">{selectedNotification.data.warrantySnapshot.note}</span></div>
+                  )}
+                  {selectedNotification.data.warrantySnapshot.storeName && (
+                    <div>ร้านค้า: <span className="font-medium">{selectedNotification.data.warrantySnapshot.storeName}</span></div>
+                  )}
+                </div>
+              )}
+
+            {selectedNotification.createdAt && (
+              <div className="mt-3 text-xs text-slate-500">
+                ได้รับเมื่อ {new Date(selectedNotification.createdAt).toLocaleString()}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 bg-slate-50/80">
+            <button
+              type="button"
+              onClick={() => setOpenNotifDetail(false)}
+              className="rounded-full border border-slate-300 bg-white px-4 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+            >
+              ปิด
+            </button>
+
+            <div className="flex items-center gap-2">
+              {getNotifType(selectedNotification) === 'warranty_deleted' &&
+                selectedNotification?.data?.warrantySnapshot &&
+                !selectedNotification?.data?.recovered && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const snap = selectedNotification?.data?.warrantySnapshot || {}
+                      const code = snap.code || '-'
+                      const product = snap.productName || ''
+                      const customerName = snap.customerName || ''
+
+                      const presetSubject = `ร้านค้าขอกู้คืนใบรับประกันรหัส ${code}`
+
+                      const lines = [
+                        'ร้านค้าขอกู้คืนใบรับประกันนี้ที่ถูกลบไปจากระบบ',
+                        '',
+                        'รายละเอียดใบรับประกันเดิม (จากระบบ):',
+                        `- รหัสใบรับประกัน: ${code}`,
+                        product ? `- สินค้า: ${product}` : '',
+                        customerName ? `- ชื่อลูกค้า: ${customerName}` : '',
+                      ].filter(Boolean)
+
+                      const presetMessage = lines.join('\n')
+
+                      navigate('/dashboard/complaints', {
+                        state: {
+                          fromWarrantyDeleted: true,
+                          isRecoveryRequest: true,
+                          presetCategory: 'ปัญหาใบรับประกัน',
+                          presetSubject,
+                          presetMessage,
+                        },
+                      })
+
+                      setOpenNotifDetail(false)
+                    }}
+                    className="rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-emerald-700"
+                  >
+                    ยื่นคำร้องกู้คืนใบรับประกันนี้
+                  </button>
+                )}
+
+              {getNotifType(selectedNotification) === 'warranty_deleted' &&
+                selectedNotification?.data?.recovered && (
+                  <span className="text-[11px] font-medium text-emerald-600">
+                    ใบรับประกันนี้ถูกกู้คืนแล้ว
+                  </span>
+                )}
+
+              {selectedNotification?.data?.warrantyId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const wid = selectedNotification?.data?.warrantyId
+                    if (wid) {
+                      // ใช้หน้าจัดการใบรับประกันหลักของร้าน และส่ง id ไปให้ใน state เผื่ออนาคตอยาก focus ใบนั้น
+                      navigate('/dashboard/warranty', { state: { focusWarrantyId: wid } })
+                      setOpenNotifDetail(false)
+                    }
+                  }}
+                  className="rounded-full bg-sky-600 px-4 py-1.5 text-xs font-semibold text-white shadow hover:bg-sky-700"
+                >
+                  ไปที่ใบรับประกัน
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }

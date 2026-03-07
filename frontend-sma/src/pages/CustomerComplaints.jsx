@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../store/auth";
 import ReCAPTCHA from "react-google-recaptcha";
@@ -49,12 +49,17 @@ function StatusPill({ status }) {
 
 export default function CustomerComplaints() {
   const { user } = useAuth();
+  const location = useLocation();
 
   // form
   const [category, setCategory] = useState(CATEGORY_OPTIONS[0]);
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [attachments, setAttachments] = useState([]); // ✅ เพิ่ม: แนบรูป
+
+  // ✅ โหมดคำร้องกู้ใบรับประกัน & เหตุผลแยก
+  const [isRecoveryRequest, setIsRecoveryRequest] = useState(false);
+  const [recoveryReason, setRecoveryReason] = useState("");
 
   // ✅ เพิ่ม: warranty dropdown สำหรับหมวด "ปัญหาใบรับประกัน"
   const [warranties, setWarranties] = useState([]);
@@ -78,6 +83,24 @@ export default function CustomerComplaints() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
   const inFlightRef = useRef(false);
+
+  // ✅ ถ้ามาจากปุ่ม "ยื่นคำร้องกู้คืนใบรับประกันนี้" ให้เติมค่าพื้นฐานให้ฟอร์ม
+  useEffect(() => {
+    const preset = location?.state;
+    if (!preset || !preset.fromWarrantyDeleted) return;
+
+    setIsRecoveryRequest(!!preset.isRecoveryRequest);
+
+    if (preset.presetCategory) {
+      setCategory(preset.presetCategory);
+    }
+    if (preset.presetSubject) {
+      setSubject(preset.presetSubject);
+    }
+    if (preset.presetMessage) {
+      setMessage(preset.presetMessage);
+    }
+  }, []);
 
   // ✅ เพิ่ม: fetch warranties เมื่อเลือก "ปัญหาใบรับประกัน"
   useEffect(() => {
@@ -164,18 +187,25 @@ export default function CustomerComplaints() {
     e.preventDefault();
 
     const s = subject.trim();
-    const m = message.trim();
+    const baseMessage = message.trim();
+    const reason = recoveryReason.trim();
 
-    if (!s || !m) {
+    if (!s || !baseMessage || (isRecoveryRequest && !reason)) {
       Swal.fire({
         icon: "warning",
         title: "ข้อมูลไม่ครบถ้วน",
-        text: "กรุณากรอกหัวข้อและรายละเอียด",
+        text: isRecoveryRequest
+          ? "กรุณากรอกหัวข้อ รายละเอียด และเหตุผลที่ขอกู้คืน"
+          : "กรุณากรอกหัวข้อและรายละเอียด",
         confirmButtonText: "ตกลง",
         confirmButtonColor: "#0284c7", // sky-600
       });
       return;
     }
+
+    const m = isRecoveryRequest
+      ? `${baseMessage}\n\nเหตุผลที่ขอกู้คืน:\n${reason}`
+      : baseMessage;
 
     // ✅ Check CAPTCHA
     if (!captchaToken) {
@@ -232,6 +262,7 @@ export default function CustomerComplaints() {
       setSubject("");
       setMessage("");
       setAttachments([]); // ✅ รีเซ็ตไฟล์แนบ
+      setRecoveryReason("");
       // ✅ รีเซ็ต warranty selections & captcha
       setSelectedWarrantyId("");
       setSelectedItemId("");
@@ -415,6 +446,24 @@ export default function CustomerComplaints() {
                 />
                 <div className="mt-1 text-xs text-slate-500">{message.trim().length}/5000</div>
               </div>
+
+              {isRecoveryRequest && (
+                <div className="md:col-span-2">
+                  <label className="mb-1 block text-sm font-medium text-slate-700">
+                    เหตุผลที่ขอกู้คืน <span className="text-rose-500">*</span>
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={recoveryReason}
+                    onChange={(e) => setRecoveryReason(e.target.value.replace(/[?/=&:"'.#$%<>]/g, ''))}
+                    placeholder="อธิบายเหตุผลที่ต้องการให้กู้คืนใบรับประกันนี้"
+                    className="w-full rounded-2xl border border-emerald-100 bg-emerald-50/60 px-4 py-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-emerald-200"
+                  />
+                  <div className="mt-1 text-xs text-slate-500">
+                    แอดมินจะใช้เหตุผลนี้ในการพิจารณาคำร้องขอกู้คืนของคุณ
+                  </div>
+                </div>
+              )}
 
               {/* ✅ เพิ่ม: แนบรูปอ้างอิง */}
               <div className="md:col-span-2">

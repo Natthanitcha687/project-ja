@@ -151,6 +151,7 @@ export default function Complaints() {
 
   const [selected, setSelected] = useState(null); // modal
   const [page, setPage] = useState(1);
+  const [restoring, setRestoring] = useState(false);
 
   // a11y: focus management
   const lastActiveElRef = useRef(null);
@@ -198,6 +199,29 @@ export default function Complaints() {
       );
     } catch (e) {
       setErr(e?.response?.data?.message || "อัปเดตสถานะไม่สำเร็จ");
+    }
+  }
+
+  async function restoreSelectedWarranty() {
+    if (!selected) return;
+    setErr("");
+    setRestoring(true);
+    try {
+      const { data } = await api.post(`/admin/complaints/${selected.id}/restore-warranty`);
+
+      await load();
+
+      setSelected((prev) =>
+        prev && prev.id === selected.id
+          ? { ...prev, status: "RESOLVED", updatedAt: new Date().toISOString() }
+          : prev
+      );
+
+      alert(data?.message || "กู้คืนใบรับประกันเรียบร้อยแล้ว");
+    } catch (e) {
+      setErr(e?.response?.data?.message || "กู้คืนใบรับประกันไม่สำเร็จ");
+    } finally {
+      setRestoring(false);
     }
   }
 
@@ -672,6 +696,14 @@ export default function Complaints() {
 
               {/* ✅ การเปลี่ยนสถานะ “ยังทำได้ตามเดิม” (ย้ายไปอยู่ใน modal เท่านั้น) */}
               <div className="flex flex-wrap gap-2 justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={restoreSelectedWarranty}
+                  disabled={restoring}
+                  className="rounded-xl bg-amber-500/25 px-4 py-2 text-sm font-semibold text-amber-50 hover:bg-amber-500/35 focus:outline-none focus:ring-2 focus:ring-amber-300/40 disabled:opacity-60 disabled:cursor-not-allowed mr-auto"
+                >
+                  {restoring ? "กำลังกู้คืน..." : "กู้คืนใบรับประกัน"}
+                </button>
                 <button
                   type="button"
                   onClick={() => setSt(selected.id, "IN_PROGRESS")}

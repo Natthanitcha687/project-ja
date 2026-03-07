@@ -13,6 +13,7 @@ import {
   listAuditLogs,
   listComplaints,
   setComplaintStatus,
+  restoreWarrantyFromComplaint,
 
   // ✅ เพิ่มสำหรับ UI จัดการร้านค้าตามรูป
   getStorePortal,
@@ -380,5 +381,13 @@ router.get("/complaints", requireAuth, requireAdmin, listComplaints);
  *         description: Bad request
  */
 router.patch("/complaints/:id/status", requireAuth, requireAdmin, setComplaintStatus);
+
+// กู้คืนใบรับประกันจากคำร้อง (เฉพาะบางกรณีที่รองรับ)
+router.post(
+  "/complaints/:id/restore-warranty",
+  requireAuth,
+  requireAdmin,
+  restoreWarrantyFromComplaint
+);
 
 export default router;

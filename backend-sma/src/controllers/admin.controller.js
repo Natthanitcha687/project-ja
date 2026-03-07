@@ -1036,6 +1036,12 @@ function normalizeComplaintImages(row) {
   return { ...row, images: Array.isArray(imgs) ? imgs : [] };
 }
 
+function extractWarrantyCodeFromMessage(message) {
+  if (!message) return null;
+  const m = message.match(/รหัสใบรับประกัน[:：]\s*([^\s]+)/);
+  return m?.[1] || null;
+}
+
 /**
  * include user + profile เพื่อให้ฝั่ง Admin UI แสดง "ผู้ส่ง" ได้
  * ✅ เพิ่ม images แบบ fallback-safe (ถ้า DB ยังไม่มีคอลัมน์ images จะไม่พัง)
@@ -1102,6 +1108,235 @@ export async function listComplaints(req, res) {
   }
 
   res.json({ complaints });
+}
+
+export async function restoreWarrantyFromComplaint(req, res) {
+  const id = req.params.id;
+
+  const complaint = await prisma.complaint.findUnique({
+    where: { id },
+    include: { user: true },
+  });
+
+  if (!complaint) {
+    return res.status(404).json({ message: "ไม่พบคำร้องนี้" });
+  }
+
+  if (!complaint.user || !["STORE", "CUSTOMER"].includes(complaint.user.role)) {
+    return res
+      .status(400)
+      .json({ message: "สามารถกู้คืนอัตโนมัติได้เฉพาะคำร้องที่ส่งโดยร้านค้าหรือลูกค้าเท่านั้น" });
+  }
+
+  const code = complaint.warrantyCode || extractWarrantyCodeFromMessage(complaint.message);
+
+  if (!code) {
+    return res.status(400).json({ message: "ไม่พบรหัสใบรับประกันในคำร้อง" });
+  }
+
+  let snapshotRow;
+
+  if (complaint.user.role === "STORE") {
+    const storeId = complaint.user.id;
+    const [row] = await prisma.$queryRaw`
+      SELECT "data"
+      FROM "Notification"
+      WHERE "storeId" = ${storeId}
+        AND "data"->>'type' = 'warranty_deleted'
+        AND "data"->'warrantySnapshot'->>'code' = ${code}
+      ORDER BY "createdAt" DESC
+      LIMIT 1
+    `;
+    snapshotRow = row;
+  } else {
+    const customerUserId = complaint.user.id;
+    const [row] = await prisma.$queryRaw`
+      SELECT "data"
+      FROM "Notification"
+      WHERE "userId" = ${customerUserId}
+        AND "data"->>'type' = 'warranty_deleted'
+        AND "data"->'warrantySnapshot'->>'code' = ${code}
+      ORDER BY "createdAt" DESC
+      LIMIT 1
+    `;
+    snapshotRow = row;
+  }
+
+  const snapshot = snapshotRow?.data?.warrantySnapshot;
+
+  if (!snapshot) {
+    return res
+      .status(404)
+      .json({ message: "ไม่พบข้อมูลใบรับประกันเดิมสำหรับรหัสนี้ในประวัติการแจ้งเตือน" });
+  }
+
+  // หา storeId ของใบรับประกันจาก snapshot หรือจาก Notification อื่น (รองรับเคสเก่า ๆ)
+  let storeId = snapshot.storeId || (complaint.user.role === "STORE" ? complaint.user.id : null);
+  if (!storeId) {
+    try {
+      const [storeRow] = await prisma.$queryRaw`
+        SELECT "storeId"
+        FROM "Notification"
+        WHERE "data"->>'type' = 'warranty_deleted'
+          AND "data"->'warrantySnapshot'->>'code' = ${code}
+          AND "storeId" IS NOT NULL
+        ORDER BY "createdAt" DESC
+        LIMIT 1
+      `;
+      if (storeRow?.storeId) {
+        storeId = storeRow.storeId;
+      }
+    } catch (e) {
+      console.warn(
+        "restoreWarrantyFromComplaint: lookup storeId by code failed (ignored)",
+        e?.message || e
+      );
+    }
+  }
+
+  if (!storeId) {
+    return res
+      .status(400)
+      .json({ message: "ไม่พบข้อมูลร้านเจ้าของใบรับประกัน จึงไม่สามารถกู้คืนอัตโนมัติได้" });
+  }
+
+  const existing = await prisma.warranty.findFirst({ where: { storeId, code } });
+  if (existing) {
+    return res
+      .status(409)
+      .json({ message: "มีใบรับประกันรหัสนี้ในระบบอยู่แล้ว ไม่สามารถกู้ซ้ำได้" });
+  }
+
+  const purchaseDate = snapshot.purchaseDate ? new Date(snapshot.purchaseDate) : new Date();
+  const expiryDate = snapshot.expiryDate ? new Date(snapshot.expiryDate) : null;
+
+  try {
+    const [warranty] = await prisma.$transaction([
+      prisma.warranty.create({
+        data: {
+          storeId,
+          code: snapshot.code || code,
+          customerEmail: snapshot.customerEmail || null,
+          customerName: snapshot.customerName || null,
+          customerPhone: snapshot.customerPhone || null,
+          customerAddress: snapshot.customerAddress || null,
+          items: {
+            create: [
+              {
+                productName: snapshot.productName || "ไม่ระบุ",
+                model: snapshot.model || null,
+                serial: snapshot.serial || null,
+                price: typeof snapshot.price === "number" ? snapshot.price : null,
+                purchaseDate,
+                expiryDate,
+                durationMonths:
+                  typeof snapshot.durationMonths === "number" ? snapshot.durationMonths : null,
+                durationDays:
+                  typeof snapshot.durationDays === "number" ? snapshot.durationDays : null,
+                coverageNote: snapshot.coverageNote || null,
+                note: snapshot.note || null,
+              },
+            ],
+          },
+        },
+      }),
+      prisma.complaint.update({
+        where: { id },
+        data: { status: "RESOLVED" },
+      }),
+    ]);
+
+    // In-app notifications: ร้าน + ลูกค้า (ถ้ามี user)
+    try {
+      const codeLabel = warranty.code || code;
+      const productLabel = snapshot.productName || "สินค้า";
+
+      // ฝั่งร้านค้า (ใช้ storeId เพื่อให้ไปโผล่ใน Dashboard ร้าน)
+      await createNotification({
+        prisma,
+        attrs: {
+          storeId,
+          title: `กู้คืนใบรับประกันรหัส ${codeLabel} แล้ว`,
+          body: `ระบบได้กู้คืนใบรับประกันรหัส ${codeLabel} สำหรับสินค้า ${productLabel} ให้กลับมาอยู่ในรายการของร้านเรียบร้อยแล้ว`,
+          data: {
+            type: "warranty_restored",
+            warrantyId: warranty.id,
+            warrantyCode: codeLabel,
+            warrantySnapshot: snapshot,
+            complaintId: id,
+          },
+          sendEmail: false,
+        },
+      });
+
+      // ฝั่งลูกค้า (ใช้ customerUserId จากใบที่กู้คืนเป็นหลัก ถ้ายังไม่มีค่อย fallback หาอีเมลใน snapshot)
+      let customerUserIdForNotify = warranty.customerUserId || null;
+      const customerEmail = snapshot.customerEmail || warranty.customerEmail || null;
+      if (!customerUserIdForNotify && customerEmail) {
+        try {
+          const foundUser = await prisma.user.findFirst({
+            where: {
+              email: { equals: String(customerEmail).trim(), mode: "insensitive" },
+            },
+            select: { id: true },
+          });
+          if (foundUser) customerUserIdForNotify = foundUser.id;
+        } catch (lookupErr) {
+          console.warn(
+            "restoreWarrantyFromComplaint: lookup customer by email failed (ignored)",
+            lookupErr?.message || lookupErr
+          );
+        }
+      }
+
+      if (customerUserIdForNotify) {
+        await createNotification({
+          prisma,
+          attrs: {
+            userId: customerUserIdForNotify,
+            title: `[คืนสถานะ] ใบรับประกันรหัส ${codeLabel} ถูกกู้คืนแล้ว`,
+            body: `ใบรับประกันสินค้า ${productLabel} ของคุณ (รหัส ${codeLabel}) ถูกกู้คืนกลับเข้าสู่ระบบเรียบร้อยแล้ว สามารถตรวจสอบได้ในเมนูใบรับประกันของฉัน`,
+            data: {
+              type: "warranty_restored",
+              warrantyId: warranty.id,
+              warrantyCode: codeLabel,
+              warrantySnapshot: snapshot,
+              complaintId: id,
+            },
+            sendEmail: false,
+          },
+        });
+      }
+
+        // ✅ ทำเครื่องหมาย notification ลบใบรับประกันเดิมว่าถูกกู้คืนแล้ว (recovered)
+        try {
+          await prisma.$executeRaw`
+            UPDATE "Notification"
+            SET "data" = jsonb_set(COALESCE("data", '{}'::jsonb), '{recovered}', 'true'::jsonb, true)
+            WHERE "data"->>'type' = 'warranty_deleted'
+              AND "data"->'warrantySnapshot'->>'code' = ${code};
+          `;
+        } catch (markErr) {
+          console.warn(
+            "restoreWarrantyFromComplaint: mark warranty_deleted as recovered failed (ignored)",
+            markErr?.message || markErr
+          );
+        }
+    } catch (notifyErr) {
+      console.warn(
+        "restoreWarrantyFromComplaint: create notification failed (ignored)",
+        notifyErr?.message || notifyErr
+      );
+    }
+
+    return res.json({
+      message: "กู้คืนใบรับประกันเรียบร้อยแล้ว",
+      warranty,
+    });
+  } catch (e) {
+    console.error("restoreWarrantyFromComplaint error", e);
+    return res.status(500).json({ message: "ไม่สามารถกู้คืนใบรับประกันได้" });
+  }
 }
 
 /**
