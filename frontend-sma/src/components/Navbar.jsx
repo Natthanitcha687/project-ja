@@ -9,6 +9,7 @@ export default function Navbar() {
   const { user, logout } = useAuth() || {};
   const isAuthenticated = !!user;
   const role = (user?.role || '').toUpperCase();
+  const customerProfile = user?.customerProfile || {};
 
   // ปลายทางแดชบอร์ดแยกตาม role
   const dashHref =
@@ -19,7 +20,11 @@ export default function Navbar() {
         : '/signin?next=/customer/warranties';
 
   const displayName =
-    user?.store?.name || user?.storeName || user?.name || user?.email || 'บัญชีของฉัน';
+    user?.store?.name || user?.storeName ||
+    (customerProfile.firstName
+      ? `${customerProfile.firstName} ${customerProfile.lastName || ''}`.trim()
+      : user?.name || user?.email || 'บัญชีของฉัน');
+  const avatarUrl = customerProfile.avatarUrl || '';
 
   const onSignin = pathname !== "/signin";
   const onSignup = pathname !== "/signup";
@@ -93,8 +98,16 @@ export default function Navbar() {
               className="flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-sm text-blue-700 hover:bg-blue-100 transition"
               title="ไปที่แดชบอร์ด"
             >
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white">
-                {displayName.charAt(0).toUpperCase()}
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white overflow-hidden">
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt="รูปโปรไฟล์ลูกค้า"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  displayName.charAt(0).toUpperCase()
+                )}
               </span>
               <span className="hidden sm:inline">{displayName}</span>
             </Link>

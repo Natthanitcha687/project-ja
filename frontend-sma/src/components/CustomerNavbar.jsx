@@ -339,11 +339,19 @@ export default function CustomerNavbar() {
   }
 
   const displayEmail = user?.email || profile.email;
+  const customerProfile = user?.customerProfile || {};
   const displayName =
+    // ร้านค้า (กันไว้หากใช้ Navbar ตัวนี้ร่วมกับ role อื่น)
     user?.storeProfile?.storeName || user?.store?.name || user?.storeName ||
-    (user?.firstName ? `${user.firstName} ${user.lastName || ""}` : "บัญชีของฉัน");
+    // ลูกค้า: ใช้ชื่อ-นามสกุลจาก customerProfile ก่อน
+    (customerProfile.firstName
+      ? `${customerProfile.firstName} ${customerProfile.lastName || ""}`.trim()
+      : user?.firstName
+        ? `${user.firstName} ${user.lastName || ""}`.trim()
+        : "บัญชีของฉัน");
   const displaySub = user?.storeProfile?.email || displayEmail;
   const isAuthenticated = !!user;
+  const avatarUrl = customerProfile.avatarUrl || "";
 
   return (
     <>
@@ -488,11 +496,19 @@ export default function CustomerNavbar() {
                 onClick={() => setOpenMenu((v) => !v)}
                 className="flex cursor-pointer items-center gap-3 rounded-full bg-sky-100 px-3 py-1.5 shadow ring-1 ring-slate-100 hover:bg-sky-200 transition"
               >
-                {/* ใช้ avatar จำลองลูกค้ารูปเดียวกันทุกคน */}
-                <div className="grid h-10 w-10 place-items-center rounded-full bg-sky-500 text-white text-xl shadow">
-                  <span role="img" aria-label="customer-avatar">
-                    👤
-                  </span>
+                {/* Avatar ลูกค้า: แสดงรูปจริงถ้ามี, ถ้าไม่มีก็ใช้ไอคอนเดิม */}
+                <div className="grid h-10 w-10 place-items-center rounded-full bg-sky-500 text-white text-xl shadow overflow-hidden">
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt="รูปโปรไฟล์ลูกค้า"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span role="img" aria-label="customer-avatar">
+                      👤
+                    </span>
+                  )}
                 </div>
                 <div className="hidden sm:block text-left">
                   <div className="text-sm font-semibold text-slate-800">{displayName}</div>
