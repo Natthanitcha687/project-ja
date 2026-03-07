@@ -573,9 +573,35 @@ export async function deleteWarrantyHeader(req, res) {
       header.store?.phone ||
       "-";
 
-    const firstProductName =
-      (Array.isArray(header.items) && header.items[0]?.productName) ||
-      "สินค้า";
+    const firstItem = Array.isArray(header.items) && header.items.length > 0
+      ? header.items[0]
+      : null;
+
+    const firstProductName = firstItem?.productName || "สินค้า";
+
+    const warrantySnapshot = {
+      // ใช้สำหรับกู้คืนภายหลัง
+      storeId: header.storeId,
+      code,
+      customerName: header.customerName || null,
+      customerEmail: header.customerEmail || null,
+      customerPhone: header.customerPhone || null,
+      storeName,
+      storePhone,
+      productName: firstItem?.productName || null,
+      model: firstItem?.model || null,
+      serial: firstItem?.serial || null,
+      purchaseDate: firstItem?.purchaseDate
+        ? firstItem.purchaseDate.toISOString()
+        : null,
+      expiryDate: firstItem?.expiryDate
+        ? firstItem.expiryDate.toISOString()
+        : null,
+      durationMonths: firstItem?.durationMonths ?? null,
+      durationDays: firstItem?.durationDays ?? null,
+      coverageNote: firstItem?.coverageNote || null,
+      note: firstItem?.note || null,
+    };
 
     // หา userId ฝั่งลูกค้าจาก customerUserId หรือ email (กรณีเดิมยังไม่ผูก)
     let customerUserIdForNotify = header.customerUserId || null;
@@ -613,7 +639,7 @@ export async function deleteWarrantyHeader(req, res) {
             customerName || ""
           } เรียบร้อยแล้ว`,
           // ไม่ผูก warrantyId กับแจ้งเตือน เพื่อกันปัญหาอ้างอิงใบรับประกันที่ถูกลบแล้ว
-          data: { type: "warranty_deleted" },
+          data: { type: "warranty_deleted", warrantySnapshot },
           sendEmail: false,
         },
       });
@@ -630,7 +656,7 @@ export async function deleteWarrantyHeader(req, res) {
             title: customerTitle,
             body: customerBody,
             // ไม่ผูก warrantyId เพื่อหลีกเลี่ยงปัญหากับใบรับประกันที่ถูกลบไปแล้ว
-            data: { type: "warranty_deleted" },
+            data: { type: "warranty_deleted", warrantySnapshot },
             sendEmail: false,
           },
         });

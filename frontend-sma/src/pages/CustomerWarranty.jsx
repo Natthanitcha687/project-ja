@@ -136,7 +136,7 @@ export default function CustomerWarranty() {
   const { user, setUser } = useAuth();
   const location = useLocation();
   const [focusWarrantyId, setFocusWarrantyId] = useState(
-    () => location.state?.focusWarrantyId || null
+    () => (location.state?.focusWarrantyId ? String(location.state.focusWarrantyId) : null)
   );
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
@@ -149,6 +149,7 @@ export default function CustomerWarranty() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedByHeader, setExpandedByHeader] = useState({});
+  const [highlightWarrantyId, setHighlightWarrantyId] = useState(null);
   const [noteModal, setNoteModal] = useState({
     open: false,
     itemId: null,
@@ -161,6 +162,14 @@ export default function CustomerWarranty() {
   const PAGE_SIZE = 5;
   const [page, setPage] = useState(1);
   const tourStartedRef = useRef(false);
+
+  // รองรับการนำทางมาหน้านี้หลายครั้ง (เช่น คลิก "ไปที่ใบรับประกัน" จากแจ้งเตือนซ้ำๆ)
+  useEffect(() => {
+    const idFromNav = location.state && location.state.focusWarrantyId;
+    if (idFromNav) {
+      setFocusWarrantyId(String(idFromNav));
+    }
+  }, [location]);
 
   async function markCustomerOnboardingSeen() {
     if (setUser) {
@@ -199,22 +208,8 @@ export default function CustomerWarranty() {
         // ignore localStorage errors
       }
 
-      // ถ้ามี focusWarrantyId จากการคลิกแจ้งเตือน ให้เลื่อนไปหน้าที่มีใบรับประกันนั้นและขยายการ์ด
-      if (focusWarrantyId) {
-        const idx = rows.findIndex(
-          (w) => String(w.id) === String(focusWarrantyId)
-        );
-        if (idx !== -1) {
-          const targetPage = Math.floor(idx / PAGE_SIZE) + 1;
-          setPage(targetPage);
-          setExpandedByHeader((prev) => ({
-            ...prev,
-            [focusWarrantyId]: true,
-          }));
-        }
-        // ใช้ครั้งเดียวต่อการนำทางจากแจ้งเตือน
-        setFocusWarrantyId(null);
-      } else {
+      // ถ้าไม่ได้โฟกัสจากแจ้งเตือน ให้รีเซ็ตหน้า/สถานะขยายตามเดิม
+      if (!focusWarrantyId) {
         setPage(1);
         setExpandedByHeader((prev) => {
           const next = {};
@@ -381,6 +376,59 @@ export default function CustomerWarranty() {
       paginated: (data || []).slice(start, end),
     };
   }, [data, page]);
+
+  // เมื่อมี focusWarrantyId (เช่น มาจากปุ่ม "ไปที่ใบรับประกัน") และมี data แล้ว
+  // ให้หาว่าใบรับประกันนั้นอยู่ index ไหน -> ตั้งหน้า + ขยายการ์ด + เล่นเอฟเฟกต์ไฮไลต์
+  useEffect(() => {
+    if (!focusWarrantyId) return;
+    if (!Array.isArray(data) || data.length === 0) return;
+
+    const idx = data.findIndex((w) => String(w.id) === String(focusWarrantyId));
+    if (idx === -1) {
+      setFocusWarrantyId(null);
+      return;
+    }
+
+    const targetPage = Math.floor(idx / PAGE_SIZE) + 1;
+    setPage(targetPage);
+    setExpandedByHeader((prev) => ({
+      ...prev,
+      [focusWarrantyId]: true,
+    }));
+    setHighlightWarrantyId(String(focusWarrantyId));
+
+    // ใช้ครั้งเดียวต่อการนำทางหนึ่งครั้ง
+    setFocusWarrantyId(null);
+  }, [focusWarrantyId, data, PAGE_SIZE]);
+
+  // เมื่อมี highlightWarrantyId และข้อมูลของหน้าปัจจุบันพร้อมแล้ว ให้เลื่อนและไฮไลต์การ์ดเป้าหมาย
+  useEffect(() => {
+    if (!highlightWarrantyId) return;
+
+    // หน่วงเล็กน้อยให้ DOM วาดการ์ดหน้าใหม่เสร็จ
+    const timer = window.setTimeout(() => {
+      try {
+        const el = document.querySelector(
+          `[data-warranty-id="${highlightWarrantyId}"]`
+        );
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          el.classList.remove("warranty-focus-highlight");
+          // trigger reflow เพื่อให้ animation เล่นซ้ำได้
+          // eslint-disable-next-line no-unused-expressions
+          void el.offsetHeight;
+          el.classList.add("warranty-focus-highlight");
+        }
+      } catch {
+        // ignore
+      } finally {
+        // ให้ effect นี้เล่นแค่ครั้งเดียวต่อการนำทาง
+        setTimeout(() => setHighlightWarrantyId(null), 1700);
+      }
+    }, 200);
+
+    return () => window.clearTimeout(timer);
+  }, [highlightWarrantyId, currentPage, paginated.length]);
 
   async function onSaveNote() {
     if (!noteModal.itemId) {
@@ -568,7 +616,11 @@ export default function CustomerWarranty() {
               const itemsCount = (w.items || []).length;
 
               return (
-                <article key={w.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-md transition hover:shadow-lg">
+                <article
+                  key={w.id}
+                  data-warranty-id={w.id}
+                  className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-md transition hover:shadow-lg"
+                >
                   <div className="p-5">
                     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                       <div className="flex-1 min-w-0">

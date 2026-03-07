@@ -267,6 +267,8 @@ export default function WarrantyDashboard() {
   const [searchTerm, setSearchTerm] = useState('')
   const [dashboardLoading, setDashboardLoading] = useState(true)
   const [dashboardError, setDashboardError] = useState('')
+  const [focusWarrantyId, setFocusWarrantyId] = useState(null)
+  const [highlightWarrantyId, setHighlightWarrantyId] = useState(null)
 
   const [isProfileMenuOpen, setProfileMenuOpen] = useState(false)
   const [isProfileModalOpen, setProfileModalOpen] = useState(false)
@@ -636,6 +638,14 @@ export default function WarrantyDashboard() {
   const profileAvatarSrc = profileImage.preview || storeProfile.avatarUrl || ''
 
   const location = useLocation()
+  
+  // รับ focusWarrantyId จาก state ตอนนำทางมาจากแจ้งเตือน
+  useEffect(() => {
+    const idFromNav = location.state && location.state.focusWarrantyId
+    if (idFromNav) {
+      setFocusWarrantyId(String(idFromNav))
+    }
+  }, [location])
 
   /* ---------- สร้างหลายสินค้าในใบเดียว + auto expiry ---------- */
   const makeItem = (seedSN = null, lockEmail = false) => ({
@@ -893,6 +903,54 @@ export default function WarrantyDashboard() {
     // ถ้าจำนวนหน้าลดลง ให้เลื่อนไปหน้าสุดท้ายที่ยังมีอยู่
     setPage(p => (p !== currentPage ? currentPage : p))
   }, [currentPage])
+
+  // เมื่อมี focusWarrantyId หลังโหลดข้อมูล ให้กระโดดไปหน้าที่มี header นั้นและขยายการ์ด
+  useEffect(() => {
+    if (!focusWarrantyId || !filteredHeaders.length) return
+
+    const idx = filteredHeaders.findIndex(
+      (h) => String(h.id) === String(focusWarrantyId)
+    )
+    if (idx !== -1) {
+      const targetPage = Math.floor(idx / PAGE_SIZE) + 1
+      setPage(targetPage)
+      setExpandedByHeader((prev) => ({
+        ...prev,
+        [focusWarrantyId]: true,
+      }))
+      setHighlightWarrantyId(String(focusWarrantyId))
+    }
+
+    // ใช้ครั้งเดียวต่อการนำทางจากแจ้งเตือน
+    setFocusWarrantyId(null)
+  }, [focusWarrantyId, filteredHeaders.length])
+
+  // เมื่อกำหนด highlightWarrantyId แล้ว ให้เลื่อนและเล่นเอฟเฟกต์ไฮไลต์ที่การ์ดเป้าหมาย
+  useEffect(() => {
+    if (!highlightWarrantyId) return
+
+    const timer = window.setTimeout(() => {
+      try {
+        const el = document.querySelector(
+          `[data-warranty-header-id="${highlightWarrantyId}"]`
+        )
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          el.classList.remove('warranty-focus-highlight')
+          // trigger reflow เพื่อให้ animation เล่นซ้ำได้
+          // eslint-disable-next-line no-unused-expressions
+          void el.offsetHeight
+          el.classList.add('warranty-focus-highlight')
+        }
+      } catch {
+        // ignore
+      } finally {
+        setTimeout(() => setHighlightWarrantyId(null), 1700)
+      }
+    }, 200)
+
+    return () => window.clearTimeout(timer)
+  }, [highlightWarrantyId, currentPage, paginatedHeaders.length])
 
   function pageNumbers(total, current, windowSize = 5) {
     const half = Math.floor(windowSize / 2)
@@ -1867,7 +1925,11 @@ export default function WarrantyDashboard() {
                         : '-'
                       return (
                         // 🟦 การ์ดใบรับประกัน: โทนสเลทแบบโค้ด1
-                        <div key={header.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-5 shadow-md transition hover:shadow-lg min-w-0">
+                        <div
+                          key={header.id}
+                          data-warranty-header-id={header.id}
+                          className="rounded-2xl border border-slate-200 bg-slate-50 p-5 shadow-md transition hover:shadow-lg min-w-0"
+                        >
                           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                             <div className="flex-1 min-w-0">
                               <div className="text-lg font-semibold text-slate-900 truncate" title={titleText}>{titleText}</div>
