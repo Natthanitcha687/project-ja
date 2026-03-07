@@ -710,17 +710,23 @@ export default function Complaints() {
                 </div>
               )}
 
-              {/* ✅ การเปลี่ยนสถานะ “ยังทำได้ตามเดิม” (ย้ายไปอยู่ใน modal เท่านั้น) */}
+              {/* ✅ การเปลี่ยนสถานะ "ยังทำได้ตามเดิม" (ย้ายไปอยู่ใน modal เท่านั้น) */}
               <div className="flex flex-wrap gap-2 justify-end pt-2">
                 {isWarrantyRecoveryComplaint(selected) && (
-                  <button
-                    type="button"
-                    onClick={restoreSelectedWarranty}
-                    disabled={restoring}
-                    className="rounded-xl bg-amber-500/25 px-4 py-2 text-sm font-semibold text-amber-50 hover:bg-amber-500/35 focus:outline-none focus:ring-2 focus:ring-amber-300/40 disabled:opacity-60 disabled:cursor-not-allowed mr-auto"
-                  >
-                    {restoring ? "กำลังกู้คืน..." : "กู้คืนใบรับประกัน"}
-                  </button>
+                  selected.status === "RESOLVED" ? (
+                    <span className="mr-auto text-sm font-semibold text-emerald-200">
+                      กู้คืนใบรับประกันแล้ว
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={restoreSelectedWarranty}
+                      disabled={restoring}
+                      className="rounded-xl bg-amber-500/25 px-4 py-2 text-sm font-semibold text-amber-50 hover:bg-amber-500/35 focus:outline-none focus:ring-2 focus:ring-amber-300/40 disabled:opacity-60 disabled:cursor-not-allowed mr-auto"
+                    >
+                      {restoring ? "กำลังกู้คืน..." : "กู้คืนใบรับประกัน"}
+                    </button>
+                  )
                 )}
                 <button
                   type="button"
