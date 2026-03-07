@@ -572,7 +572,8 @@ export async function deleteWarrantyHeader(req, res) {
     const header = await prisma.warranty.findUnique({
       where: { id: warrantyId },
       include: {
-        items: { orderBy: { createdAt: "asc" }, take: 1 },
+        // ดึงทุกรายการสินค้าไว้สำหรับ snapshot เวลากู้คืนในอนาคต
+        items: { orderBy: { createdAt: "asc" } },
         store: { include: { storeProfile: true } },
       },
     });
@@ -594,9 +595,9 @@ export async function deleteWarrantyHeader(req, res) {
       header.store?.phone ||
       "-";
 
-    const firstItem = Array.isArray(header.items) && header.items.length > 0
-      ? header.items[0]
-      : null;
+    const itemsArr = Array.isArray(header.items) ? header.items : [];
+
+    const firstItem = itemsArr.length > 0 ? itemsArr[0] : null;
 
     const firstProductName = firstItem?.productName || "สินค้า";
 
@@ -607,8 +608,11 @@ export async function deleteWarrantyHeader(req, res) {
       customerName: header.customerName || null,
       customerEmail: header.customerEmail || null,
       customerPhone: header.customerPhone || null,
+      customerAddress: header.customerAddress || null,
+      customerUserId: header.customerUserId || null,
       storeName,
       storePhone,
+      // สรุปรายการแรกไว้ใช้ในข้อความอีเมล/แจ้งเตือน
       productName: firstItem?.productName || null,
       model: firstItem?.model || null,
       serial: firstItem?.serial || null,
@@ -622,6 +626,24 @@ export async function deleteWarrantyHeader(req, res) {
       durationDays: firstItem?.durationDays ?? null,
       coverageNote: firstItem?.coverageNote || null,
       note: firstItem?.note || null,
+      // เก็บรายละเอียดทุก WarrantyItem ไว้สำหรับกู้คืนแบบข้อมูลครบ
+      items: itemsArr.map((it) => ({
+        productName: it.productName,
+        model: it.model,
+        serial: it.serial,
+        price: it.price,
+        purchaseDate: it.purchaseDate ? it.purchaseDate.toISOString() : null,
+        expiryDate: it.expiryDate ? it.expiryDate.toISOString() : null,
+        durationMonths: it.durationMonths,
+        durationDays: it.durationDays,
+        coverageNote: it.coverageNote,
+        note: it.note,
+        documents: it.documents,
+        images: it.images,
+        selectedConditions: it.selectedConditions,
+        customCondition: it.customCondition,
+        customerNote: it.customerNote,
+      })),
     };
 
     // หา userId ฝั่งลูกค้าจาก customerUserId หรือ email (กรณีเดิมยังไม่ผูก)

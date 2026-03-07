@@ -12,6 +12,7 @@ import AppLogo from '../components/AppLogo'
 import Footer from '../components/Footer' // ✅
 import StoreTabs from '../components/StoreTabs'
 import WelcomeOnboardingModal from '../components/WelcomeOnboardingModal'
+import SatisfactionSurveyModal from '../components/SatisfactionSurveyModal'
 import introJs from 'intro.js'
 import 'intro.js/introjs.css'
 import { getConditionsForStoreType } from '../data/warrantyConditionTemplates'
@@ -304,6 +305,8 @@ export default function WarrantyDashboard() {
   // ===== Onboarding welcome modal & Joyride (แสดงเฉพาะหน้า การรับประกัน) =====
   const [showWelcomeModal, setShowWelcomeModal] = useState(false)
   const storeTourStartedRef = useRef(false)
+  const surveyCheckedRef = useRef(false)
+  const [surveyOpen, setSurveyOpen] = useState(false)
   useEffect(() => {
     if (!user) return
     if (user.role !== 'STORE') return
@@ -318,6 +321,27 @@ export default function WarrantyDashboard() {
     }
     setShowWelcomeModal(true)
   }, [user?.id, user?.role, user?.hasSeenOnboarding])
+
+  // ตรวจสอบเงื่อนไขแสดง popup แบบประเมินความพึงพอใจ (ฝั่งร้านค้า)
+  useEffect(() => {
+    if (!user) return
+    if (user.role !== 'STORE') return
+    if (dashboardLoading) return
+    if (surveyCheckedRef.current) return
+
+    surveyCheckedRef.current = true
+
+    api
+      .get('/public/usage-survey')
+      .then((res) => {
+        if (res?.data?.shouldShow) {
+          setSurveyOpen(true)
+        }
+      })
+      .catch(() => {
+        // ถ้า endpoint ล้มเหลว ให้เงียบไว้เพื่อไม่ให้กระทบ dashboard หลัก
+      })
+  }, [user, dashboardLoading])
 
   async function markStoreOnboardingSeen() {
     if (setUser) {
@@ -1832,7 +1856,14 @@ export default function WarrantyDashboard() {
               <div className="grid min-h-[320px] place-items-center text-center text-sm text-slate-500">
                 <div>
                   <div className="text-base font-medium text-slate-700">หน้านี้สำหรับบัญชีร้านค้าเท่านั้น</div>
-                  <p className="mt-1 text-xs text-slate-500">กรุณาเข้าสู่ระบบด้วยบัญชีร้านค้าเพื่อเข้าถึงแดชบอร์ด</p>
+                <Footer />
+
+                {/* Popup แบบประเมินความพึงพอใจของร้านค้า (หน้า Dashboard การรับประกัน) */}
+                <SatisfactionSurveyModal
+                  open={surveyOpen}
+                  onClose={() => setSurveyOpen(false)}
+                  context="store"
+                />
                 </div>
               </div>
             ) : (

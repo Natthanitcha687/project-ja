@@ -186,13 +186,25 @@ export async function getUsageSurveyEligibility(req, res) {
       return res.json({ shouldShow: false, reason: 'already_submitted', warrantiesCount })
     }
 
-    // เงื่อนไขเด้ง popup:
-    // - มีใบรับประกันในระบบอย่างน้อย 3 ใบ
-    // - และจำนวนใบรับประกันตอนนี้ "มากกว่า" ครั้งล่าสุดที่เคยเด้ง popup
+    // เด้ง popup เมื่อ:
+    // - ยังไม่เคยตอบแบบประเมิน
+    // - และมีใบรับประกันในระบบอย่างน้อย 3 ใบ
+    // ไม่ต้องสนใจ lastSatisfactionSurveyWarrantiesCount อีกต่อไป
     const lastCount = user.lastSatisfactionSurveyWarrantiesCount ?? 0
-    const shouldShow = warrantiesCount >= 3 && warrantiesCount > lastCount
 
-    if (shouldShow) {
+    if (warrantiesCount < 3) {
+      return res.json({
+        shouldShow: false,
+        reason: 'not_enough_warranties',
+        role: user.role,
+        warrantiesCount,
+        lastCount,
+      })
+    }
+
+    // มีสิทธิ์เห็น popup แน่นอน (จนกว่าจะส่งแบบประเมินสำเร็จ)
+    // อัปเดต lastSatisfactionSurveyWarrantiesCount ไว้ใช้เป็นข้อมูลเชิงสถิติเท่านั้น
+    if (warrantiesCount > lastCount) {
       await prisma.user.update({
         where: { id: user.id },
         data: { lastSatisfactionSurveyWarrantiesCount: warrantiesCount },
@@ -200,7 +212,7 @@ export async function getUsageSurveyEligibility(req, res) {
     }
 
     return res.json({
-      shouldShow,
+      shouldShow: true,
       role: user.role,
       warrantiesCount,
       lastCount,
