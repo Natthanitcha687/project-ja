@@ -294,6 +294,17 @@ export async function updateStoreProfile(req, res) {
       return sendError(res, 404, "ไม่พบข้อมูลร้านค้า");
     }
 
+    // จัดการ avatarUrl ให้รองรับการลบ (avatarUrl: null => ลบรูป)
+    let avatarUrl = existingProfile?.avatarUrl ?? "";
+    if (Object.prototype.hasOwnProperty.call(body, "avatarUrl")) {
+      if (body.avatarUrl === null) {
+        avatarUrl = "";
+      } else {
+        const t = trimOrNull(body.avatarUrl);
+        if (t !== null) avatarUrl = t;
+      }
+    }
+
     const updatable = {
       storeName: body.storeName,
       contactName:
@@ -312,7 +323,7 @@ export async function updateStoreProfile(req, res) {
       email: body.email || existingProfile?.email || storeUser.email,
       address: body.address,
       businessHours: body.businessHours ?? existingProfile?.businessHours ?? "",
-      avatarUrl: body.avatarUrl ?? existingProfile?.avatarUrl,
+      avatarUrl,
       notifyDaysInAdvance:
         body.notifyDaysInAdvance ??
         existingProfile?.notifyDaysInAdvance ??
