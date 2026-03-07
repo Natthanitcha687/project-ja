@@ -1,5 +1,26 @@
 import { prisma } from '../db/prisma.js'
 
+// helper แบบเดียวกับ customer.controller
+function dateOnlyUTC(v) {
+  if (!v) return null
+  const d = v instanceof Date ? v : new Date(v)
+  if (isNaN(d)) return null
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
+}
+
+function statusFromDate(expiryDate, notifyDays = 30) {
+  const exp = dateOnlyUTC(expiryDate)
+  if (!exp) return { status: 'active', daysLeft: null }
+
+  const today = dateOnlyUTC(new Date())
+  const ONE_DAY = 24 * 60 * 60 * 1000
+  const daysLeft = Math.ceil((exp.getTime() - today.getTime()) / ONE_DAY)
+
+  if (daysLeft < 0) return { status: 'expired', daysLeft }
+  if (daysLeft <= (notifyDays ?? 30)) return { status: 'nearing_expiration', daysLeft }
+  return { status: 'active', daysLeft }
+}
+
 export async function getStats(_req, res) {
   try {
     const stores = await prisma.user.count({ where: { role: 'STORE' } })
@@ -20,6 +41,43 @@ export async function getStats(_req, res) {
     res.json({ stores, customers, warranties, satisfaction })
   } catch (e) {
     console.error('getStats error', e)
+    res.status(500).json({ message: 'Server error' })
+  }
+}
+
+export async function getWarrantyStatusSummary(_req, res) {
+  try {
+    const items = await prisma.warrantyItem.findMany({
+      select: {
+        expiryDate: true,
+        warranty: {
+          select: {
+            store: {
+              select: {
+                storeProfile: {
+                  select: { notifyDaysInAdvance: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    })
+
+    const totals = { active: 0, nearing_expiration: 0, expired: 0 }
+
+    for (const it of items) {
+      const notifyDays =
+        it.warranty?.store?.storeProfile?.notifyDaysInAdvance ?? 30
+      const s = statusFromDate(it.expiryDate, notifyDays)
+      if (s.status === 'active') totals.active += 1
+      else if (s.status === 'nearing_expiration') totals.nearing_expiration += 1
+      else if (s.status === 'expired') totals.expired += 1
+    }
+
+    res.json({ totals })
+  } catch (e) {
+    console.error('getWarrantyStatusSummary error', e)
     res.status(500).json({ message: 'Server error' })
   }
 }
