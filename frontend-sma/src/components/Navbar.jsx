@@ -10,6 +10,7 @@ export default function Navbar() {
   const isAuthenticated = !!user;
   const role = (user?.role || '').toUpperCase();
   const customerProfile = user?.customerProfile || {};
+  const storeProfile = user?.storeProfile || null;
 
   // ปลายทางแดชบอร์ดแยกตาม role
   const dashHref =
@@ -19,12 +20,18 @@ export default function Navbar() {
         ? '/customer/warranties'
         : '/signin?next=/customer/warranties';
 
-  const displayName =
-    user?.store?.name || user?.storeName ||
-    (customerProfile.firstName
+  let displayName = user?.name || user?.email || 'บัญชีของฉัน';
+  let avatarUrl = '';
+
+  if (role === 'STORE') {
+    displayName = storeProfile?.storeName || user?.storeName || user?.store?.name || displayName;
+    avatarUrl = storeProfile?.avatarUrl || '';
+  } else if (role === 'CUSTOMER') {
+    displayName = customerProfile.firstName
       ? `${customerProfile.firstName} ${customerProfile.lastName || ''}`.trim()
-      : user?.name || user?.email || 'บัญชีของฉัน');
-  const avatarUrl = customerProfile.avatarUrl || '';
+      : displayName;
+    avatarUrl = customerProfile.avatarUrl || '';
+  }
 
   const onSignin = pathname !== "/signin";
   const onSignup = pathname !== "/signup";
@@ -106,7 +113,15 @@ export default function Navbar() {
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  displayName.charAt(0).toUpperCase()
+                  role === 'STORE' ? (
+                    <span role="img" aria-label="store-avatar">
+                      🏪
+                    </span>
+                  ) : (
+                    <span role="img" aria-label="customer-avatar">
+                      👤
+                    </span>
+                  )
                 )}
               </span>
               <span className="hidden sm:inline">{displayName}</span>
