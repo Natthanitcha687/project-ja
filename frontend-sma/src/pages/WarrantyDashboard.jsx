@@ -1005,6 +1005,8 @@ export default function WarrantyDashboard() {
     } catch (e) {
       setAddressParts({ street: String(storeProfile.address || '') || '', subdistrict: '', district: '', province: '', postcode: '' })
     }
+    // sync avatar preview with current store profile
+    setProfileImage({ file: null, preview: storeProfile.avatarUrl || '' })
     // init store type selector from storeProfile.storeType
     try {
       const rawType = (storeProfile.storeType || '').toString().trim()
@@ -1330,11 +1332,16 @@ export default function WarrantyDashboard() {
         }),
         // send compact business schedule as JSON so backend can store the structured hours
         businessHours: JSON.stringify(businessSchedule),
-        avatarUrl: storeProfile.avatarUrl,
+        // ส่ง avatarUrl ทุกครั้ง: สตริง = รูปใหม่ / null = เคลียร์รูป
+        avatarUrl: storeProfile.avatarUrl || null,
       }
       const response = await api.patch(`/store/${storeIdResolved}/profile`, payload)
       const updatedProfile = response.data?.data?.storeProfile ?? payload
       setStoreProfile((prev) => ({ ...prev, ...updatedProfile }))
+      // sync global auth user.storeProfile เพื่อให้ header เปลี่ยนรูปตามทันที
+      if (setUser) {
+        setUser((prev) => (prev ? { ...prev, storeProfile: { ...(prev.storeProfile || {}), ...updatedProfile } } : prev))
+      }
       // update addressParts and businessSchedule from returned profile so UI reflects stored values
       try {
         const rawAddr = updatedProfile.address
@@ -2221,6 +2228,56 @@ export default function WarrantyDashboard() {
                     {modalError && profileTab === 'info' && (
                       <div className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600">{modalError}</div>
                     )}
+                    {/* Avatar preview + actions (เหมือนฝั่งลูกค้า) */}
+                    <div className="mb-4 flex items-center gap-4">
+                      <div className="relative h-16 w-16 shrink-0">
+                        <div className="grid h-16 w-16 place-items-center rounded-full bg-sky-200 text-2xl overflow-hidden border border-sky-300">
+                          {profileImage.preview ? (
+                            <img
+                              src={profileImage.preview}
+                              alt="รูปโปรไฟล์ร้านค้า"
+                              className="h-full w-full object-cover"
+                            />
+                          ) : profileAvatarSrc ? (
+                            <img
+                              src={profileAvatarSrc}
+                              alt="รูปโปรไฟล์ร้านค้า"
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <span role="img" aria-label="store-avatar">
+                              🏪
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-2 text-sm text-slate-700">
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => profileImageInputRef.current?.click()}
+                            className="rounded-full bg-sky-600 px-4 py-1.5 text-sm font-medium text-white shadow hover:bg-sky-700"
+                          >
+                            เปลี่ยนรูปโปรไฟล์
+                          </button>
+                          {(profileImage.preview || storeProfile.avatarUrl) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setProfileImage({ file: null, preview: '' })
+                                setStoreProfile((prev) => ({ ...prev, avatarUrl: '' }))
+                              }}
+                              className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100"
+                            >
+                              ลบรูปภาพ
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500">
+                          รองรับไฟล์รูปภาพเช่น JPG, PNG ขนาดไม่เกินประมาณ 10MB
+                        </p>
+                      </div>
+                    </div>
                     <div className="grid gap-3 max-w-2xl mx-auto">
                       {[
                         ['storeName', 'ชื่อร้าน'],

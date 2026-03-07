@@ -144,6 +144,26 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
   // ✅ อยู่หน้าแจ้งปัญหาแล้ว ไม่ต้องโชว์ปุ่มซ้ำ
   const isOnComplaintsPage = location.pathname.startsWith('/dashboard/complaints')
 
+  // ข้อมูลโปรไฟล์สำหรับหัวเมนู (รองรับทั้งร้านค้าและลูกค้า)
+  const role = user?.role
+  const storeProfile = user?.storeProfile || null
+  const customerProfile = user?.customerProfile || null
+
+  let avatarUrl = ''
+  let displayName = user?.name || 'บัญชีของฉัน'
+  let displayEmail = user?.email || ''
+
+  if (role === 'STORE') {
+    displayName = storeProfile?.storeName || user?.storeName || user?.name || 'ร้านของฉัน'
+    displayEmail = storeProfile?.email || user?.email || ''
+    avatarUrl = storeProfile?.avatarUrl || ''
+  } else if (role === 'CUSTOMER') {
+    const fullName = [customerProfile?.firstName, customerProfile?.lastName].filter(Boolean).join(' ')
+    displayName = fullName || user?.name || 'บัญชีของฉัน'
+    displayEmail = user?.email || ''
+    avatarUrl = customerProfile?.avatarUrl || ''
+  }
+
   return (
     <>
     <header className="sticky top-0 z-40 border-b border-sky-100 bg-white/80 py-3 backdrop-blur">
@@ -284,14 +304,22 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
               onClick={() => setProfileMenuOpen((p) => !p)}
               className="flex items-center gap-3 rounded-full bg-white px-3 py-2 shadow ring-1 ring-black/10 hover:-translate-y-0.5 hover:bg-slate-50 transition"
             >
-              <div className="grid h-8 w-8 place-items-center rounded-full bg-sky-200 text-sm">
-                🏪
+              <div className="grid h-8 w-8 place-items-center rounded-full bg-sky-200 text-sm overflow-hidden">
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt={displayName}
+                    className="h-full w-full object-cover"
+                  />
+                ) : role === 'STORE' ? (
+                  '🏪'
+                ) : (
+                  (displayName || '?').charAt(0).toUpperCase()
+                )}
               </div>
               <div className="hidden text-left text-sm md:block">
-                <div className="font-medium text-slate-900">
-                  {user?.storeName || user?.name || 'ร้านของฉัน'}
-                </div>
-                <div className="text-xs text-slate-500">{user?.email || ''}</div>
+                <div className="font-medium text-slate-900">{displayName}</div>
+                <div className="text-xs text-slate-500">{displayEmail}</div>
               </div>
               <span className="hidden text-slate-400 md:inline">▾</span>
             </button>
@@ -299,14 +327,24 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
             {isProfileMenuOpen && (
               <div className="absolute right-3 sm:right-4 top-14 w-56 sm:w-64 rounded-2xl bg-white p-4 text-sm shadow-xl ring-1 ring-black/5">
                 <div className="mb-4 flex items-center gap-3">
-                  <div className="grid h-12 w-12 place-items-center rounded-full bg-sky-200 text-2xl">
-                    🏪
+                  <div className="grid h-12 w-12 place-items-center rounded-full bg-sky-200 text-2xl overflow-hidden">
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt={displayName}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : role === 'STORE' ? (
+                      '🏪'
+                    ) : (
+                      '👤'
+                    )}
                   </div>
                   <div className="min-w-0">
                     <div className="truncate font-semibold text-slate-900">
-                      {user?.storeName || user?.name || 'ร้านของฉัน'}
+                      {displayName}
                     </div>
-                    <div className="truncate text-xs text-slate-500">{user?.email || ''}</div>
+                    <div className="truncate text-xs text-slate-500">{displayEmail}</div>
                   </div>
                 </div>
                 <button
