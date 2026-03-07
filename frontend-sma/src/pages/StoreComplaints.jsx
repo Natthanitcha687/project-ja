@@ -53,6 +53,11 @@ function StatusPill({ status }) {
   );
 }
 
+// จำกัดไม่ให้อักขระพิเศษที่ไม่จำเป็นในข้อความร้องเรียน
+function sanitizeComplaintText(value) {
+  return value.replace(/[^\u0E00-\u0E7Fa-zA-Z0-9\s.,!?()-]/g, "");
+}
+
 export default function StoreComplaints() {
   const { user } = useAuth();
   const location = useLocation();
@@ -478,7 +483,7 @@ export default function StoreComplaints() {
                 </label>
                 <input
                   value={subject}
-                  onChange={(e) => setSubject(e.target.value.replace(/[?/=&:"'.#$%<>]/g, ''))}
+                  onChange={(e) => setSubject(sanitizeComplaintText(e.target.value))}
                   placeholder="เช่น ดาวน์โหลด PDF ไม่ได้"
                   className="w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-sky-200"
                 />
@@ -492,7 +497,7 @@ export default function StoreComplaints() {
                 <textarea
                   rows={6}
                   value={message}
-                  onChange={(e) => setMessage(e.target.value.replace(/[?/=&:"'.#$%<>]/g, ''))}
+                  onChange={(e) => setMessage(sanitizeComplaintText(e.target.value))}
                   placeholder="อธิบายปัญหา/รายละเอียดเพิ่มเติม เช่น ขั้นตอนที่ทำ, วันเวลา, ข้อความ error ฯลฯ"
                   className="w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-sky-200"
                 />
@@ -507,7 +512,7 @@ export default function StoreComplaints() {
                   <textarea
                     rows={4}
                     value={recoveryReason}
-                    onChange={(e) => setRecoveryReason(e.target.value.replace(/[?/=&:"'.#$%<>]/g, ''))}
+                    onChange={(e) => setRecoveryReason(sanitizeComplaintText(e.target.value))}
                     placeholder="อธิบายเหตุผลที่ต้องการให้กู้คืนใบรับประกันนี้"
                     className="w-full rounded-2xl border border-emerald-100 bg-emerald-50/60 px-4 py-3 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-emerald-200"
                   />
