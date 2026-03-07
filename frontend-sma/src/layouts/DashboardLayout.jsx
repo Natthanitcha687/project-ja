@@ -50,7 +50,7 @@ export default function DashboardLayout() {
   const onEditProfile = () => navigate(`/dashboard/warranty?openProfile=1&_o=${Date.now()}`)
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-sky-50 to-sky-100/60 pb-12">
+    <div className="min-h-screen bg-gradient-to-b from-sky-50 to-sky-100/60">
       <DashboardHeader
         title="Warranty"
         subtitle="จัดการการรับประกันของคุณได้ในที่เดียว"

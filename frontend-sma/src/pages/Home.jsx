@@ -102,8 +102,8 @@ export default function Home() {
           {/* ===== STATS ===== */}
           <div className="mt-12 grid grid-cols-2 sm:grid-cols-4 gap-6 justify-items-center">
             {[
-              { value: storesText, label: "ร้านค้าที่เชื่อถือ" },
-              { value: customersText, label: "ลูกค้าที่พึงพอใจ" },
+              { value: storesText, label: "ร้านค้าที่ใช้แพลตฟอร์ม" },
+              { value: customersText, label: "ลูกค้าที่ใช้แพลตฟอร์ม" },
               { value: warrantiesText, label: "ใบรับประกัน" },
               { value: satisfactionText, label: "ความพึงพอใจ" },
             ].map((item, i) => (
@@ -126,7 +126,7 @@ export default function Home() {
                 icon: "https://cdn-icons-png.flaticon.com/512/1077/1077114.png",
                 title: "ลูกค้า",
                 desc: "ตรวจสอบสถานะและเอกสารรับประกันได้ทุกที่ทุกเวลา พร้อมบันทึกข้อมูลสินค้าอย่างเป็นระบบ",
-                btn: "เริ่มต้นสำหรับผู้ซื้อสินค้า",
+                btn: "เริ่มต้นสำหรับลูกค้า",
                 to: "/signup?role=customer",
               },
               {
@@ -240,31 +240,6 @@ export default function Home() {
               </div>
             ))}
           </div>
-        </div>
-      </section>
-      
-      {/* ===== CTA ===== */}
-      <section className="relative bg-[#eaf3ff] py-20 text-center px-6 overflow-hidden z-0">
-        <h3 className="text-2xl font-bold text-gray-900">
-          พร้อมเริ่มต้นแล้วหรือยัง?
-        </h3>
-        <p className="text-gray-600 mt-3 max-w-lg mx-auto text-sm">
-          เข้าร่วมร้านค้าและลูกค้าหลายพันรายที่เชื่อถือในระบบของเรา
-          เริ่มต้นใช้งานได้ฟรีวันนี้
-        </p>
-        <div className="mt-8 flex flex-wrap gap-4 justify-center">
-          <Link
-            to="/signin"
-            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium shadow-sm transition"
-          >
-            เข้าสู่ระบบ
-          </Link>
-          <Link
-            to="/signup"
-            className="px-6 py-2.5 bg-white border border-blue-600 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-50 transition"
-          >
-            สมัครสมาชิก
-          </Link>
         </div>
       </section>
     </div>

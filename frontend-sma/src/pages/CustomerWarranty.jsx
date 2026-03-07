@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../store/auth";
+import SatisfactionSurveyModal from "../components/SatisfactionSurveyModal";
 import introJs from "intro.js";
 import "intro.js/introjs.css";
 // CustomerProfileModal removed here because top-level CustomerNavbar provides profile UI
@@ -159,6 +160,9 @@ export default function CustomerWarranty() {
   const [showEmptyOnboarding, setShowEmptyOnboarding] = useState(false);
   // ✅ Modal สำหรับแสดงเงื่อนไขการรับประกัน
   const [conditionsModal, setConditionsModal] = useState({ open: false, conditions: [], custom: '' });
+  // ✅ Popup แบบประเมินความพึงพอใจ (ลูกค้า เห็นเพียงครั้งเดียว)
+  const [surveyOpen, setSurveyOpen] = useState(false);
+  const surveyCheckedRef = useRef(false);
   const PAGE_SIZE = 5;
   const [page, setPage] = useState(1);
   const tourStartedRef = useRef(false);
@@ -234,6 +238,27 @@ export default function CustomerWarranty() {
   useEffect(() => {
     fetchData();
   }, [filter]);
+
+  // ตรวจสอบเงื่อนไขแสดง popup แบบประเมินความพึงพอใจ (ฝั่งลูกค้า)
+  useEffect(() => {
+    if (!user) return;
+    if (user.role !== "CUSTOMER") return;
+    if (loading) return;
+    if (surveyCheckedRef.current) return;
+
+    surveyCheckedRef.current = true;
+
+    api
+      .get("/public/usage-survey")
+      .then((res) => {
+        if (res?.data?.shouldShow) {
+          setSurveyOpen(true);
+        }
+      })
+      .catch(() => {
+        // เงียบ ๆ ถ้ามี error เพื่อไม่ให้กระทบการใช้งานหลัก
+      });
+  }, [user, loading]);
 
   // Intro.js customer onboarding tour (ผูกกับ user ทีละคน)
   useEffect(() => {
@@ -954,6 +979,13 @@ export default function CustomerWarranty() {
           </div>
         </div>
       )}
+
+      {/* Popup แบบประเมินความพึงพอใจของลูกค้า */}
+      <SatisfactionSurveyModal
+        open={surveyOpen}
+        onClose={() => setSurveyOpen(false)}
+        context="customer"
+      />
     </div>
   );
 }

@@ -14,6 +14,7 @@ import {
   listComplaints,
   setComplaintStatus,
   restoreWarrantyFromComplaint,
+  listFeedback,
 
   // ✅ เพิ่มสำหรับ UI จัดการร้านค้าตามรูป
   getStorePortal,
@@ -111,6 +112,9 @@ router.get("/me", requireAuth, requireAdmin, adminMe);
  *         description: Success
  */
 router.get("/stats", requireAuth, requireAdmin, adminStats);
+
+// Feedback (Satisfaction)
+router.get("/feedback", requireAuth, requireAdmin, listFeedback);
 
 /* =========================
  * Stores (ตามรูป)

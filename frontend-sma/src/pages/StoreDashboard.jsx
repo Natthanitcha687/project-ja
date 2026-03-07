@@ -6,6 +6,7 @@ import StoreTabs from '../components/StoreTabs'
 import SimpleDonut from '../components/SimpleDonut'
 import BarChart from '../components/BarChart'
 import ExtendWarrantyModal from '../components/ExtendWarrantyModal'
+import SatisfactionSurveyModal from '../components/SatisfactionSurveyModal'
 import AppLogo from '../components/AppLogo'
 import EmptyStateCard from '../components/EmptyStateCard'
 import warrantyCopy from '../lib/warranty_copy.json'
@@ -265,6 +266,9 @@ export default function StoreDashboard() {
   const [pivotByMonth, setPivotByMonth] = useState(false)
   const [pivotFields, setPivotFields] = useState({ customer: true, customerEmail: false, product: true, serial: false, expiryDate: true, createdAt: true })
   const overviewTourStartedRef = useRef(false)
+  // Popup แบบประเมินความพึงพอใจของร้านค้า (ครั้งเดียวหลังออกใบครบ 3 ใบ)
+  const [surveyOpen, setSurveyOpen] = useState(false)
+  const surveyCheckedRef = useRef(false)
 
   // helpers: ensure date-only UTC handling and status derivation (matches CustomerWarranty)
   function dateOnlyUTC(v) {
@@ -368,6 +372,27 @@ export default function StoreDashboard() {
   useEffect(() => { fetchSummary() }, [fetchSummary])
   // fetch notifications on mount so unread count shows before user clicks bell
   useEffect(() => { fetchNotifications().catch(() => { }) }, [fetchNotifications])
+
+  // ตรวจสอบเงื่อนไขแสดง popup แบบประเมินความพึงพอใจ (ฝั่งร้านค้า)
+  useEffect(() => {
+    if (!user) return
+    if (user.role !== 'STORE') return
+    if (loading) return
+    if (surveyCheckedRef.current) return
+
+    surveyCheckedRef.current = true
+
+    api
+      .get('/public/usage-survey')
+      .then((res) => {
+        if (res?.data?.shouldShow) {
+          setSurveyOpen(true)
+        }
+      })
+      .catch(() => {
+        // ไม่ต้องทำอะไร ถ้าเรียก endpoint นี้ไม่สำเร็จ เพื่อไม่ให้กระทบ dashboard หลัก
+      })
+  }, [user, loading])
 
   // ---------- ปิดเมนูเมื่อคลิกนอกกรอบ (เหมือนหน้า Warranty) ----------
   useEffect(() => {
@@ -1023,6 +1048,13 @@ export default function StoreDashboard() {
           // Refresh data
           fetchSummary()
         }}
+      />
+
+      {/* Popup แบบประเมินความพึงพอใจของร้านค้า */}
+      <SatisfactionSurveyModal
+        open={surveyOpen}
+        onClose={() => setSurveyOpen(false)}
+        context="store"
       />
 
       {isProfileModalOpen && (

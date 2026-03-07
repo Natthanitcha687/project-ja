@@ -118,9 +118,6 @@ export default function Footer() {
               <li>
                 <Link to="/faq" className="text-gray-300 hover:text-white transition-colors">คำถามที่พบบ่อย</Link>
               </li>
-              <li>
-                <Link to="/support" className="text-gray-300 hover:text-white transition-colors">สนับสนุน</Link>
-              </li>
             </ul>
           </div>
         </div>
