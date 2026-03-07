@@ -24,6 +24,22 @@ function clip(s, n = 90) {
   return t.slice(0, n) + "…";
 }
 
+// ใช้แยกระหว่างคำร้องทั่วไป กับคำร้องที่เป็น "ขอกู้คืนใบรับประกันที่ถูกลบ"
+function isWarrantyRecoveryComplaint(c) {
+  if (!c) return false;
+  const subj = (c.subject || "").toLowerCase();
+  const msg = (c.message || "").toLowerCase();
+  const cat = (c.category || "").toLowerCase();
+
+  const hasKeyword =
+    subj.includes("กู้คืนใบรับประกัน") ||
+    msg.includes("กู้คืนใบรับประกัน");
+
+  const isWarrantyCategory = cat.includes("ใบรับประกัน");
+
+  return hasKeyword && isWarrantyCategory;
+}
+
 /**
  * ✅ เปลี่ยนจาก pill -> จุดสี + ข้อความ (ไม่กระทบ logic เดิม)
  */
@@ -696,14 +712,16 @@ export default function Complaints() {
 
               {/* ✅ การเปลี่ยนสถานะ “ยังทำได้ตามเดิม” (ย้ายไปอยู่ใน modal เท่านั้น) */}
               <div className="flex flex-wrap gap-2 justify-end pt-2">
-                <button
-                  type="button"
-                  onClick={restoreSelectedWarranty}
-                  disabled={restoring}
-                  className="rounded-xl bg-amber-500/25 px-4 py-2 text-sm font-semibold text-amber-50 hover:bg-amber-500/35 focus:outline-none focus:ring-2 focus:ring-amber-300/40 disabled:opacity-60 disabled:cursor-not-allowed mr-auto"
-                >
-                  {restoring ? "กำลังกู้คืน..." : "กู้คืนใบรับประกัน"}
-                </button>
+                {isWarrantyRecoveryComplaint(selected) && (
+                  <button
+                    type="button"
+                    onClick={restoreSelectedWarranty}
+                    disabled={restoring}
+                    className="rounded-xl bg-amber-500/25 px-4 py-2 text-sm font-semibold text-amber-50 hover:bg-amber-500/35 focus:outline-none focus:ring-2 focus:ring-amber-300/40 disabled:opacity-60 disabled:cursor-not-allowed mr-auto"
+                  >
+                    {restoring ? "กำลังกู้คืน..." : "กู้คืนใบรับประกัน"}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setSt(selected.id, "IN_PROGRESS")}
