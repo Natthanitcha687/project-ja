@@ -297,12 +297,33 @@ export async function downloadWarrantyPdf(req, res) {
     // ✅ ที่อยู่ลูกค้า (ใช้ในช่อง "ที่อยู่" ของใบรับประกัน)
     const customerAddressThai = await formatThaiAddress(header.customerAddress);
 
+    // ✅ รูปโปรไฟล์ลูกค้า (ถ้ามี customerUserId จะใช้ avatar จาก customerProfile)
+    let customerAvatarUrl = "";
+    try {
+      if (header.customerUserId) {
+        const u = await prisma.user.findUnique({
+          where: { id: header.customerUserId },
+          include: { customerProfile: true },
+        });
+        customerAvatarUrl = u?.customerProfile?.avatarUrl || "";
+      } else if (header.customerEmail) {
+        const u = await prisma.user.findFirst({
+          where: { email: String(header.customerEmail).toLowerCase() },
+          include: { customerProfile: true },
+        });
+        customerAvatarUrl = u?.customerProfile?.avatarUrl || "";
+      }
+    } catch (e) {
+      console.warn("load customer avatar for warranty pdf failed", e?.message || e);
+    }
+
     const base = {
       // cardNo ไม่จำเป็นต้องโชว์ในดีไซน์ใหม่ (แต่ยังเก็บไว้ได้)
       cardNo: header.code || header.id,
       customerName: header.customerName || "-",
       customerTel: header.customerPhone || "-",
       address: customerAddressThai || "-", // ✅ ที่อยู่ลูกค้า
+      customerAvatarUrl,
       dealerName: profile?.storeName || "-",
       footerNote: "โปรดนำใบรับประกันฉบับนี้มาแสดงเป็นหลักฐานทุกครั้งเมื่อใช้บริการ",
       company: {

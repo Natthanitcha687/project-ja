@@ -57,6 +57,45 @@ function resolveFirstExisting(candidates) {
   return null;
 }
 
+// แปลง avatarUrl (data URL หรือ path) เป็นรูปวงกลมในตำแหน่งที่กำหนด
+function drawCustomerAvatar(doc, avatarUrl, x, y, size) {
+  if (!avatarUrl) return;
+  try {
+    let imgBuffer = null;
+
+    if (typeof avatarUrl === "string" && avatarUrl.startsWith("data:image/")) {
+      const commaIdx = avatarUrl.indexOf(",");
+      if (commaIdx > -1) {
+        const b64 = avatarUrl.slice(commaIdx + 1).trim();
+        if (b64) imgBuffer = Buffer.from(b64, "base64");
+      }
+    } else if (typeof avatarUrl === "string") {
+      // รองรับ path ในระบบไฟล์ เช่น /uploads/... หรือ path เดิม
+      const cleaned = avatarUrl.replace(/^\/+/, "");
+      const candidates = [
+        path.resolve(process.cwd(), cleaned),
+        avatarUrl,
+      ];
+      const p = resolveFirstExisting(candidates);
+      if (p) {
+        imgBuffer = fs.readFileSync(p);
+      }
+    }
+
+    if (!imgBuffer) return;
+
+    doc.save();
+    // วาดเป็นวงกลมคลิป (avatar ทรงกลม)
+    const cx = x + size / 2;
+    const cy = y + size / 2;
+    doc.circle(cx, cy, size / 2).clip();
+    doc.image(imgBuffer, x, y, { width: size, height: size, fit: [size, size] });
+    doc.restore();
+  } catch {
+    // ถ้าโหลดรูปไม่ได้ให้ข้ามไป (ไม่ทำให้ PDF พัง)
+  }
+}
+
 function safeDateTH(v) {
   if (!v) return "-";
   const d = v instanceof Date ? v : new Date(v);
@@ -298,6 +337,14 @@ export function drawWarrantyCardPage(doc, base = {}, item = {}, options = {}) {
 
   // -------- Buyer Section --------
   y = drawSectionBar(doc, margin, y, contentW, "ข้อมูลผู้ซื้อ", fonts);
+
+   // รูปโปรไฟล์ลูกค้า (ถ้ามี) มุมขวาของส่วนข้อมูลผู้ซื้อ
+   const avatarSize = mm(18);
+   if (base.customerAvatarUrl) {
+     const avatarX = margin + contentW - avatarSize;
+     const avatarY = y - mm(2) - avatarSize; // ลอยเหนือช่องเล็กน้อย
+     drawCustomerAvatar(doc, base.customerAvatarUrl, avatarX, avatarY, avatarSize);
+   }
 
   const w2 = (contentW - gap) / 2;
   const hField = mm(17);
