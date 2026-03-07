@@ -39,6 +39,13 @@ model User {
   // ✅ สถานะการดู Onboarding (สำหรับ Dashboard/ไกด์ไลน์)
   hasSeenOnboarding Boolean @default(false)
 
+  // ✅ เคยเห็นแบบประเมินความพึงพอใจการใช้งานแล้วหรือยัง (popup แสดงครั้งเดียว)
+  hasSeenSatisfactionSurvey Boolean @default(false)
+
+  // ✅ จำนวนใบรับประกันในระบบ ตอนที่เด้ง popup แบบประเมินครั้งล่าสุด
+  // ใช้เพื่อตัดสินใจว่า ถ้ากด "ภายหลัง" จะให้เด้งอีกครั้งเมื่อมีใบรับประกันเพิ่ม
+  lastSatisfactionSurveyWarrantiesCount Int @default(0)
+
   // ✅ เพิ่ม: Login rate limiting (ป้องกัน brute force)
   failedLoginAttempts  Int       @default(0)    // จำนวนครั้งที่ login ผิด
   failedLoginAt        DateTime?               // เวลาที่เริ่มนับ

@@ -102,9 +102,111 @@ export async function postFeedback(req, res) {
     const created = await prisma.satisfaction.create({
       data: { rating: r, comment: comment || null, userId: userId || null, storeId: storeId ? Number(storeId) : null, warrantyId: warrantyId || null }
     })
+
+    // ถ้าเป็นผู้ใช้ที่ล็อกอินอยู่ ให้ถือว่าตอบแบบประเมินแล้ว → ไม่ต้องเด้ง popup อีก
+    if (userId) {
+      try {
+        await prisma.user.update({
+          where: { id: userId },
+          data: { hasSeenSatisfactionSurvey: true },
+        })
+      } catch (e) {
+        // ถ้าอัปเดตสถานะไม่สำเร็จ ไม่ต้องทำให้ API ล้ม
+        console.warn('update hasSeenSatisfactionSurvey failed', e?.message || e)
+      }
+    }
+
     res.status(201).json({ ok: true, feedback: created })
   } catch (e) {
     console.error('postFeedback error', e)
+    res.status(500).json({ message: 'Server error' })
+  }
+}
+
+// ตรวจสอบว่า user ควรแสดง popup แบบประเมินความพึงพอใจหรือยัง
+// เงื่อนไข:
+// - ต้องล็อกอิน (อ่านจาก JWT ใน Authorization header)
+// - ROLE = CUSTOMER → นับจำนวน Warranty ที่ customerUserId = user.id
+// - ROLE = STORE    → นับจำนวน Warranty ที่ storeId = user.id
+// - แสดงครั้งแรกเมื่อมีใบรับประกันครบอย่างน้อย 3 ใบ และไม่เคยเห็นมาก่อน
+export async function getUsageSurveyEligibility(req, res) {
+  try {
+    let userId = null
+    try {
+      const header = req.headers.authorization || ''
+      const token = header.startsWith('Bearer ') ? header.slice(7) : null
+      if (token) {
+        const payload = JSON.parse(
+          Buffer.from(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8')
+        )
+        userId = Number(payload.sub || null)
+      }
+    } catch {
+      // ignore decode errors → ปล่อยให้เป็น unauthenticated
+    }
+
+    if (!userId) {
+      return res.json({ shouldShow: false, reason: 'unauthenticated' })
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        role: true,
+        email: true,
+        hasSeenSatisfactionSurvey: true,
+        lastSatisfactionSurveyWarrantiesCount: true,
+      },
+    })
+
+    if (!user) {
+      return res.json({ shouldShow: false, reason: 'user_not_found' })
+    }
+
+    let warrantiesCount = 0
+    if (user.role === 'CUSTOMER') {
+      // ลูกค้าอาจผูกใบรับประกันด้วยทั้ง customerUserId หรือแค่อีเมล
+      warrantiesCount = await prisma.warranty.count({
+        where: {
+          OR: [
+            { customerUserId: user.id },
+            { customerEmail: user.email },
+          ],
+        },
+      })
+    } else if (user.role === 'STORE') {
+      warrantiesCount = await prisma.warranty.count({ where: { storeId: user.id } })
+    } else {
+      return res.json({ shouldShow: false, reason: 'role_not_applicable' })
+    }
+
+    // ถ้าเคยตอบแบบประเมินแล้ว (hasSeenSatisfactionSurvey = true) → ไม่ต้องเด้งอีก
+    if (user.hasSeenSatisfactionSurvey) {
+      return res.json({ shouldShow: false, reason: 'already_submitted', warrantiesCount })
+    }
+
+    // เงื่อนไขเด้ง popup:
+    // - มีใบรับประกันในระบบอย่างน้อย 3 ใบ
+    // - และจำนวนใบรับประกันตอนนี้ "มากกว่า" ครั้งล่าสุดที่เคยเด้ง popup
+    const lastCount = user.lastSatisfactionSurveyWarrantiesCount ?? 0
+    const shouldShow = warrantiesCount >= 3 && warrantiesCount > lastCount
+
+    if (shouldShow) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { lastSatisfactionSurveyWarrantiesCount: warrantiesCount },
+      })
+    }
+
+    return res.json({
+      shouldShow,
+      role: user.role,
+      warrantiesCount,
+      lastCount,
+    })
+  } catch (e) {
+    console.error('getUsageSurveyEligibility error', e)
     res.status(500).json({ message: 'Server error' })
   }
 }

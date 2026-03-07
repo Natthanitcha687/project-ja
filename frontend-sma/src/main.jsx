@@ -22,7 +22,6 @@ import WarrantyInfo from './pages/WarrantyInfo'
 import About from './pages/About'
 import Docs from './pages/Docs'
 import Faq from './pages/Faq'
-import Support from './pages/Support'
 import StoreDashboard from './pages/StoreDashboard'
 import DashboardLayout from './layouts/DashboardLayout'
 import CustomerWarranty from './pages/CustomerWarranty.jsx'
@@ -133,7 +132,6 @@ const router = createBrowserRouter([
       { path: '/about', element: <About /> },
       { path: '/docs', element: <Docs /> },
       { path: '/faq', element: <Faq /> },
-      { path: '/support', element: <Support /> },
       { path: '/signin', element: <SignIn /> },
       { path: '/signup', element: <SignUp /> },
 

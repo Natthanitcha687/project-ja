@@ -172,6 +172,8 @@ export default function AdminLayout() {
           {/* ✅ เปลี่ยนชื่อ + เลื่อนมาอยู่ก่อน security/logs */}
           <NavLink to="/complaints" className={clsTab}>ข้อมูลการแจ้งปัญหา</NavLink>
 
+          <NavLink to="/feedback" className={clsTab}>ข้อเสนอแนะผู้ใช้</NavLink>
+
           <NavLink to="/security" className={clsTab}>ตรวจสอบความปลอดภัย</NavLink>
           <NavLink to="/logs" className={clsTab}>Activity Logs</NavLink>
         </div>

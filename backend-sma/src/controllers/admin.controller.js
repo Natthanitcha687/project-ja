@@ -171,6 +171,42 @@ export async function adminStats(_req, res) {
 }
 
 /* =========================
+ * Feedback (Satisfaction)
+ * ========================= */
+
+// GET /admin/feedback
+// แสดงรายการแบบประเมินความพึงพอใจล่าสุด (จำกัดสูงสุด 200 แถว)
+export async function listFeedback(req, res) {
+  const takeRaw = Number(req.query.take || 100);
+  const take = Number.isFinite(takeRaw) ? Math.min(Math.max(takeRaw, 1), 200) : 100;
+
+  const where = {};
+  const rating = Number(req.query.rating || 0);
+  if (Number.isFinite(rating) && rating >= 1 && rating <= 5) {
+    where.rating = rating;
+  }
+
+  const rows = await prisma.satisfaction.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    take,
+    include: {
+      user: {
+        select: { id: true, email: true, role: true },
+      },
+      store: {
+        select: {
+          id: true,
+          storeProfile: { select: { storeName: true } },
+        },
+      },
+    },
+  });
+
+  res.json({ feedback: rows });
+}
+
+/* =========================
  * Stores
  * ========================= */
 
