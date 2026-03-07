@@ -100,12 +100,24 @@ export async function updateMyProfile(req, res, next) {
       )].sort((a, b) => b - a) // Sort descending (15, 7, 3, 1)
     }
 
+    // จัดการ avatarUrl แยก เพื่อรองรับเคส "ลบรูป" ชัดเจน
+    let avatarUrl = exist?.avatarUrl ?? ''
+    if (Object.prototype.hasOwnProperty.call(body, 'avatarUrl')) {
+      // ถ้า client ส่งมาเป็น null ให้ถือว่า "ลบรูป" -> เคลียร์ค่า
+      if (body.avatarUrl === null) {
+        avatarUrl = ''
+      } else {
+        const t = trimOrNull(body.avatarUrl)
+        if (t !== null) avatarUrl = t
+      }
+    }
+
     const data = {
       firstName: trimOrNull(body.firstName) ?? (exist?.firstName ?? ''),
       lastName: trimOrNull(body.lastName) ?? (exist?.lastName ?? ''),
       phone: trimOrNull(body.phone) ?? (exist?.phone ?? ''),
       isConsent: bool(body.isConsent, exist?.isConsent ?? false),
-      avatarUrl: trimOrNull(body.avatarUrl) ?? (exist?.avatarUrl ?? ''),
+      avatarUrl,
       notifyDaysArray,
     }
 

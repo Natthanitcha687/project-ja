@@ -93,15 +93,17 @@ export default function CustomerProfileModal({ open, onClose, initialTab = 'info
     setLoading(true);
     setServerMsg("");
     try {
-      // If avatar selected, send avatarUrl as dataURL; backend may accept it
       const payload = {
         firstName: firstName?.trim(),
         lastName: lastName?.trim(),
         phone: phone?.trim(),
         isConsent: !!isConsent,
         notifyDaysArray, // ✅ ส่งวันแจ้งเตือน
-      }
-      if (profileImage.preview) payload.avatarUrl = profileImage.preview
+        // ส่ง avatarUrl ทุกครั้ง:
+        // - มีรูป -> dataURL
+        // - ไม่มีรูป -> null (ให้ backend เคลียร์รูป)
+        avatarUrl: profileImage.preview || null,
+      };
 
       await api.patch(endpoints.profile, payload);
       // refresh authenticated user so header/avatar gets updated
@@ -157,7 +159,19 @@ export default function CustomerProfileModal({ open, onClose, initialTab = 'info
       <div className="w-full max-w-lg rounded-3xl border border-sky-200 bg-white shadow-2xl max-h-[90vh] overflow-hidden">
         <div className="sticky top-0 z-30 flex items-center justify-between border-b border-sky-100 px-6 py-4 bg-white">
           <div className="flex items-center gap-3">
-            <div className="grid h-12 w-12 place-items-center rounded-full bg-sky-200 text-2xl">👤</div>
+            <div className="grid h-12 w-12 place-items-center rounded-full bg-sky-200 text-2xl overflow-hidden">
+              {profileImage.preview ? (
+                <img
+                  src={profileImage.preview}
+                  alt="รูปโปรไฟล์ลูกค้า"
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span role="img" aria-label="avatar">
+                  👤
+                </span>
+              )}
+            </div>
             <div>
               <div className="text-base font-semibold text-gray-900">แก้ไขข้อมูลส่วนตัว</div>
               <div className="text-xs text-sky-600">ข้อมูลจะใช้แสดงในใบรับประกัน</div>
