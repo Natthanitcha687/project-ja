@@ -1,6 +1,55 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { API_URL } from '../lib/api'
 
 export default function WarrantyInfo() {
+  const [stats, setStats] = useState(null)
+  const [statusTotals, setStatusTotals] = useState({ active: 0, nearing_expiration: 0, expired: 0 })
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadStats() {
+      try {
+        const res = await fetch(`${API_URL}/public/stats`)
+        if (!res.ok) return
+        const data = await res.json()
+        if (!cancelled) setStats(data)
+      } catch {
+        // ignore, ใช้ค่า default ถ้าโหลดไม่ได้
+      }
+    }
+
+    async function loadStatusTotals() {
+      try {
+        const res = await fetch(`${API_URL}/public/warranty-statuses`)
+        if (!res.ok) return
+        const data = await res.json()
+        const t = data?.totals
+        if (!cancelled && t && typeof t.active === 'number' && typeof t.nearing_expiration === 'number' && typeof t.expired === 'number') {
+          setStatusTotals({
+            active: t.active,
+            nearing_expiration: t.nearing_expiration,
+            expired: t.expired,
+          })
+        }
+      } catch {
+        // ignore, ใช้ค่า default ถ้าโหลดไม่ได้
+      }
+    }
+
+    loadStats()
+    loadStatusTotals()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const totalWarrantiesText =
+    typeof stats?.warranties === 'number'
+      ? stats.warranties.toLocaleString('th-TH')
+      : '-'
+
   return (
     <div className="min-h-[calc(100vh-64px)] bg-white text-slate-900">
       <section className="bg-gradient-to-r from-blue-50 via-white to-emerald-50 py-20">
@@ -47,7 +96,7 @@ export default function WarrantyInfo() {
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <div className="text-sm text-slate-500">รวมใบรับประกันทั้งหมด</div>
-                    <div className="text-3xl mt-1 font-extrabold text-slate-900">1,205</div>
+                    <div className="text-3xl mt-1 font-extrabold text-slate-900">{totalWarrantiesText}</div>
                   </div>
                   <div className="text-xs text-slate-400">อัปเดตล่าสุดวันนี้</div>
                 </div>
@@ -55,15 +104,15 @@ export default function WarrantyInfo() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="rounded-lg border border-slate-100 p-3 text-center bg-emerald-50">
                     <div className="text-sm text-slate-700">ใช้งานได้</div>
-                    <div className="text-xl font-bold text-emerald-800 mt-2">950</div>
+                    <div className="text-xl font-bold text-emerald-800 mt-2">{statusTotals.active}</div>
                   </div>
                   <div className="rounded-lg border border-slate-100 p-3 text-center bg-amber-50">
                     <div className="text-sm text-slate-700">ใกล้หมดอายุ</div>
-                    <div className="text-xl font-bold text-amber-800 mt-2">170</div>
+                    <div className="text-xl font-bold text-amber-800 mt-2">{statusTotals.nearing_expiration}</div>
                   </div>
                   <div className="rounded-lg border border-slate-100 p-3 text-center bg-rose-50">
                     <div className="text-sm text-slate-700">หมดอายุ</div>
-                    <div className="text-xl font-bold text-rose-800 mt-2">85</div>
+                    <div className="text-xl font-bold text-rose-800 mt-2">{statusTotals.expired}</div>
                   </div>
                 </div>
 

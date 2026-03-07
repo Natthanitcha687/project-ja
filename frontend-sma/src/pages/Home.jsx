@@ -1,14 +1,54 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import "./Home.css";
 import ShieldLogo from "../components/AppLogo";
+import { API_URL } from "../lib/api";
 
 <Link to="/" className="flex items-center gap-2">
   <ShieldLogo className="w-8 h-8" />
   <span className="font-bold text-lg">Warranty</span>
 </Link>
-
-
 export default function Home() {
+  const [stats, setStats] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadStats() {
+      try {
+        const res = await fetch(`${API_URL}/public/stats`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setStats(data);
+      } catch {
+        // ignore, ใช้ค่า default ถ้าโหลดไม่ได้
+      }
+    }
+
+    loadStats();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const storesText =
+    typeof stats?.stores === "number"
+      ? stats.stores.toLocaleString("th-TH")
+      : "-";
+  const customersText =
+    typeof stats?.customers === "number"
+      ? stats.customers.toLocaleString("th-TH")
+      : "-";
+  const warrantiesText =
+    typeof stats?.warranties === "number"
+      ? stats.warranties.toLocaleString("th-TH")
+      : "-";
+  const satisfactionPct =
+    typeof stats?.satisfaction?.average === "number" && stats.satisfaction.average > 0
+      ? Math.round((stats.satisfaction.average / 5) * 100)
+      : null;
+  const satisfactionText = satisfactionPct !== null ? `${satisfactionPct}%` : "-";
+
   return (
     <div className="bg-white text-gray-800 overflow-hidden">
       {/* ===== HERO SECTION ===== */}
@@ -62,10 +102,10 @@ export default function Home() {
           {/* ===== STATS ===== */}
           <div className="mt-12 grid grid-cols-2 sm:grid-cols-4 gap-6 justify-items-center">
             {[
-              { value: "500+", label: "ร้านค้าที่เชื่อถือ" },
-              { value: "4000+", label: "ลูกค้าที่พึงพอใจ" },
-              { value: "10000+", label: "ใบรับประกัน" },
-              { value: "99%", label: "ความพึงพอใจ" },
+              { value: storesText, label: "ร้านค้าที่เชื่อถือ" },
+              { value: customersText, label: "ลูกค้าที่พึงพอใจ" },
+              { value: warrantiesText, label: "ใบรับประกัน" },
+              { value: satisfactionText, label: "ความพึงพอใจ" },
             ].map((item, i) => (
               <div key={i} className="flex flex-col items-center group">
                 <div className="relative">

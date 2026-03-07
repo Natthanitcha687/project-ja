@@ -1,7 +1,45 @@
 // src/components/Footer.jsx
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { API_URL } from "../lib/api";
 
 export default function Footer() {
+  const [stats, setStats] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadStats() {
+      try {
+        const res = await fetch(`${API_URL}/public/stats`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setStats(data);
+      } catch {
+        // เฉย ๆ ถ้าโหลดไม่ได้ ให้ใช้ค่า default แทน
+      }
+    }
+
+    loadStats();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const storesText =
+    typeof stats?.stores === "number"
+      ? stats.stores.toLocaleString("th-TH")
+      : "-";
+  const customersText =
+    typeof stats?.customers === "number"
+      ? stats.customers.toLocaleString("th-TH")
+      : "-";
+  const satisfactionPct =
+    typeof stats?.satisfaction?.average === "number" && stats.satisfaction.average > 0
+      ? Math.round((stats.satisfaction.average / 5) * 100)
+      : null;
+  const satisfactionText = satisfactionPct !== null ? `${satisfactionPct}%` : "-";
+
   return (
     <footer className="bg-[#0B1220] text-white pt-12 pb-6 relative overflow-hidden">
       <div className="max-w-6xl mx-auto px-6">
@@ -37,13 +75,13 @@ export default function Footer() {
 
             <div className="flex gap-6 text-sm text-gray-400">
               <div>
-                <span className="font-semibold text-white">500+</span> ร้านค้า
+                <span className="font-semibold text-white">{storesText}</span> ร้านค้า
               </div>
               <div>
-                <span className="font-semibold text-white">4K+</span> ลูกค้า
+                <span className="font-semibold text-white">{customersText}</span> ลูกค้า
               </div>
               <div>
-                <span className="font-semibold text-white">99%</span> พึงพอใจ
+                <span className="font-semibold text-white">{satisfactionText}</span> พึงพอใจ
               </div>
             </div>
           </div>
