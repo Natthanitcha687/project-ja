@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState, forwardRef, useMemo } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
+import { stripEmojisAndSpecials } from "../lib/text";
 
 /* ---------------------------------------------
  * ICONS (เส้นบาง โทนเทา)
@@ -1048,7 +1049,7 @@ export default function Signup() {
                     <textarea
                       name="addr_street"
                       value={addressStreet}
-                      onChange={(e) => updateAddress({ street: e.target.value })}
+                      onChange={(e) => updateAddress({ street: stripEmojisAndSpecials(e.target.value) })}
                       placeholder="เช่น 123/4 ซ.สุขุมวิท 11"
                       rows={2}
                       className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"

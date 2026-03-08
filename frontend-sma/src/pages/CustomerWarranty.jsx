@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { api } from "../lib/api";
+import { stripEmojisAndSpecials } from "../lib/text";
 import { useAuth } from "../store/auth";
 import SatisfactionSurveyModal from "../components/SatisfactionSurveyModal";
 import introJs from "intro.js";
@@ -902,7 +903,7 @@ export default function CustomerWarranty() {
                 rows={5}
                 value={noteModal.note}
                 onChange={(e) =>
-                  setNoteModal({ ...noteModal, note: e.target.value })}
+                  setNoteModal({ ...noteModal, note: stripEmojisAndSpecials(e.target.value) })}
                 className="w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-slate-900 focus:border-sky-300 focus:outline-none"
                 placeholder="พิมพ์หมายเหตุของคุณ"
               />

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { stripEmojis } from '../lib/text'
+import { stripEmojisAndSpecials } from '../lib/text'
 
 export default function Support() {
   const [name, setName] = useState('')
@@ -26,7 +26,7 @@ export default function Support() {
           <div className="grid gap-4">
             <label className="flex flex-col">
               <span className="text-sm text-slate-600">ชื่อ</span>
-              <input value={name} onChange={e => setName(stripEmojis(e.target.value))} className="mt-1 border rounded px-3 py-2" placeholder="ชื่อของคุณ" />
+              <input value={name} onChange={e => setName(stripEmojisAndSpecials(e.target.value))} className="mt-1 border rounded px-3 py-2" placeholder="ชื่อของคุณ" />
             </label>
 
             <label className="flex flex-col">
@@ -36,7 +36,7 @@ export default function Support() {
 
             <label className="flex flex-col">
               <span className="text-sm text-slate-600">ข้อความ</span>
-              <textarea value={message} onChange={e => setMessage(stripEmojis(e.target.value))} rows={6} className="mt-1 border rounded px-3 py-2" placeholder="บอกรายละเอียดปัญหาหรือคำถามของคุณ"></textarea>
+              <textarea value={message} onChange={e => setMessage(stripEmojisAndSpecials(e.target.value))} rows={6} className="mt-1 border rounded px-3 py-2" placeholder="บอกรายละเอียดปัญหาหรือคำถามของคุณ"></textarea>
             </label>
 
             <div className="flex items-center justify-between">

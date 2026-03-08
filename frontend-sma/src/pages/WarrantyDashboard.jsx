@@ -4,7 +4,7 @@ import { useLocation } from 'react-router-dom'
 import { API_URL, getToken } from '../lib/api'
 import { useNavigate, Link } from 'react-router-dom'
 import { api } from '../lib/api'
-import { stripEmojis } from '../lib/text'
+import { stripEmojis, stripEmojisAndSpecials } from '../lib/text'
 import { useAuth } from '../store/auth'
 import Swal from 'sweetalert2'
 import ImageUpload from '../components/ImageUpload'
@@ -1884,7 +1884,7 @@ export default function WarrantyDashboard() {
                     <span className="text-slate-400">🔍</span>
                     <input
                       value={searchTerm}
-                      onChange={(event) => setSearchTerm(event.target.value)}
+                      onChange={(event) => setSearchTerm(stripEmojisAndSpecials(event.target.value))}
                       className="w-full bg-transparent px-2 py-2 text-sm focus:outline-none"
                       placeholder="ค้นหาด้วยรหัสใบรับประกัน, ชื่อลูกค้า, อีเมลลูกค้า, ชื่อสินค้า"
                     />
@@ -2643,7 +2643,7 @@ export default function WarrantyDashboard() {
                           <textarea
                             value={editCustomerAddressParts.street}
                             onChange={(e) => {
-                              const v = e.target.value.replace(/[@#$%^&*?|><]/g, '')
+                              const v = stripEmojisAndSpecials(e.target.value)
                               setEditCustomerAddressParts((p) => ({ ...p, street: v }))
                               setEditHeaderAddress((prev) => prev) // keep raw; will rebuild on submit
                             }}
@@ -2781,7 +2781,10 @@ export default function WarrantyDashboard() {
                         <input
                           name="product_name"
                           value={editForm?.product_name ?? ''}
-                          onChange={e => setEditForm(f => ({ ...f, product_name: e.target.value.replace(/[@#$%^&*?|><]/g, '') }))}
+                          onChange={e => setEditForm(f => ({
+                            ...f,
+                            product_name: stripEmojisAndSpecials(e.target.value),
+                          }))}
                           className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                           placeholder="กรอกชื่อสินค้าที่ทำการซ่อม"
                           type="text"
@@ -2795,7 +2798,10 @@ export default function WarrantyDashboard() {
                         <input
                           name="model"
                           value={editForm?.model ?? ''}
-                          onChange={e => setEditForm(f => ({ ...f, model: e.target.value.replace(/[@#$%^&*?|><]/g, '') }))}
+                          onChange={e => setEditForm(f => ({
+                            ...f,
+                            model: stripEmojisAndSpecials(e.target.value),
+                          }))}
                           className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                           placeholder="กรอกรุ่นสินค้าที่ทำการซ่อม"
                           type="text"
@@ -2851,7 +2857,10 @@ export default function WarrantyDashboard() {
                           <input
                             name="serial"
                             value={editForm?.serial ?? ''}
-                            onChange={e => setEditForm(f => ({ ...f, serial: e.target.value }))}
+                            onChange={e => setEditForm(f => ({
+                              ...f,
+                              serial: stripEmojisAndSpecials(e.target.value),
+                            }))}
                             className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                             placeholder="กรอก Serial No. (ไม่บังคับ)"
                             type="text"
@@ -3029,7 +3038,7 @@ export default function WarrantyDashboard() {
                               <input
                                 type="text"
                                 value={editAddConditionText}
-                                onChange={e => setEditAddConditionText(e.target.value.replace(/[@#$%^&*?|><]/g, ''))}
+                                  onChange={e => setEditAddConditionText(stripEmojisAndSpecials(e.target.value))}
                                 className="flex-1 rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-sm focus:border-sky-400 focus:outline-none"
                                 placeholder="พิมพ์เงื่อนไขใหม่..."
                                 autoFocus
@@ -3112,7 +3121,11 @@ export default function WarrantyDashboard() {
                             อีเมลลูกค้า <span className="text-red-500">*</span>
                             <input
                               value={it.customer_email}
-                              onChange={e => patchItem(idx, { customer_email: stripEmojis(e.target.value) })}
+                              onChange={e => {
+                                const raw = stripEmojis(e.target.value)
+                                const cleaned = raw.replace(/[^a-zA-Z0-9@._\-+]/g, '')
+                                patchItem(idx, { customer_email: cleaned })
+                              }}
                               readOnly={!!it.lockedEmail}
                               className={`mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none ${it.lockedEmail ? 'bg-slate-100' : 'bg-white'}`}
                               placeholder="กรอกอีเมลลูกค้า"
@@ -3129,7 +3142,10 @@ export default function WarrantyDashboard() {
                                 <div className="text-xs text-gray-500">เลขที่ / ซอย / ถนน</div>
                                 <textarea
                                   value={customerAddressParts.street}
-                                  onChange={(e) => syncCustomerAddress((p) => ({ ...p, street: e.target.value.replace(/[@#$%^&*?|><]/g, '') }))}
+                                        onChange={(e) => {
+                                          const v = stripEmojisAndSpecials(e.target.value)
+                                          syncCustomerAddress((p) => ({ ...p, street: v }))
+                                        }}
                                   className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                                   placeholder="เช่น 123/4 ซ.สุขุมวิท 11"
                                   rows={2}
@@ -3231,7 +3247,9 @@ export default function WarrantyDashboard() {
                             ชื่อสินค้าที่ทำการซ่อม <span className="text-red-500">*</span>
                             <input
                               value={it.product_name}
-                              onChange={e => patchItem(idx, { product_name: e.target.value.replace(/[@#$%^&*?|><]/g, '') })}
+                              onChange={e => patchItem(idx, {
+                                product_name: stripEmojisAndSpecials(e.target.value),
+                              })}
                               className="mt-1 w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                               placeholder="กรอกชื่อสินค้าที่ทำการซ่อม"
                               type="text"
@@ -3244,7 +3262,9 @@ export default function WarrantyDashboard() {
                             รุ่นสินค้าที่ทำการซ่อม
                             <input
                               value={it.model}
-                              onChange={e => patchItem(idx, { model: e.target.value.replace(/[@#$%^&*?|><]/g, '') })}
+                              onChange={e => patchItem(idx, {
+                                model: stripEmojisAndSpecials(e.target.value),
+                              })}
                               className="mt-1 w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                               placeholder="กรอกรุ่นสินค้าที่ทำการซ่อม"
                               type="text"
@@ -3290,7 +3310,9 @@ export default function WarrantyDashboard() {
                               Serial No.
                               <input
                                 value={it.serial}
-                                onChange={e => patchItem(idx, { serial: e.target.value })}
+                                onChange={e => patchItem(idx, {
+                                  serial: stripEmojisAndSpecials(e.target.value),
+                                })}
                                 className="mt-1 w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                                 placeholder="กรอก Serial No. (ไม่บังคับ)"
                                 type="text"
@@ -3430,7 +3452,7 @@ export default function WarrantyDashboard() {
                                   <input
                                     type="text"
                                     value={createAddConditionText[idx] || ''}
-                                    onChange={e => setCreateAddConditionText(prev => ({ ...prev, [idx]: e.target.value.replace(/[@#$%^&*?|><]/g, '') }))}
+                                    onChange={e => setCreateAddConditionText(prev => ({ ...prev, [idx]: stripEmojisAndSpecials(e.target.value) }))}
                                     className="flex-1 rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-sm focus:border-sky-400 focus:outline-none"
                                     placeholder="พิมพ์เงื่อนไขใหม่..."
                                     autoFocus

@@ -1,7 +1,7 @@
 // admin-sma/src/pages/Stores.jsx
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
-import { stripEmojis } from "../lib/text";
+import { stripEmojisAndSpecials } from "../lib/text";
 
 const PAGE_SIZE = 10;
 
@@ -328,7 +328,7 @@ export default function Stores() {
               className="w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-500"
               placeholder="ค้นหาร้านค้า/อีเมลร้านค้า"
               value={q}
-              onChange={(e) => setQ(e.target.value)}
+              onChange={(e) => setQ(stripEmojisAndSpecials(e.target.value))}
               aria-describedby={HELP_ID}
             />
           </div>
