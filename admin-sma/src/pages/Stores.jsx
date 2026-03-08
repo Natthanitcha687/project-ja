@@ -1,6 +1,7 @@
 // admin-sma/src/pages/Stores.jsx
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
+import { stripEmojisAndSpecials } from "../lib/text";
 
 const PAGE_SIZE = 10;
 
@@ -327,7 +328,7 @@ export default function Stores() {
               className="w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-500"
               placeholder="ค้นหาร้านค้า/อีเมลร้านค้า"
               value={q}
-              onChange={(e) => setQ(e.target.value)}
+              onChange={(e) => setQ(stripEmojisAndSpecials(e.target.value))}
               aria-describedby={HELP_ID}
             />
           </div>
@@ -676,7 +677,7 @@ export default function Stores() {
                   <textarea
                     rows={4}
                     value={sReason}
-                    onChange={(e) => setSReason(e.target.value)}
+                    onChange={(e) => setSReason(stripEmojis(e.target.value))}
                     className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none text-slate-900 placeholder:text-slate-500 focus:ring-2 focus:ring-sky-200"
                   />
                   {!sReasonTrim && <div className="mt-2 text-xs font-semibold text-rose-600">กรุณาระบุเหตุผล</div>}
@@ -741,7 +742,7 @@ export default function Stores() {
             <textarea
               rows={5}
               value={dReason}
-              onChange={(e) => setDReason(e.target.value)}
+              onChange={(e) => setDReason(stripEmojis(e.target.value))}
               className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none text-slate-900 placeholder:text-slate-500 focus:ring-2 focus:ring-rose-200"
             />
             {!dReasonTrim && <div className="mt-2 text-xs font-semibold text-rose-600">กรุณาระบุเหตุผลในการลบ</div>}

@@ -1,6 +1,7 @@
 // admin-sma/src/pages/Users.jsx
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
+import { stripEmojis, stripEmojisAndSpecials } from "../lib/text";
 
 const ROLE_LOCK = "CUSTOMER";
 const PAGE_SIZE = 10;
@@ -317,7 +318,7 @@ export default function Users() {
             className="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-slate-900 shadow-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
             placeholder="ค้นหาอีเมลลูกค้า..."
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={(e) => setQ(stripEmojisAndSpecials(e.target.value))}
             onKeyDown={(e) => {
               if (e.key === "Enter") load();
             }}
@@ -711,7 +712,7 @@ export default function Users() {
                 <div className="text-sm font-semibold text-slate-900">เหตุผล</div>
                 <textarea
                   value={sReason}
-                  onChange={(e) => setSReason(e.target.value)}
+                  onChange={(e) => setSReason(stripEmojisAndSpecials(e.target.value))}
                   placeholder="ระบุเหตุผลการระงับ (แนะนำให้ระบุให้ชัดเจน)"
                   className="mt-2 w-full min-h-[120px] rounded-xl border border-slate-200 px-3 py-2 text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
                 />
@@ -774,7 +775,7 @@ export default function Users() {
                 <div className="text-sm font-semibold text-slate-900">เหตุผลในการลบ</div>
                 <textarea
                   value={dReason}
-                  onChange={(e) => setDReason(e.target.value)}
+                  onChange={(e) => setDReason(stripEmojisAndSpecials(e.target.value))}
                   placeholder="ระบุเหตุผลการลบ (แนะนำให้ระบุให้ชัดเจน)"
                   className="mt-2 w-full min-h-[140px] rounded-xl border border-slate-200 px-3 py-2 text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
                 />

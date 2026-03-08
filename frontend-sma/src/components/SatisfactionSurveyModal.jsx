@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api } from "../lib/api";
+import { stripEmojisAndSpecials } from "../lib/text";
 
 /**
  * SatisfactionSurveyModal
@@ -115,7 +116,7 @@ export default function SatisfactionSurveyModal({ open, onClose, context = "cust
               id="satisfaction-comment"
               rows={3}
               value={comment}
-              onChange={(e) => setComment(e.target.value)}
+              onChange={(e) => setComment(stripEmojisAndSpecials(e.target.value))}
               className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400 resize-none bg-slate-50"
               placeholder="แบ่งปันประสบการณ์ของคุณให้เราหน่อยนะ"
             />

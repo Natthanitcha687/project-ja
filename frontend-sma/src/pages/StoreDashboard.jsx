@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, Link } from 'react-router-dom'
 import { api, API_URL, getToken } from '../lib/api'
+import { stripEmojisAndSpecials } from '../lib/text'
 import { useAuth } from '../store/auth'
 import StoreTabs from '../components/StoreTabs'
 import SimpleDonut from '../components/SimpleDonut'
@@ -1166,7 +1167,7 @@ export default function StoreDashboard() {
                             <textarea
                               placeholder="เลขที่ ซอย ถนน"
                               value={addressParts.street}
-                              onChange={(e) => setAddressParts((p) => ({ ...p, street: e.target.value }))}
+                              onChange={(e) => setAddressParts((p) => ({ ...p, street: stripEmojisAndSpecials(e.target.value) }))}
                               rows={2}
                               className="mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none bg-sky-50/60"
                               type="text"
