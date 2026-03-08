@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom'
 import { API_URL, getToken } from '../lib/api'
 import { useNavigate, Link } from 'react-router-dom'
 import { api } from '../lib/api'
+import { stripEmojis } from '../lib/text'
 import { useAuth } from '../store/auth'
 import Swal from 'sweetalert2'
 import ImageUpload from '../components/ImageUpload'
@@ -3111,7 +3112,7 @@ export default function WarrantyDashboard() {
                             อีเมลลูกค้า <span className="text-red-500">*</span>
                             <input
                               value={it.customer_email}
-                              onChange={e => patchItem(idx, { customer_email: e.target.value })}
+                              onChange={e => patchItem(idx, { customer_email: stripEmojis(e.target.value) })}
                               readOnly={!!it.lockedEmail}
                               className={`mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none ${it.lockedEmail ? 'bg-slate-100' : 'bg-white'}`}
                               placeholder="กรอกอีเมลลูกค้า"

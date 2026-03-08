@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
+import { stripEmojis } from "../lib/text";
 
 export default function AppealSuspension() {
     const [searchParams] = useSearchParams();
@@ -85,7 +86,7 @@ export default function AppealSuspension() {
                                 className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2.5 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all shadow-sm resize-none"
                                 placeholder="อธิบายเหตุผลของคุณ..."
                                 value={reason}
-                                onChange={(e) => setReason(e.target.value)}
+                                onChange={(e) => setReason(stripEmojis(e.target.value))}
                             />
                         </div>
 

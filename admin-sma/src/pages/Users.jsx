@@ -1,6 +1,7 @@
 // admin-sma/src/pages/Users.jsx
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
+import { stripEmojis } from "../lib/text";
 
 const ROLE_LOCK = "CUSTOMER";
 const PAGE_SIZE = 10;
@@ -711,7 +712,7 @@ export default function Users() {
                 <div className="text-sm font-semibold text-slate-900">เหตุผล</div>
                 <textarea
                   value={sReason}
-                  onChange={(e) => setSReason(e.target.value)}
+                  onChange={(e) => setSReason(stripEmojis(e.target.value))}
                   placeholder="ระบุเหตุผลการระงับ (แนะนำให้ระบุให้ชัดเจน)"
                   className="mt-2 w-full min-h-[120px] rounded-xl border border-slate-200 px-3 py-2 text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
                 />
@@ -774,7 +775,7 @@ export default function Users() {
                 <div className="text-sm font-semibold text-slate-900">เหตุผลในการลบ</div>
                 <textarea
                   value={dReason}
-                  onChange={(e) => setDReason(e.target.value)}
+                  onChange={(e) => setDReason(stripEmojis(e.target.value))}
                   placeholder="ระบุเหตุผลการลบ (แนะนำให้ระบุให้ชัดเจน)"
                   className="mt-2 w-full min-h-[140px] rounded-xl border border-slate-200 px-3 py-2 text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-200"
                 />
