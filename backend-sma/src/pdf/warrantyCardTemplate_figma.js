@@ -338,14 +338,6 @@ export function drawWarrantyCardPage(doc, base = {}, item = {}, options = {}) {
   // -------- Buyer Section --------
   y = drawSectionBar(doc, margin, y, contentW, "ข้อมูลผู้ซื้อ", fonts);
 
-   // รูปโปรไฟล์ลูกค้า (ถ้ามี) มุมขวาของส่วนข้อมูลผู้ซื้อ
-   const avatarSize = mm(18);
-   if (base.customerAvatarUrl) {
-     const avatarX = margin + contentW - avatarSize;
-     const avatarY = y - mm(2) - avatarSize; // ลอยเหนือช่องเล็กน้อย
-     drawCustomerAvatar(doc, base.customerAvatarUrl, avatarX, avatarY, avatarSize);
-   }
-
   const w2 = (contentW - gap) / 2;
   const hField = mm(17);
 
