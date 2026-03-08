@@ -5,6 +5,7 @@ import { api } from "../lib/api";
 import { stripEmojisAndSpecials } from "../lib/text";
 import { useAuth } from "../store/auth";
 import SatisfactionSurveyModal from "../components/SatisfactionSurveyModal";
+import ImagePreview from "../components/ImagePreview";
 import introJs from "intro.js";
 import "intro.js/introjs.css";
 // CustomerProfileModal removed here because top-level CustomerNavbar provides profile UI
@@ -167,6 +168,7 @@ export default function CustomerWarranty() {
   const PAGE_SIZE = 5;
   const [page, setPage] = useState(1);
   const tourStartedRef = useRef(false);
+  const [imagePreview, setImagePreview] = useState({ open: false, images: [], index: 0 });
 
   // รองรับการนำทางมาหน้านี้หลายครั้ง (เช่น คลิก "ไปที่ใบรับประกัน" จากแจ้งเตือนซ้ำๆ)
   useEffect(() => {
@@ -794,16 +796,56 @@ export default function CustomerWarranty() {
                                     </button>
                                   </div>
                                 </div>
+
+                                {it.images && it.images.length > 0 && (
+                                  <div className="mt-3 space-y-2">
+                                    <div className="text-sm font-medium text-slate-700">รูปภาพประกอบ</div>
+                                    <div className="flex gap-2 overflow-x-auto">
+                                      {it.images.map((image, index) => (
+                                        <button
+                                          key={image.id || index}
+                                          type="button"
+                                          className="group relative flex-shrink-0 cursor-pointer overflow-hidden rounded-lg border border-slate-200 bg-slate-50"
+                                          onClick={() => setImagePreview({ open: true, images: it.images, index })}
+                                        >
+                                          <img
+                                            src={absolutize(image.url || image.path || image)}
+                                            alt={image.originalName || "Warranty image"}
+                                            className="h-20 w-20 object-cover transition-transform group-hover:scale-105"
+                                            onError={(e) => { e.currentTarget.style.display = "none"; }}
+                                          />
+                                          <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity group-hover:opacity-100">
+                                            <span className="text-xs text-white">👁️</span>
+                                          </div>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
 
                               <div className="grid place-items-center">
                                 <div className="relative h-32 w-40 overflow-hidden rounded-2xl border border-slate-300 bg-slate-50">
-                                  {img ? (
-                                    <img
-                                      src={img}
-                                      alt=""
-                                      className="h-full w-full object-cover"
-                                    />
+                                  {it.images && it.images.length > 0 && img ? (
+                                    <button
+                                      type="button"
+                                      className="group relative h-full w-full cursor-pointer"
+                                      onClick={() => setImagePreview({ open: true, images: it.images, index: 0 })}
+                                    >
+                                      <img
+                                        src={img}
+                                        alt="Warranty preview"
+                                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                                      />
+                                      {it.images.length > 1 && (
+                                        <div className="absolute bottom-2 right-2 rounded-full bg-black/70 px-2 py-1 text-xs text-white">
+                                          +{it.images.length - 1}
+                                        </div>
+                                      )}
+                                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+                                        <span className="text-xs text-white">👁️ ดูรูป</span>
+                                      </div>
+                                    </button>
                                   ) : (
                                     <div className="flex h-full w-full items-center justify-center text-sm text-slate-400">
                                       <div className="text-center">
@@ -875,6 +917,14 @@ export default function CustomerWarranty() {
           </div>
         )}
       </main>
+
+      {imagePreview.open && (
+        <ImagePreview
+          images={imagePreview.images}
+          initialIndex={imagePreview.index}
+          onClose={() => setImagePreview({ open: false, images: [], index: 0 })}
+        />
+      )}
 
       {/* Modal: เพิ่มหมายเหตุ */}
       {noteModal.open && (

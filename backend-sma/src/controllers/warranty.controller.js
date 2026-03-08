@@ -465,6 +465,23 @@ export async function updateWarrantyHeader(req, res) {
     let customerName = inputName ?? header.customerName;
     let customerPhone = inputPhone ?? header.customerPhone;
 
+    // ถ้าเดิมยังไม่ได้ผูก customerUserId แต่มี email อยู่แล้ว และรอบนี้ไม่ได้ส่งอีเมลมาแก้ไข
+    // ให้ลอง resolve จากอีเมลเดิมหนึ่งครั้ง เพื่อให้ใบเก่า/ใบที่กู้คืนมาเชื่อมกับบัญชีลูกค้า
+    if (!customerUserId && !normEmail && header.customerEmail) {
+      try {
+        const user = await prisma.user.findFirst({
+          where: {
+            email: { equals: String(header.customerEmail).trim(), mode: "insensitive" },
+            role: "CUSTOMER",
+          },
+          select: { id: true },
+        });
+        if (user) customerUserId = user.id;
+      } catch (e) {
+        console.warn("updateWarrantyHeader: resolve existing customerUserId failed (ignored)", e?.message || e);
+      }
+    }
+
     // เปลี่ยนอีเมล → ผูกกับบัญชีลูกค้าโดยอัตโนมัติถ้ามี (✅ case-insensitive + เฉพาะ CUSTOMER)
     if (normEmail) {
       const user = await prisma.user.findFirst({
@@ -505,7 +522,7 @@ export async function updateWarrantyHeader(req, res) {
       include: { items: true },
     });
 
-    // if header fields changed, create in-app notifications (✅ keep customer only; remove store notify)
+    // if header fields changed, create in-app notifications (ลูกค้า + ร้าน)
     let changed = false;
     try {
       changed =
@@ -515,31 +532,126 @@ export async function updateWarrantyHeader(req, res) {
         header.customerPhone !== updated.customerPhone ||
         header.customerAddress !== updated.customerAddress;
 
-      if (changed) {
-        const codeLabel = updated.code ? `#${updated.code}` : "ของคุณ";
-        const title = `[แก้ไขข้อมูล] ใบรับประกัน ${codeLabel}`;
-        const bodyText =
-          "รายละเอียดใบรับประกันของคุณได้รับการอัปเดตเรียบร้อยแล้ว สามารถตรวจสอบข้อมูลล่าสุดได้ในระบบ";
+      const codeLabel = updated.code ? `#${updated.code}` : "ของคุณ";
+      const title = `[แก้ไขข้อมูล] ใบรับประกัน ${codeLabel}`;
 
-        // ✅ ตาม requirement ใหม่: "ร้าน" ไม่ต้องได้รับแจ้งเตือนประเภทนี้อีก
-        // (คงไว้เฉพาะ expiry_daily_summary และ complaint_created ที่อื่น)
-        // ❌ remove store notification:
-        // await createNotification({ prisma, attrs: { storeId: updated.storeId, ... } })
+      const changes = [];
+      const htmlEscape = (s) =>
+        String(s ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
 
-        // ✅ ลูกค้ายังต้องได้แจ้งเตือน (ไม่กระทบลูกค้า) + ส่งเมลเหมือนเดิม
-        if (updated.customerUserId) {
-          await createNotification({
-            prisma,
-            attrs: {
-              userId: updated.customerUserId,
-              title,
-              body: bodyText,
-              data: { type: "warranty_header_updated", warrantyId: updated.id },
-              sendEmail: true,
-            },
-          });
-        }
+      if (header.customerName !== updated.customerName) {
+        changes.push(
+          `<div style="margin-bottom:8px;"><strong style="color:#2563eb;">👤 ชื่อลูกค้า:</strong><br>` +
+            `<span style="color:#ef4444;text-decoration:line-through;">${htmlEscape(header.customerName) || "-"}</span>` +
+            ` → <span style="color:#22c55e;font-weight:600;">${htmlEscape(updated.customerName) || "-"}</span></div>`
+        );
       }
+      if (header.customerEmail !== updated.customerEmail) {
+        changes.push(
+          `<div style="margin-bottom:8px;"><strong style="color:#2563eb;">📧 อีเมล:</strong><br>` +
+            `<span style="color:#ef4444;text-decoration:line-through;">${htmlEscape(header.customerEmail) || "-"}</span>` +
+            ` → <span style="color:#22c55e;font-weight:600;">${htmlEscape(updated.customerEmail) || "-"}</span></div>`
+        );
+      }
+      if (header.customerPhone !== updated.customerPhone) {
+        changes.push(
+          `<div style="margin-bottom:8px;"><strong style="color:#2563eb;">📞 เบอร์โทร:</strong><br>` +
+            `<span style="color:#ef4444;text-decoration:line-through;">${htmlEscape(header.customerPhone) || "-"}</span>` +
+            ` → <span style="color:#22c55e;font-weight:600;">${htmlEscape(updated.customerPhone) || "-"}</span></div>`
+        );
+      }
+      if (header.customerAddress !== updated.customerAddress) {
+        const formatThaiAddressForNotif = (addr) => {
+          if (!addr) return "-";
+          let obj = null;
+          if (typeof addr === "object") {
+            obj = addr;
+          } else {
+            const s = String(addr).trim();
+            if (!s) return "-";
+            try {
+              obj = JSON.parse(s);
+            } catch {
+              // not JSON → treat as plain text
+              return s;
+            }
+          }
+
+          const street = (obj.street || obj.address || obj.line1 || obj.line || obj.address_line || "").toString().trim();
+
+          const rawSub = obj.subdistrict || obj.subDistrict || obj.tambon || obj.subdistrict_name || obj.subdistrictName || "";
+          const subdistrict = (typeof rawSub === "object"
+            ? (rawSub.name || rawSub.th || rawSub.en || "")
+            : rawSub
+          ).toString().trim();
+
+          const rawDist = obj.district || obj.amphoe || obj.district_name || obj.districtName || "";
+          const district = (typeof rawDist === "object"
+            ? (rawDist.name || rawDist.th || rawDist.en || "")
+            : rawDist
+          ).toString().trim();
+
+          const provObj = obj.province || obj.state || "";
+          const province = (typeof provObj === "object" ? (provObj.name || provObj.th || provObj.en || "") : provObj).toString().trim();
+          const postcode = (obj.postcode || obj.zip || obj.zipcode || obj.postalCode || obj.postal_code || "").toString().trim();
+
+          const isBkk = province.includes("กรุงเทพ") || province.toLowerCase().includes("bangkok");
+          const parts = [];
+          if (street) parts.push(street);
+          if (subdistrict) parts.push(isBkk ? `แขวง${subdistrict}` : `ตำบล${subdistrict}`);
+          if (district) parts.push(isBkk ? `เขต${district}` : `อำเภอ${district}`);
+          if (province) parts.push(isBkk ? province : `จังหวัด${province}`);
+          if (postcode) parts.push(postcode);
+          const out = parts.join(" ").replace(/\s+/g, " ").trim();
+          return out || "-";
+        };
+
+        const beforeEsc = htmlEscape(formatThaiAddressForNotif(header.customerAddress));
+        const afterEsc = htmlEscape(formatThaiAddressForNotif(updated.customerAddress));
+
+        changes.push(
+          `<div style="margin-bottom:12px;"><strong style="color:#2563eb;">🏠 ที่อยู่ลูกค้า:</strong><br>` +
+            `<div style="background:#fef2f2;border-left:3px solid #ef4444;padding:8px 12px;margin:4px 0;border-radius:4px;max-width:100%;overflow-wrap:break-word;word-break:break-word;"><strong style="color:#991b1b;">ก่อน:</strong><br>${beforeEsc}</div>` +
+            `<div style="background:#f0fdf4;border-left:3px solid #22c55e;padding:8px 12px;margin:4px 0;border-radius:4px;max-width:100%;overflow-wrap:break-word;word-break:break-word;"><strong style="color:#166534;">หลัง:</strong><br>${afterEsc}</div></div>`
+        );
+      }
+
+      const intro =
+        "รายละเอียดใบรับประกันของคุณได้รับการอัปเดตเรียบร้อยแล้ว สามารถตรวจสอบข้อมูลล่าสุดได้ในระบบ โดยมีรายละเอียดการเปลี่ยนแปลงดังนี้:";
+
+      let bodyHtml = `<div style="font-size:14px;line-height:1.6;color:#374151;">` +
+        `<p>${htmlEscape(intro)}</p>` +
+        `</div>`;
+      if (changes.length > 0) {
+        bodyHtml +=
+          `<div style="margin-top:16px;padding:16px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;">` +
+          `<div style="font-size:14px;font-weight:700;color:#1e40af;margin-bottom:10px;">📝 รายละเอียดการเปลี่ยนแปลง</div>` +
+          changes.join("") +
+          `</div>`;
+      }
+
+      const bodyText = intro;
+
+      // ✅ แจ้งเตือนลูกค้าเสมอ (ถ้ามี customerUserId) และให้ร้านเห็นในกระดิ่งด้วย
+      const attrs = {
+        title,
+        body: bodyHtml,
+        htmlBody: bodyHtml,
+        data: { type: "warranty_header_updated", warrantyId: updated.id },
+        // ส่งอีเมลเฉพาะกรณีที่ผูกกับ customerUserId แล้วเท่านั้น
+        sendEmail: !!updated.customerUserId,
+      };
+
+      if (updated.customerUserId) {
+        attrs.userId = updated.customerUserId;
+      }
+      // ให้ร้านเห็นในกระดิ่งด้วย แต่ไม่ส่งอีเมล (allowTypesStore ไม่มี type นี้อยู่แล้ว)
+      attrs.storeId = updated.storeId;
+
+      await createNotification({ prisma, attrs });
     } catch (e) {
       console.warn("notify warranty header update failed", e?.message || e);
     }

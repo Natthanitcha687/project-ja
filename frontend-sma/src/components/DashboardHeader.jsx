@@ -117,6 +117,78 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
     return () => clearTimeout(t)
   }, [notifOpen])
 
+  // สำหรับร้านค้า: รวม notification ที่เกี่ยวกับการแก้ไขใบรับประกันเดียวกัน (เช่น แก้ที่อยู่ + แก้เงื่อนไข)
+  // ให้แสดงเป็นแจ้งเตือนเดียว เพื่อไม่ให้ซ้ำซ้อน
+  const mergedNotifications = useMemo(() => {
+    const list = Array.isArray(notifications) ? notifications : []
+    if (!user || user.role !== 'STORE') return list
+
+    const result = []
+    const used = new Set()
+
+    for (let i = 0; i < list.length; i++) {
+      if (used.has(i)) continue
+      const n = list[i]
+      const type = getNotifType(n)
+      const data = n?.data || {}
+      const warrantyId = data.warrantyId || data.warranty_id || null
+
+      // ถ้าไม่ใช่แจ้งเตือนแก้ไขใบรับประกัน ก็ไม่ต้อง merge
+      const isHeader = type === 'warranty_header_updated'
+      const isItemStore = type === 'warranty_item_updated_store'
+      if (!warrantyId || (!isHeader && !isItemStore)) {
+        result.push(n)
+        continue
+      }
+
+      let partnerIndex = -1
+      for (let j = i + 1; j < list.length; j++) {
+        if (used.has(j)) continue
+        const m = list[j]
+        const t2 = getNotifType(m)
+        const d2 = m?.data || {}
+        const w2 = d2.warrantyId || d2.warranty_id || null
+        const isHeader2 = t2 === 'warranty_header_updated'
+        const isItemStore2 = t2 === 'warranty_item_updated_store'
+        if (!w2 || (!isHeader2 && !isItemStore2)) continue
+        if (w2 !== warrantyId) continue
+
+        // ต้องเป็นคู่ header + item_store เท่านั้น
+        if (!((isHeader && isItemStore2) || (isItemStore && isHeader2))) continue
+
+        const t1 = new Date(n.createdAt || n.time || n.created_at || 0).getTime()
+        const t2time = new Date(m.createdAt || m.time || m.created_at || 0).getTime()
+        // อยู่ใน window เวลาใกล้กัน (ภายใน 60 วินาที) ถือว่าเป็นการแก้ครั้งเดียวกัน
+        if (Math.abs(t1 - t2time) <= 60 * 1000) {
+          partnerIndex = j
+          break
+        }
+      }
+
+      if (partnerIndex === -1) {
+        result.push(n)
+      } else {
+        used.add(partnerIndex)
+        const m = list[partnerIndex]
+        const typeN = getNotifType(n)
+        const headerNotif = typeN === 'warranty_header_updated' ? n : m
+        const itemNotif = typeN === 'warranty_header_updated' ? m : n
+
+        const headerBody = headerNotif.body || headerNotif.message || ''
+        const itemBody = itemNotif.body || itemNotif.message || ''
+
+        const combinedBody = `${headerBody || ''}${headerBody && itemBody ? '<div style="margin:12px 0;border-top:1px dashed #e5e7eb;"></div>' : ''}${itemBody || ''}`
+
+        result.push({
+          ...headerNotif,
+          body: combinedBody,
+        })
+      }
+    }
+
+    return result
+  }, [notifications, user])
+
   // notification helpers
   // allow parent to control loading state to avoid dropdown flicker
   const effectiveNotifLoading = typeof notificationsLoading === 'undefined' ? notifLoading : notificationsLoading
@@ -124,9 +196,9 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
   const [displayedNotifications, setDisplayedNotifications] = useState(notifications || [])
   useEffect(() => {
     if (effectiveNotifLoading) return
-    const t = setTimeout(() => setDisplayedNotifications(notifications || []), 200)
+    const t = setTimeout(() => setDisplayedNotifications(mergedNotifications || []), 200)
     return () => clearTimeout(t)
-  }, [notifications, effectiveNotifLoading])
+  }, [mergedNotifications, effectiveNotifLoading])
   const isNewAccount = useMemo(() => {
     if (!user) return false
     if (user.isNew) return true
@@ -139,7 +211,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
   }, [user])
 
   const isAuthenticated = !!user
-  const unreadCount = (notifications || []).filter((n) => !n.read).length
+  const unreadCount = (mergedNotifications || []).filter((n) => !n.read).length
 
   // ✅ อยู่หน้าแจ้งปัญหาแล้ว ไม่ต้องโชว์ปุ่มซ้ำ
   const isOnComplaintsPage = location.pathname.startsWith('/dashboard/complaints')
@@ -231,7 +303,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
                     <div className="text-center">ไม่มีการแจ้งเตือน</div>
                   </div>
                 ) : (
-                  <ul className="space-y-2 max-h-64 overflow-y-auto">
+                  <ul className="space-y-2 max-h-64 overflow-y-auto overflow-x-hidden">
                     {(displayedNotifications || []).map((n, i) => (
                       <li
                         key={n.id || i}
@@ -394,7 +466,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
             </button>
           </div>
 
-          <div className="px-4 py-3 text-sm text-slate-700 max-h-[60vh] overflow-y-auto">
+          <div className="px-4 py-3 text-sm text-slate-700 max-h-[60vh] overflow-y-auto overflow-x-hidden">
             <div className="font-semibold text-slate-900">
               {selectedNotification.title ||
                 selectedNotification.message ||

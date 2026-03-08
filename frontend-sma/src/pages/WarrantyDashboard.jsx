@@ -835,8 +835,15 @@ export default function WarrantyDashboard() {
       const data = res?.data?.data || res?.data || []
       let arr = Array.isArray(data) ? data : []
 
-      // ✅ ร้านเห็นเฉพาะ 2 แบบ
-      const allow = new Set(['expiry_daily_summary', 'complaint_created'])
+      // ✅ ร้านเห็นเฉพาะประเภทที่เกี่ยวกับสรุป/เคสลูกค้า/การเปลี่ยนแปลงใบรับประกัน
+      const allow = new Set([
+        'expiry_daily_summary',
+        'complaint_created',
+        'warranty_header_updated',
+        'warranty_updated',
+        'warranty_deleted',
+        'warranty_restored',
+      ])
       arr = arr.filter(n => allow.has(n?.data?.type))
 
       arr.sort(
