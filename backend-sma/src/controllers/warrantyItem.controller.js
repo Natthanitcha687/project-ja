@@ -441,106 +441,166 @@ export async function updateItem(req, res) {
       console.warn('item-change compute error', e?.message || e)
     }
 
-    // ✅ Notify customer: single "warranty_updated" notification (+ email) with CHANGE DETAILS
-    try {
-      if (item.warranty?.customerUserId && (statusChanged || otherChanged)) {
-        const { createAndPublish } = await import('../routes/notifications.routes.js')
+    // ✅ Resolve customerUserId สำหรับการแจ้งเตือน (รองรับใบเก่า/ใบที่กู้คืนที่ยังไม่ผูก user)
+    let customerUserIdForNotify = item.warranty?.customerUserId || null
+    if (!customerUserIdForNotify && item.warranty?.customerEmail) {
+      try {
+        const found = await prisma.user.findFirst({
+          where: {
+            email: { equals: String(item.warranty.customerEmail).trim(), mode: 'insensitive' },
+            role: 'CUSTOMER',
+          },
+          select: { id: true },
+        })
+        if (found) customerUserIdForNotify = found.id
+      } catch (e) {
+        console.warn('updateItem: resolve customerUserId from email failed (ignored)', e?.message || e)
+      }
+    }
 
-        // Fetch names for template
+    // ✅ Notify: always ให้ร้านเห็นในกระดิ่ง และถ้า resolve customerUserId ได้ให้ลูกค้าได้รับแจ้งเตือน + อีเมล
+    try {
+      const { createAndPublish } = await import('../routes/notifications.routes.js')
+
+      // เตรียมชื่อฝั่งลูกค้า (best-effort)
+      let customerName = 'ลูกค้า'
+      if (customerUserIdForNotify) {
         const customer = await prisma.user.findUnique({
-          where: { id: item.warranty.customerUserId },
+          where: { id: customerUserIdForNotify },
           select: {
             email: true,
-            customerProfile: { select: { firstName: true, lastName: true } }
-          }
+            customerProfile: { select: { firstName: true, lastName: true } },
+          },
         })
-        const store = await prisma.user.findUnique({
-          where: { id: item.warranty.storeId },
-          select: {
-            storeProfile: { select: { storeName: true, ownerName: true } }
-          }
-        })
+        if (customer) {
+          const cp = customer.customerProfile
+          customerName = cp
+            ? `${cp.firstName || ''} ${cp.lastName || ''}`.trim() || (customer.email || 'ลูกค้า')
+            : customer.email || 'ลูกค้า'
+        }
+      }
 
-        const cName = customer?.customerProfile
-        const sName = store?.storeProfile
+      // เตรียมชื่อร้านค้า (best-effort)
+      let storeName = 'ร้านค้า'
+      const store = await prisma.user.findUnique({
+        where: { id: item.warranty.storeId },
+        select: {
+          storeProfile: { select: { storeName: true, ownerName: true } },
+        },
+      })
+      const sp = store?.storeProfile
+      if (sp) {
+        storeName = sp.storeName || sp.ownerName || 'ร้านค้า'
+      }
 
-        const customerName = cName ? `${cName.firstName || ''} ${cName.lastName || ''}`.trim() : (customer?.email || 'ลูกค้า')
-        const storeName = sName ? (sName.storeName || sName.ownerName || 'ร้านค้า') : 'ร้านค้า'
+      const title = `[แจ้งเตือนสำคัญ] แก้ไขรายละเอียดใบรับประกัน สินค้า: ${updated.productName || '-'} (หมายเลขเครื่อง: ${updated.serial || '-'})`
 
+      // ✅ Build detailed change list for email
+      const changes = []
+      let conditionsChanged = false
+      const formatDate = (d) => {
+        if (!d) return '-'
+        const dt = new Date(d)
+        return dt.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })
+      }
 
-        const title = `[แจ้งเตือนสำคัญ] แก้ไขรายละเอียดใบรับประกัน สินค้า: ${updated.productName || '-'} (หมายเลขเครื่อง: ${updated.serial || '-'})`
+      // HTML helper for styling
+      const htmlEscape = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
-        // ✅ Build detailed change list for email
-        const changes = []
-        const formatDate = (d) => {
-          if (!d) return '-'
-          const dt = new Date(d)
-          return dt.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })
-        }
+      if (item.productName !== updated.productName) {
+        changes.push(`<div style="margin-bottom:8px;"><strong style="color:#2563eb;">📦 ชื่อสินค้า:</strong><br><span style="color:#ef4444;text-decoration:line-through;">${htmlEscape(item.productName) || '-'}</span> → <span style="color:#22c55e;font-weight:600;">${htmlEscape(updated.productName) || '-'}</span></div>`)
+      }
+      if ((item.model || null) !== (updated.model || null)) {
+        changes.push(`<div style="margin-bottom:8px;"><strong style="color:#2563eb;">🏷️ รุ่น:</strong><br><span style="color:#ef4444;text-decoration:line-through;">${htmlEscape(item.model) || '-'}</span> → <span style="color:#22c55e;font-weight:600;">${htmlEscape(updated.model) || '-'}</span></div>`)
+      }
+      if ((item.serial || null) !== (updated.serial || null)) {
+        changes.push(`<div style="margin-bottom:8px;"><strong style="color:#2563eb;">🔢 Serial:</strong><br><span style="color:#ef4444;text-decoration:line-through;">${htmlEscape(item.serial) || '-'}</span> → <span style="color:#22c55e;font-weight:600;">${htmlEscape(updated.serial) || '-'}</span></div>`)
+      }
+      if (String(item.purchaseDate || '') !== String(updated.purchaseDate || '')) {
+        changes.push(`<div style="margin-bottom:8px;"><strong style="color:#2563eb;">📅 วันเริ่มประกัน:</strong><br><span style="color:#ef4444;text-decoration:line-through;">${formatDate(item.purchaseDate)}</span> → <span style="color:#22c55e;font-weight:600;">${formatDate(updated.purchaseDate)}</span></div>`)
+      }
+      if (String(item.expiryDate || '') !== String(updated.expiryDate || '')) {
+        changes.push(`<div style="margin-bottom:8px;"><strong style="color:#2563eb;">⏰ วันหมดประกัน:</strong><br><span style="color:#ef4444;text-decoration:line-through;">${formatDate(item.expiryDate)}</span> → <span style="color:#22c55e;font-weight:600;">${formatDate(updated.expiryDate)}</span></div>`)
+      }
+      if ((item.durationMonths || null) !== (updated.durationMonths || null)) {
+        changes.push(`<div style="margin-bottom:8px;"><strong style="color:#2563eb;">📆 ระยะเวลา:</strong><br><span style="color:#ef4444;text-decoration:line-through;">${item.durationMonths || '-'} เดือน</span> → <span style="color:#22c55e;font-weight:600;">${updated.durationMonths || '-'} เดือน</span></div>`)
+      }
+      if ((item.durationDays || null) !== (updated.durationDays || null)) {
+        changes.push(`<div style="margin-bottom:8px;"><strong style="color:#2563eb;">📆 ระยะเวลา (วัน):</strong><br><span style="color:#ef4444;text-decoration:line-through;">${item.durationDays || '-'} วัน</span> → <span style="color:#22c55e;font-weight:600;">${updated.durationDays || '-'} วัน</span></div>`)
+      }
+      if ((item.coverageNote || null) !== (updated.coverageNote || null)) {
+        conditionsChanged = true
+        changes.push(`<div style="margin-bottom:12px;"><strong style="color:#2563eb;">📋 เงื่อนไข/หมายเหตุ:</strong><br><div style="background:#fef2f2;border-left:3px solid #ef4444;padding:8px 12px;margin:4px 0;border-radius:4px;"><strong style="color:#991b1b;">ก่อน:</strong><br>${htmlEscape(item.coverageNote) || '-'}</div><div style="background:#f0fdf4;border-left:3px solid #22c55e;padding:8px 12px;margin:4px 0;border-radius:4px;"><strong style="color:#166534;">หลัง:</strong><br>${htmlEscape(updated.coverageNote) || '-'}</div></div>`)
+      }
+      if (JSON.stringify(item.selectedConditions || []) !== JSON.stringify(updated.selectedConditions || [])) {
+        conditionsChanged = true
+        const beforeList = (item.selectedConditions || []).map(c => `<li style="margin:2px 0;">${htmlEscape(c)}</li>`).join('') || '<li>-</li>'
+        const afterList = (updated.selectedConditions || []).map(c => `<li style="margin:2px 0;">${htmlEscape(c)}</li>`).join('') || '<li>-</li>'
+        changes.push(`<div style="margin-bottom:12px;"><strong style="color:#2563eb;">✅ รายการเงื่อนไข:</strong><br><div style="background:#fef2f2;border-left:3px solid #ef4444;padding:8px 12px;margin:4px 0;border-radius:4px;"><strong style="color:#991b1b;">ก่อน (${(item.selectedConditions || []).length} รายการ):</strong><ul style="margin:4px 0;padding-left:20px;">${beforeList}</ul></div><div style="background:#f0fdf4;border-left:3px solid #22c55e;padding:8px 12px;margin:4px 0;border-radius:4px;"><strong style="color:#166534;">หลัง (${(updated.selectedConditions || []).length} รายการ):</strong><ul style="margin:4px 0;padding-left:20px;">${afterList}</ul></div></div>`)
+      }
+      if ((item.customCondition || null) !== (updated.customCondition || null)) {
+        conditionsChanged = true
+        changes.push(`<div style="margin-bottom:12px;"><strong style="color:#2563eb;">✏️ เงื่อนไขเพิ่มเติม:</strong><br><div style="background:#fef2f2;border-left:3px solid #ef4444;padding:8px 12px;margin:4px 0;border-radius:4px;"><strong style="color:#991b1b;">ก่อน:</strong><br>${htmlEscape(item.customCondition) || '-'}</div><div style="background:#f0fdf4;border-left:3px solid #22c55e;padding:8px 12px;margin:4px 0;border-radius:4px;"><strong style="color:#166534;">หลัง:</strong><br>${htmlEscape(updated.customCondition) || '-'}</div></div>`)
+      }
 
-        // HTML helper for styling
-        const htmlEscape = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      // Build body with styled HTML change details
+      let body = `<div style="font-size:14px;line-height:1.6;color:#374151;">
+        <p>เรียนคุณ <strong>${htmlEscape(customerName)}</strong>,</p>
+        <p>ร้านค้า <strong>${htmlEscape(storeName)}</strong> ได้ดำเนินการปรับปรุงข้อมูลใน <strong>ใบรับประกันสินค้า (Digital Warranty)</strong> ของคุณ เพื่อให้ข้อมูลถูกต้องตามเงื่อนไขการรับประกันล่าสุด โดยมีรายละเอียดการเปลี่ยนแปลงดังนี้:</p>
+      </div>`
+      if (changes.length > 0) {
+        body += `<div style="margin-top:16px;padding:16px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;"><div style="font-size:14px;font-weight:700;color:#1e40af;margin-bottom:10px;">📝 รายละเอียดการเปลี่ยนแปลง</div>${changes.join('')}</div>`
+      }
+      body += `<div style="margin-top:12px;padding:10px 14px;background:#eff6ff;border-radius:8px;color:#1e40af;font-size:13px;">⏰ <strong>เวลาอัปเดต:</strong> ${new Date().toLocaleString('th-TH', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Asia/Bangkok' })}</div>`
 
-        if (item.productName !== updated.productName) {
-          changes.push(`<div style="margin-bottom:8px;"><strong style="color:#2563eb;">📦 ชื่อสินค้า:</strong><br><span style="color:#ef4444;text-decoration:line-through;">${htmlEscape(item.productName) || '-'}</span> → <span style="color:#22c55e;font-weight:600;">${htmlEscape(updated.productName) || '-'}</span></div>`)
-        }
-        if ((item.model || null) !== (updated.model || null)) {
-          changes.push(`<div style="margin-bottom:8px;"><strong style="color:#2563eb;">🏷️ รุ่น:</strong><br><span style="color:#ef4444;text-decoration:line-through;">${htmlEscape(item.model) || '-'}</span> → <span style="color:#22c55e;font-weight:600;">${htmlEscape(updated.model) || '-'}</span></div>`)
-        }
-        if ((item.serial || null) !== (updated.serial || null)) {
-          changes.push(`<div style="margin-bottom:8px;"><strong style="color:#2563eb;">🔢 Serial:</strong><br><span style="color:#ef4444;text-decoration:line-through;">${htmlEscape(item.serial) || '-'}</span> → <span style="color:#22c55e;font-weight:600;">${htmlEscape(updated.serial) || '-'}</span></div>`)
-        }
-        if (String(item.purchaseDate || '') !== String(updated.purchaseDate || '')) {
-          changes.push(`<div style="margin-bottom:8px;"><strong style="color:#2563eb;">📅 วันเริ่มประกัน:</strong><br><span style="color:#ef4444;text-decoration:line-through;">${formatDate(item.purchaseDate)}</span> → <span style="color:#22c55e;font-weight:600;">${formatDate(updated.purchaseDate)}</span></div>`)
-        }
-        if (String(item.expiryDate || '') !== String(updated.expiryDate || '')) {
-          changes.push(`<div style="margin-bottom:8px;"><strong style="color:#2563eb;">⏰ วันหมดประกัน:</strong><br><span style="color:#ef4444;text-decoration:line-through;">${formatDate(item.expiryDate)}</span> → <span style="color:#22c55e;font-weight:600;">${formatDate(updated.expiryDate)}</span></div>`)
-        }
-        if ((item.durationMonths || null) !== (updated.durationMonths || null)) {
-          changes.push(`<div style="margin-bottom:8px;"><strong style="color:#2563eb;">📆 ระยะเวลา:</strong><br><span style="color:#ef4444;text-decoration:line-through;">${item.durationMonths || '-'} เดือน</span> → <span style="color:#22c55e;font-weight:600;">${updated.durationMonths || '-'} เดือน</span></div>`)
-        }
-        if ((item.durationDays || null) !== (updated.durationDays || null)) {
-          changes.push(`<div style="margin-bottom:8px;"><strong style="color:#2563eb;">📆 ระยะเวลา (วัน):</strong><br><span style="color:#ef4444;text-decoration:line-through;">${item.durationDays || '-'} วัน</span> → <span style="color:#22c55e;font-weight:600;">${updated.durationDays || '-'} วัน</span></div>`)
-        }
-        if ((item.coverageNote || null) !== (updated.coverageNote || null)) {
-          changes.push(`<div style="margin-bottom:12px;"><strong style="color:#2563eb;">📋 เงื่อนไข/หมายเหตุ:</strong><br><div style="background:#fef2f2;border-left:3px solid #ef4444;padding:8px 12px;margin:4px 0;border-radius:4px;"><strong style="color:#991b1b;">ก่อน:</strong><br>${htmlEscape(item.coverageNote) || '-'}</div><div style="background:#f0fdf4;border-left:3px solid #22c55e;padding:8px 12px;margin:4px 0;border-radius:4px;"><strong style="color:#166534;">หลัง:</strong><br>${htmlEscape(updated.coverageNote) || '-'}</div></div>`)
-        }
-        if (JSON.stringify(item.selectedConditions || []) !== JSON.stringify(updated.selectedConditions || [])) {
-          const beforeList = (item.selectedConditions || []).map(c => `<li style="margin:2px 0;">${htmlEscape(c)}</li>`).join('') || '<li>-</li>'
-          const afterList = (updated.selectedConditions || []).map(c => `<li style="margin:2px 0;">${htmlEscape(c)}</li>`).join('') || '<li>-</li>'
-          changes.push(`<div style="margin-bottom:12px;"><strong style="color:#2563eb;">✅ รายการเงื่อนไข:</strong><br><div style="background:#fef2f2;border-left:3px solid #ef4444;padding:8px 12px;margin:4px 0;border-radius:4px;"><strong style="color:#991b1b;">ก่อน (${(item.selectedConditions || []).length} รายการ):</strong><ul style="margin:4px 0;padding-left:20px;">${beforeList}</ul></div><div style="background:#f0fdf4;border-left:3px solid #22c55e;padding:8px 12px;margin:4px 0;border-radius:4px;"><strong style="color:#166534;">หลัง (${(updated.selectedConditions || []).length} รายการ):</strong><ul style="margin:4px 0;padding-left:20px;">${afterList}</ul></div></div>`)
-        }
-        if ((item.customCondition || null) !== (updated.customCondition || null)) {
-          changes.push(`<div style="margin-bottom:12px;"><strong style="color:#2563eb;">✏️ เงื่อนไขเพิ่มเติม:</strong><br><div style="background:#fef2f2;border-left:3px solid #ef4444;padding:8px 12px;margin:4px 0;border-radius:4px;"><strong style="color:#991b1b;">ก่อน:</strong><br>${htmlEscape(item.customCondition) || '-'}</div><div style="background:#f0fdf4;border-left:3px solid #22c55e;padding:8px 12px;margin:4px 0;border-radius:4px;"><strong style="color:#166534;">หลัง:</strong><br>${htmlEscape(updated.customCondition) || '-'}</div></div>`)
-        }
+      const attrs = {
+        // แจ้งเตือนหลัก: ให้ลูกค้า (ถ้ามีบัญชี) เห็นรายละเอียดการแก้ไข
+        title,
+        body,
+        htmlBody: body,
+        data: {
+          type: 'warranty_updated',
+          warrantyId: updated.warrantyId,
+          warrantyItemId: updated.id,
+          oldStatus: typeof beforeStatus !== 'undefined' ? beforeStatus : null,
+          newStatus: typeof afterStatus !== 'undefined' ? afterStatus : null,
+          changes: changes,
+        },
+        // ส่งอีเมลเฉพาะตอนมี customerUserIdForNotify (เฉพาะฝั่งลูกค้า)
+        sendEmail: !!customerUserIdForNotify,
+      }
 
-        // Build body with styled HTML change details
-        let body = `<div style="font-size:16px;line-height:1.6;color:#374151;">
-          <p>เรียนคุณ <strong>${htmlEscape(customerName)}</strong>,</p>
-          <p>ร้านค้า <strong>${htmlEscape(storeName)}</strong> ได้ดำเนินการปรับปรุงข้อมูลใน <strong>ใบรับประกันสินค้า (Digital Warranty)</strong> ของคุณ เพื่อให้ข้อมูลถูกต้องตามเงื่อนไขการรับประกันล่าสุด โดยมีรายละเอียดการเปลี่ยนแปลงดังนี้:</p>
-        </div>`
+      if (customerUserIdForNotify) {
+        attrs.userId = customerUserIdForNotify
+      }
+
+      await createAndPublish({ prisma, attrs })
+
+      // 🏪 แจ้งเตือนฝั่งร้านค้าแบบสั้น ๆ เมื่อมีการแก้ไขเงื่อนไขการรับประกัน
+      if (item.warranty?.storeId && conditionsChanged) {
+        let storeBody = ''
+
         if (changes.length > 0) {
-          body += `<div style="margin-top:16px;padding:16px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;"><div style="font-size:16px;font-weight:700;color:#1e40af;margin-bottom:12px;">📝 รายละเอียดการเปลี่ยนแปลง</div>${changes.join('')}</div>`
+          // ส่งเฉพาะบล็อกรายละเอียดการเปลี่ยนแปลงเพิ่มเติม (ไม่สร้างการ์ด/หัวข้อใหม่)
+          storeBody += changes.join('')
         }
-        body += `<div style="margin-top:12px;padding:10px 14px;background:#eff6ff;border-radius:8px;color:#1e40af;font-size:13px;">⏰ <strong>เวลาอัปเดต:</strong> ${new Date().toLocaleString('th-TH', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Asia/Bangkok' })}</div>`
 
-        await createAndPublish({
-          prisma, attrs: {
-            userId: item.warranty.customerUserId,
-            title,
-            body, // plain text fallback
-            htmlBody: body, // ✅ Send HTML body for styled email
-            data: {
-              type: 'warranty_updated',
-              warrantyId: updated.warrantyId,
-              warrantyItemId: updated.id,
-              oldStatus: typeof beforeStatus !== 'undefined' ? beforeStatus : null,
-              newStatus: typeof afterStatus !== 'undefined' ? afterStatus : null,
-              changes: changes, // ✅ Include changes in data for frontend
-            },
-            sendEmail: true
-          }
-        })
+        storeBody += `<div style=\"margin-top:12px;padding:10px 14px;background:#eff6ff;border-radius:8px;color:#1e40af;font-size:13px;\">⏰ <strong>เวลาอัปเดต:</strong> ${new Date().toLocaleString('th-TH', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Asia/Bangkok' })}</div>`
+
+        const storeAttrs = {
+          title,
+          body: storeBody,
+          htmlBody: storeBody,
+          data: {
+            type: 'warranty_item_updated_store',
+            warrantyId: updated.warrantyId,
+            warrantyItemId: updated.id,
+          },
+          storeId: item.warranty.storeId,
+          sendEmail: false,
+        }
+
+        await createAndPublish({ prisma, attrs: storeAttrs })
       }
     } catch (e) {
       console.warn('notify customer warranty_updated failed', e?.message || e)
@@ -569,6 +629,9 @@ export async function updateItem(req, res) {
     });
   } catch (err) {
     console.error('updateItem error', err);
-    return res.status(500).json({ message: 'ไม่สามารถบันทึกการแก้ไขรายการสินค้าได้' });
+    return res.status(500).json({
+      message: 'ไม่สามารถบันทึกการแก้ไขรายการสินค้าได้',
+      error: { message: err?.message || String(err) },
+    });
   }
 }

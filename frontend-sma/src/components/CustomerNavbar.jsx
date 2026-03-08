@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api, API_URL, getToken } from "../lib/api";
 import { useAuth } from "../store/auth";
@@ -44,8 +44,101 @@ export default function CustomerNavbar() {
     return ALLOWED_TYPES.has(getNotifType(n));
   }
 
-  // 🟦 นับเฉพาะที่ยังไม่อ่าน (เฉพาะ 5 ประเภท)
-  const unreadCount = (notifications || []).filter((n) => !n.read).length;
+  // รวม notification ที่เกี่ยวกับการแก้ไขใบรับประกันใบเดียวกัน (หัวใบ + รายการ)
+  // ให้แสดงเป็นแจ้งเตือนเดียว เพื่อไม่ให้ซ้ำซ้อนในฝั่งลูกค้า
+  const mergedNotifications = useMemo(() => {
+    const list = Array.isArray(notifications) ? notifications : [];
+    const result = [];
+    const used = new Set();
+
+    for (let i = 0; i < list.length; i++) {
+      if (used.has(i)) continue;
+      const n = list[i];
+      const type = getNotifType(n);
+      const data = n?.data || {};
+      const warrantyId = data.warrantyId || data.warranty_id || null;
+
+      const isHeader = type === "warranty_header_updated";
+      const isItem = type === "warranty_updated";
+      if (!warrantyId || (!isHeader && !isItem)) {
+        result.push(n);
+        continue;
+      }
+
+      let partnerIndex = -1;
+      for (let j = i + 1; j < list.length; j++) {
+        if (used.has(j)) continue;
+        const m = list[j];
+        const t2 = getNotifType(m);
+        const d2 = m?.data || {};
+        const w2 = d2.warrantyId || d2.warranty_id || null;
+        const isHeader2 = t2 === "warranty_header_updated";
+        const isItem2 = t2 === "warranty_updated";
+        if (!w2 || (!isHeader2 && !isItem2)) continue;
+        if (w2 !== warrantyId) continue;
+
+        // ต้องเป็นคู่ header + item เท่านั้น
+        if (!((isHeader && isItem2) || (isItem && isHeader2))) continue;
+
+        const t1 = new Date(n.createdAt || n.time || n.created_at || 0).getTime();
+        const t2time = new Date(m.createdAt || m.time || m.created_at || 0).getTime();
+        // อยู่ใน window เวลาใกล้กัน (ภายใน 60 วินาที) ถือว่าเป็นการแก้ครั้งเดียวกัน
+        if (Math.abs(t1 - t2time) <= 60 * 1000) {
+          partnerIndex = j;
+          break;
+        }
+      }
+
+      if (partnerIndex === -1) {
+        result.push(n);
+      } else {
+        used.add(partnerIndex);
+        const m = list[partnerIndex];
+        const typeN = getNotifType(n);
+        const headerNotif = typeN === "warranty_header_updated" ? n : m;
+        const itemNotif = typeN === "warranty_header_updated" ? m : n;
+
+        const rawHeaderBody = headerNotif.body || headerNotif.message || "";
+        const rawItemBody = itemNotif.body || itemNotif.message || "";
+
+        // ตัดย่อหน้า intro แรกของ header ("รายละเอียดใบรับประกันของคุณ...") ออก ให้เหลือเฉพาะบล็อกรายละเอียดการเปลี่ยนแปลงของหัวใบ
+        let headerBody = rawHeaderBody;
+        if (headerBody) {
+          const idx = headerBody.indexOf("</div>");
+          if (idx !== -1) {
+            headerBody = headerBody.slice(idx + "</div>".length);
+          }
+        }
+
+        // แยก body ของ item ออกเป็น 2 ส่วน: intro (เรียนคุณ..., ร้านค้า...) และส่วนรายละเอียด/เวลา
+        let itemIntro = "";
+        let itemRest = rawItemBody || "";
+        if (rawItemBody) {
+          const idx2 = rawItemBody.indexOf("</div>");
+          if (idx2 !== -1) {
+            itemIntro = rawItemBody.slice(0, idx2 + "</div>".length);
+            itemRest = rawItemBody.slice(idx2 + "</div>".length);
+          }
+        }
+
+        // รวมเป็น: intro จาก item → รายละเอียดหัวใบ (ที่อยู่ ฯลฯ) → รายละเอียด/เวลา จาก item
+        const combinedBody = `${itemIntro || ""}${headerBody || ""}${itemRest || ""}`;
+        const combinedRead = !!headerNotif.read && !!itemNotif.read;
+
+        result.push({
+          ...headerNotif,
+          body: combinedBody,
+          read: combinedRead,
+          _mergedIds: [headerNotif.id, itemNotif.id].filter((v) => v != null),
+        });
+      }
+    }
+
+    return result;
+  }, [notifications]);
+
+  // 🟦 นับเฉพาะแจ้งเตือนที่ยังไม่อ่าน (หลัง merge แล้ว)
+  const unreadCount = (mergedNotifications || []).filter((n) => !n.read).length;
 
   // ✅ ดึงแจ้งเตือนจาก API
   async function fetchNotifications() {
@@ -101,6 +194,29 @@ export default function CustomerNavbar() {
       await api.patch(`/notifications/${id}/read`);
       await fetchNotifications();
     } catch (e) { }
+  }
+
+  // mark อ่านพร้อมกันหลายรายการ (ใช้ตอน merge header+item)
+  async function markManyAsRead(ids) {
+    const norm = (ids || []).map((x) => String(x));
+    if (norm.length === 0) return;
+
+    // optimistic update local
+    setNotifications((prev) =>
+      (prev || []).map((n) =>
+        norm.includes(String(n.id)) ? { ...n, read: true } : n
+      )
+    );
+
+    try {
+      setNotifLoading(true);
+      await Promise.all(norm.map((id) => api.patch(`/notifications/${id}/read`)));
+      await fetchNotifications();
+    } catch (e) {
+      // ignore
+    } finally {
+      setNotifLoading(false);
+    }
   }
 
   // ✅ Load notifications once + สมัคร SSE
@@ -378,19 +494,16 @@ export default function CustomerNavbar() {
                 id="customer-step-bell"
                 title="การแจ้งเตือน"
                 onClick={async () => {
-                  // คงของเดิม: toggle dropdown
-                  setOpenNotif((v) => !v);
-
-                  // “เพิ่ม” ตามโค้ด2: ถ้าเปิด dropdown ให้ mark all read + ยิง API
-                  const next = !openNotif;
-                  if (next) {
+                  // ถ้ายังไม่เปิด และมีแจ้งเตือนที่ยังไม่อ่าน → mark all read แล้วค่อยเปิด
+                  if (!openNotif && unreadCount > 0) {
                     await markAllAsRead();
                   }
+                  setOpenNotif((v) => !v);
                 }}
                 className="grid h-9 w-9 place-items-center rounded-full bg-white shadow ring-1 ring-sky-100 text-sky-600 hover:bg-sky-50 transition"
               >
                 <HiOutlineBell className="h-5 w-5" />
-                {/* ✅ คงของเดิม: badge unread */}
+                {/* badge จะแสดงจำนวนที่ยังไม่อ่าน */}
                 {unreadCount > 0 && (
                   <span className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-rose-500 text-[10px] text-white">
                     {unreadCount}
@@ -415,12 +528,12 @@ export default function CustomerNavbar() {
                       <div className="p-4 text-sm text-slate-500 text-center">
                         กำลังโหลด...
                       </div>
-                    ) : notifications.length === 0 ? (
+                    ) : mergedNotifications.length === 0 ? (
                       <div className="p-4 text-sm text-slate-500 text-center">
                         ไม่มีการแจ้งเตือน
                       </div>
                     ) : (
-                      notifications.map((n) => {
+                      mergedNotifications.map((n) => {
                         const id = n.id;
                         // รองรับทั้ง format เก่า (message/type) และ format ใหม่ (title/body/createdAt)
                         const title =
@@ -436,8 +549,15 @@ export default function CustomerNavbar() {
                           <div
                             key={id}
                             onClick={() => {
-                              if (id != null) {
-                                if (!read) markOneAsRead(id);
+                              const ids = n._mergedIds && Array.isArray(n._mergedIds) && n._mergedIds.length > 0
+                                ? n._mergedIds
+                                : (id != null ? [id] : []);
+
+                              if (ids.length > 0) {
+                                if (!read) {
+                                  if (ids.length > 1) markManyAsRead(ids);
+                                  else markOneAsRead(ids[0]);
+                                }
                                 setSelectedNotification(n);
                                 setOpenNotifDetail(true);
                               }
@@ -450,8 +570,8 @@ export default function CustomerNavbar() {
                               } ${read ? "opacity-70" : "font-semibold"} ${id != null ? "cursor-pointer" : ""}
                               `}
                           >
-                            <div className="whitespace-normal break-words">
-                              <div className="customer-notif-title font-semibold">{title}</div>
+                            <div className="whitespace-normal break-words text-xs">
+                              <div className="customer-notif-title font-semibold text-[13px]">{title}</div>
                               {body ? (
                                 <div className="customer-notif-body mt-0.5">
                                   <div dangerouslySetInnerHTML={{ __html: body }} />

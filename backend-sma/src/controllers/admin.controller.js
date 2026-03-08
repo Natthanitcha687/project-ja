@@ -1246,6 +1246,27 @@ export async function restoreWarrantyFromComplaint(req, res) {
   const purchaseDate = snapshot.purchaseDate ? new Date(snapshot.purchaseDate) : new Date();
   const expiryDate = snapshot.expiryDate ? new Date(snapshot.expiryDate) : null;
 
+  // ✅ หาลูกค้าจาก snapshot เพื่อผูก customerUserId ให้ใบที่กู้คืน (ถ้ามีอีเมล)
+  const snapshotEmail = snapshot.customerEmail ? String(snapshot.customerEmail).trim() : null;
+  let resolvedCustomerUserId = snapshot.customerUserId || null;
+  if (!resolvedCustomerUserId && snapshotEmail) {
+    try {
+      const found = await prisma.user.findFirst({
+        where: {
+          email: { equals: snapshotEmail, mode: "insensitive" },
+          role: "CUSTOMER",
+        },
+        select: { id: true },
+      });
+      if (found) resolvedCustomerUserId = found.id;
+    } catch (e) {
+      console.warn(
+        "restoreWarrantyFromComplaint: resolve customerUserId from email failed (ignored)",
+        e?.message || e
+      );
+    }
+  }
+
   // เตรียมข้อมูล items สำหรับกู้คืน
   let itemsToCreate = [];
 
@@ -1303,7 +1324,7 @@ export async function restoreWarrantyFromComplaint(req, res) {
           customerName: snapshot.customerName || null,
           customerPhone: snapshot.customerPhone || null,
           customerAddress: snapshot.customerAddress || null,
-          customerUserId: snapshot.customerUserId || null,
+          customerUserId: resolvedCustomerUserId || null,
           items: {
             create: itemsToCreate,
           },
