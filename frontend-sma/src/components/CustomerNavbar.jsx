@@ -560,10 +560,10 @@ export default function CustomerNavbar() {
                   <div className="flex items-center justify-between border-b border-sky-50 bg-sky-50/60 px-4 py-2 text-sm font-semibold text-sky-800">
                     <span>การแจ้งเตือน</span>
                     <button
-                      onClick={markAllAsRead}
-                      className="text-sky-600 hover:underline text-xs font-normal"
+                      onClick={() => setOpenNotif(false)}
+                      className="text-slate-500 hover:underline text-xs font-normal"
                     >
-                      ทำเครื่องหมายว่าอ่านแล้ว
+                      ปิด
                     </button>
                   </div>
                   <div className="max-h-64 overflow-y-auto">
