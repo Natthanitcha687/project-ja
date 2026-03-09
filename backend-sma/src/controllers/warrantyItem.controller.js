@@ -338,7 +338,7 @@ export async function updateItem(req, res) {
 
     const note = b.note !== undefined ? String(b.note).trim() : item.note;
 
-    // ✅ ราคาสินค้า (บาท) - optional
+    // ✅ ราคาการซ่อม (บาท) - optional
     const price =
       b.price !== undefined
         ? (b.price != null && b.price !== '' ? Number(b.price) || null : null)
@@ -377,7 +377,7 @@ export async function updateItem(req, res) {
       productName,
       model, // ⭐ บันทึกฟิลด์รุ่น
       serial,
-      price, // ✅ ราคาสินค้า (บาท)
+      price, // ✅ ราคาการซ่อม (บาท)
       purchaseDate,
       expiryDate,
       durationMonths: durationMonths ?? null,
@@ -516,6 +516,9 @@ export async function updateItem(req, res) {
       if ((item.serial || null) !== (updated.serial || null)) {
         changes.push(`<div style="margin-bottom:8px;"><strong style="color:#2563eb;">🔢 Serial:</strong><br><span style="color:#ef4444;text-decoration:line-through;">${htmlEscape(item.serial) || '-'}</span> → <span style="color:#22c55e;font-weight:600;">${htmlEscape(updated.serial) || '-'}</span></div>`)
       }
+      if ((item.price || null) !== (updated.price || null)) {
+        changes.push(`<div style="margin-bottom:8px;"><strong style="color:#2563eb;">💰 ราคาการซ่อม (บาท):</strong><br><span style="color:#ef4444;text-decoration:line-through;">${item.price != null ? htmlEscape(item.price) : '-'}</span> → <span style="color:#22c55e;font-weight:600;">${updated.price != null ? htmlEscape(updated.price) : '-'}</span></div>`)
+      }
       if (String(item.purchaseDate || '') !== String(updated.purchaseDate || '')) {
         changes.push(`<div style="margin-bottom:8px;"><strong style="color:#2563eb;">📅 วันเริ่มประกัน:</strong><br><span style="color:#ef4444;text-decoration:line-through;">${formatDate(item.purchaseDate)}</span> → <span style="color:#22c55e;font-weight:600;">${formatDate(updated.purchaseDate)}</span></div>`)
       }
@@ -543,41 +546,47 @@ export async function updateItem(req, res) {
         changes.push(`<div style="margin-bottom:12px;"><strong style="color:#2563eb;">✏️ เงื่อนไขเพิ่มเติม:</strong><br><div style="background:#fef2f2;border-left:3px solid #ef4444;padding:8px 12px;margin:4px 0;border-radius:4px;"><strong style="color:#991b1b;">ก่อน:</strong><br>${htmlEscape(item.customCondition) || '-'}</div><div style="background:#f0fdf4;border-left:3px solid #22c55e;padding:8px 12px;margin:4px 0;border-radius:4px;"><strong style="color:#166534;">หลัง:</strong><br>${htmlEscape(updated.customCondition) || '-'}</div></div>`)
       }
 
-      // Build body with styled HTML change details
-      let body = `<div style="font-size:14px;line-height:1.6;color:#374151;">
-        <p>เรียนคุณ <strong>${htmlEscape(customerName)}</strong>,</p>
-        <p>ร้านค้า <strong>${htmlEscape(storeName)}</strong> ได้ดำเนินการปรับปรุงข้อมูลใน <strong>ใบรับประกันสินค้า (Digital Warranty)</strong> ของคุณ เพื่อให้ข้อมูลถูกต้องตามเงื่อนไขการรับประกันล่าสุด โดยมีรายละเอียดการเปลี่ยนแปลงดังนี้:</p>
-      </div>`
-      if (changes.length > 0) {
-        body += `<div style="margin-top:16px;padding:16px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;"><div style="font-size:14px;font-weight:700;color:#1e40af;margin-bottom:10px;">📝 รายละเอียดการเปลี่ยนแปลง</div>${changes.join('')}</div>`
+      const hasAnyChangeForCustomer = (statusChanged || changes.length > 0)
+
+      if (hasAnyChangeForCustomer) {
+        // Build body with styled HTML change details
+        let body = `<div style="font-size:14px;line-height:1.6;color:#374151;">
+          <p>เรียนคุณ <strong>${htmlEscape(customerName)}</strong>,</p>
+          <p>ร้านค้า <strong>${htmlEscape(storeName)}</strong> ได้ดำเนินการปรับปรุงข้อมูลใน <strong>ใบรับประกันสินค้า (Digital Warranty)</strong> ของคุณ เพื่อให้ข้อมูลถูกต้องตามเงื่อนไขการรับประกันล่าสุด โดยมีรายละเอียดการเปลี่ยนแปลงดังนี้:</p>
+        </div>`
+        if (changes.length > 0) {
+          body += `<div style="margin-top:16px;padding:16px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;"><div style="font-size:14px;font-weight:700;color:#1e40af;margin-bottom:10px;">📝 รายละเอียดการเปลี่ยนแปลง</div>${changes.join('')}</div>`
+        }
+        body += `<div style="margin-top:12px;padding:10px 14px;background:#eff6ff;border-radius:8px;color:#1e40af;font-size:13px;">⏰ <strong>เวลาอัปเดต:</strong> ${new Date().toLocaleString('th-TH', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Asia/Bangkok' })}</div>`
+
+        const attrs = {
+          // แจ้งเตือนหลัก: ให้ลูกค้า (ถ้ามีบัญชี) เห็นรายละเอียดการแก้ไข
+          title,
+          body,
+          htmlBody: body,
+          data: {
+            type: 'warranty_updated',
+            warrantyId: updated.warrantyId,
+            warrantyItemId: updated.id,
+            oldStatus: typeof beforeStatus !== 'undefined' ? beforeStatus : null,
+            newStatus: typeof afterStatus !== 'undefined' ? afterStatus : null,
+            changes: changes,
+          },
+          // ส่งอีเมลเฉพาะตอนมี customerUserIdForNotify (เฉพาะฝั่งลูกค้า)
+          sendEmail: !!customerUserIdForNotify,
+        }
+
+        if (customerUserIdForNotify) {
+          attrs.userId = customerUserIdForNotify
+        }
+
+        await createAndPublish({ prisma, attrs })
       }
-      body += `<div style="margin-top:12px;padding:10px 14px;background:#eff6ff;border-radius:8px;color:#1e40af;font-size:13px;">⏰ <strong>เวลาอัปเดต:</strong> ${new Date().toLocaleString('th-TH', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Asia/Bangkok' })}</div>`
 
-      const attrs = {
-        // แจ้งเตือนหลัก: ให้ลูกค้า (ถ้ามีบัญชี) เห็นรายละเอียดการแก้ไข
-        title,
-        body,
-        htmlBody: body,
-        data: {
-          type: 'warranty_updated',
-          warrantyId: updated.warrantyId,
-          warrantyItemId: updated.id,
-          oldStatus: typeof beforeStatus !== 'undefined' ? beforeStatus : null,
-          newStatus: typeof afterStatus !== 'undefined' ? afterStatus : null,
-          changes: changes,
-        },
-        // ส่งอีเมลเฉพาะตอนมี customerUserIdForNotify (เฉพาะฝั่งลูกค้า)
-        sendEmail: !!customerUserIdForNotify,
-      }
+      // 🏪 แจ้งเตือนฝั่งร้านค้าเมื่อมีการแก้ไขข้อมูลใด ๆ ของใบรับประกัน (ไม่ใช่แค่เงื่อนไข)
+      const hasAnyChangeForStore = changes.length > 0
 
-      if (customerUserIdForNotify) {
-        attrs.userId = customerUserIdForNotify
-      }
-
-      await createAndPublish({ prisma, attrs })
-
-      // 🏪 แจ้งเตือนฝั่งร้านค้าแบบสั้น ๆ เมื่อมีการแก้ไขเงื่อนไขการรับประกัน
-      if (item.warranty?.storeId && conditionsChanged) {
+      if (item.warranty?.storeId && hasAnyChangeForStore) {
         let storeBody = ''
 
         if (changes.length > 0) {

@@ -201,7 +201,7 @@ function mapWarrantyHeaderForResponse(header, notifyDays) {
         // ⬇️ เพิ่ม model ลงใน response
         model: w.model ?? null,
         serial: w.serial,
-        price: w.price ?? null, // ✅ ราคาสินค้า (บาท)
+        price: w.price ?? null, // ✅ ราคาการซ่อม (บาท)
         purchaseDate: w.purchaseDate
           ? new Date(w.purchaseDate).toISOString().slice(0, 10)
           : null,
@@ -486,7 +486,7 @@ export async function createWarranty(req, res) {
             // ⬇️ เพิ่ม model ในการสร้าง
             model: (it.model || it.product_model || "").trim() || null,
             serial,
-            price: it.price != null && it.price !== '' ? Number(it.price) || null : null, // ✅ ราคาสินค้า
+            price: it.price != null && it.price !== '' ? Number(it.price) || null : null, // ✅ ราคาการซ่อม
             purchaseDate: purchase,
             expiryDate: expiry,
             durationMonths: dm || null,
@@ -571,7 +571,7 @@ export async function createWarranty(req, res) {
                     // ⬇️ เพิ่ม model ใน single-item payload
                     model: String(body.model || body.product_model || "").trim() || null,
                     serial: serialOne,
-                    price: body.price != null && body.price !== '' ? Number(body.price) || null : null, // ✅ ราคาสินค้า
+                    price: body.price != null && body.price !== '' ? Number(body.price) || null : null, // ✅ ราคาการซ่อม
                     purchaseDate: purchase,
                     expiryDate: expiry,
                     durationMonths: dm || null,

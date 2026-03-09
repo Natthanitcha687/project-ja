@@ -195,7 +195,7 @@ model WarrantyItem {
   productName    String
   model          String?
   serial         String?
-  price          Float?    // ราคาสินค้า (บาท) - ไม่บังคับ
+  price          Float?    // ราคาการซ่อม (บาท) - ไม่บังคับ
   purchaseDate   DateTime
   expiryDate     DateTime?
   durationMonths Int?
