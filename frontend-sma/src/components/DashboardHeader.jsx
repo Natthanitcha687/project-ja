@@ -182,6 +182,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
         result.push({
           ...headerNotif,
           body: combinedBody,
+          _mergedIds: [headerNotif.id, itemNotif.id].filter((v) => v != null),
         })
       }
     }
@@ -234,6 +235,19 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
     displayName = fullName || user?.name || 'บัญชีของฉัน'
     displayEmail = user?.email || ''
     avatarUrl = customerProfile?.avatarUrl || ''
+  }
+
+  async function handleDeleteAllNotifications() {
+    try {
+      // ลบออกจากรายการที่แสดงทันที
+      setDisplayedNotifications([])
+      await api.post('/notifications/delete-all')
+      if (onFetchNotifications) {
+        try { await onFetchNotifications() } catch (e) { }
+      }
+    } catch (e) {
+      // ถ้าลบไม่สำเร็จ ให้ลองดึงใหม่จาก backend ครั้งหน้า
+    }
   }
 
   return (
@@ -336,16 +350,55 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
                                 <div dangerouslySetInnerHTML={{ __html: n.body || n.message }} />
                               </div>
                             ) : null}
-                            <div className="text-[10px] text-slate-400 mt-1">
-                              {(n.createdAt || n.time || n.created_at)
-                                ? new Date(n.createdAt || n.time || n.created_at).toLocaleString()
-                                : ''}
+                            <div className="mt-1 flex items-center justify-between text-[10px] text-slate-400">
+                              <span>
+                                {(n.createdAt || n.time || n.created_at)
+                                  ? new Date(n.createdAt || n.time || n.created_at).toLocaleString()
+                                  : ''}
+                              </span>
+                              {n.id != null && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    const ids = Array.isArray(n._mergedIds) && n._mergedIds.length > 0
+                                      ? n._mergedIds
+                                      : [n.id]
+                                    const norm = ids.map((v) => String(v))
+                                    // optimistic remove from current list
+                                    setDisplayedNotifications((prev) =>
+                                      (prev || []).filter((m) => !norm.includes(String(m.id)))
+                                    )
+                                    void (async () => {
+                                      try {
+                                        await Promise.all(norm.map((id) => api.delete(`/notifications/${id}`)))
+                                      } catch (e) {
+                                        // ignore error; next fetch will resync state
+                                      }
+                                    })()
+                                  }}
+                                  className="ml-2 rounded px-1 py-0.5 text-[10px] text-rose-500 hover:text-rose-600 hover:bg-rose-50"
+                                >
+                                  ลบ
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>
                       </li>
                     ))}
                   </ul>
+                )}
+                {!effectiveNotifLoading && (displayedNotifications || []).length > 0 && (
+                  <div className="mt-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleDeleteAllNotifications}
+                      className="text-[11px] text-rose-500 hover:text-rose-600 hover:underline"
+                    >
+                      ลบทั้งหมด
+                    </button>
+                  </div>
                 )}
               </div>
             )}
