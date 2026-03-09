@@ -678,7 +678,7 @@ export default function WarrantyDashboard() {
     customer_address: '',
     product_name: '',
     model: '', // ✅ เพิ่มฟิลด์รุ่นในโหมดสร้าง
-    price: '', // ✅ ราคาสินค้า (บาท) - optional
+    price: '', // ✅ ราคาการซ่อม (บาท) - optional
     duration_months: 12,
     // ✅ เพิ่มโหมดกำหนดเอง
     duration_mode: 'preset',      // 'preset' | 'custom'
@@ -1503,6 +1503,60 @@ export default function WarrantyDashboard() {
         })
         return
       }
+
+      // ✅ ถ้าไม่ได้แก้ไขข้อมูลอะไรเลย ห้ามบันทึก และแจ้งเตือนผู้ใช้
+      if (selectedItem && editForm) {
+        const hasDays = typeof selectedItem.durationDays === 'number' && selectedItem.durationDays > 0
+        const hasMonths = typeof selectedItem.durationMonths === 'number' && selectedItem.durationMonths > 0
+
+        const original = {
+          product_name: selectedItem.productName || '',
+          model: selectedItem.model || '',
+          price: selectedItem.price != null ? String(selectedItem.price) : '',
+          duration_months: hasMonths
+            ? selectedItem.durationMonths
+            : Math.max(1, Math.round((selectedItem.durationDays || 30) / 30)),
+          duration_mode: hasDays ? 'custom' : 'preset',
+          custom_unit: hasDays ? 'days' : 'months',
+          custom_value: hasDays ? selectedItem.durationDays : '',
+          serial: selectedItem.serial || '',
+          purchase_date: selectedItem.purchaseDate || '',
+          expiry_date: selectedItem.expiryDate || '',
+          warranty_terms: selectedItem.coverageNote || '',
+          note: selectedItem.note || '',
+          selectedConditions: Array.isArray(selectedItem.selectedConditions) ? selectedItem.selectedConditions : [],
+          customCondition: selectedItem.customCondition || '',
+        }
+
+        const sameSelected = JSON.stringify(original.selectedConditions || []) === JSON.stringify(Array.isArray(editForm.selectedConditions) ? editForm.selectedConditions : [])
+
+        const noChange =
+          (original.product_name || '') === (editForm.product_name || '') &&
+          (original.model || '') === (editForm.model || '') &&
+          (original.price || '') === (editForm.price || '') &&
+          String(original.duration_months || '') === String(editForm.duration_months || '') &&
+          (original.duration_mode || '') === (editForm.duration_mode || '') &&
+          (original.custom_unit || '') === (editForm.custom_unit || '') &&
+          String(original.custom_value || '') === String(editForm.custom_value || '') &&
+          (original.serial || '') === (editForm.serial || '') &&
+          String(original.purchase_date || '') === String(editForm.purchase_date || '') &&
+          String(original.expiry_date || '') === String(editForm.expiry_date || '') &&
+          (original.warranty_terms || '') === (editForm.warranty_terms || '') &&
+          (original.note || '') === (editForm.note || '') &&
+          sameSelected &&
+          (original.customCondition || '') === (editForm.customCondition || '')
+
+        if (noChange) {
+          Swal.fire({
+            icon: 'info',
+            title: 'ยังไม่มีการแก้ไขข้อมูล',
+            text: 'กรุณาแก้ไขข้อมูลอย่างน้อย 1 ช่อง ก่อนกดบันทึก',
+            confirmButtonText: 'ตกลง',
+            confirmButtonColor: '#0284c7',
+          })
+          return
+        }
+      }
     }
 
     setWarrantySubmitting(true)
@@ -1547,7 +1601,7 @@ export default function WarrantyDashboard() {
 
         fd.append('coverageNote', String(editForm?.warranty_terms || '').trim())
         fd.append('note', String(editForm?.note || '').trim())
-        // ✅ ส่งราคาสินค้า (บาท)
+        // ✅ ส่งราคาการซ่อม (บาท)
         if (editForm?.price != null && editForm?.price !== '') {
           fd.append('price', String(editForm.price))
         } else {
@@ -1651,7 +1705,7 @@ export default function WarrantyDashboard() {
             customer_address: (it.customer_address || '').trim(),
             product_name: (it.product_name || '').trim(),
             model: (it.model || '').trim() || null, // ✅ ส่งรุ่นไป backend
-            price: it.price != null && it.price !== '' ? Number(it.price) || null : null, // ✅ ราคาสินค้า
+            price: it.price != null && it.price !== '' ? Number(it.price) || null : null, // ✅ ราคาการซ่อม
             purchase_date: (it.purchase_date || '').trim(),
             serial: (it.serial || '').trim(),
             warranty_terms: (it.warranty_terms || '').trim(),
@@ -2783,54 +2837,76 @@ export default function WarrantyDashboard() {
                       </div>
 
                       {/* ฟอร์มแก้ไขแบบ controlled + auto-expiry */}
-                      <label className="mt-3 text-sm text-gray-600">
-                        ชื่อสินค้าที่ทำการซ่อม <span className="text-red-500">*</span>
-                        <input
-                          name="product_name"
-                          value={editForm?.product_name ?? ''}
-                          onChange={e => setEditForm(f => ({
-                            ...f,
-                            product_name: stripEmojisAndSpecials(e.target.value),
-                          }))}
-                          className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
-                          placeholder="กรอกชื่อสินค้าที่ทำการซ่อม"
-                          type="text"
-                          required
-                        />
-                      </label>
+                      <div className="mt-3 grid gap-3 md:grid-cols-2">
+                        <label className="text-sm text-gray-600">
+                          ชื่อสินค้าที่ทำการซ่อม <span className="text-red-500">*</span>
+                          <input
+                            name="product_name"
+                            value={editForm?.product_name ?? ''}
+                            onChange={e => setEditForm(f => ({
+                              ...f,
+                              product_name: stripEmojisAndSpecials(e.target.value),
+                            }))}
+                            maxLength={30}
+                            className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                            placeholder="กรอกชื่อสินค้าที่ทำการซ่อม"
+                            type="text"
+                            required
+                          />
+                        </label>
 
-                      {/* ✅ รุ่น (Model) ในโหมดแก้ไข */}
-                      <label className="mt-3 text-sm text-gray-600">
-                        รุ่นสินค้าที่ทำการซ่อม
-                        <input
-                          name="model"
-                          value={editForm?.model ?? ''}
-                          onChange={e => setEditForm(f => ({
-                            ...f,
-                            model: stripEmojisAndSpecials(e.target.value),
-                          }))}
-                          className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
-                          placeholder="กรอกรุ่นสินค้าที่ทำการซ่อม"
-                          type="text"
-                        />
-                      </label>
-
-                      {/* ✅ ราคาสินค้า (บาท) ในโหมดแก้ไข */}
-                      <label className="mt-3 text-sm text-gray-600">
-                        ราคาสินค้า (บาท)
-                        <input
-                          name="price"
-                          value={editForm?.price ?? ''}
-                          onChange={e => setEditForm(f => ({ ...f, price: e.target.value.replace(/[^0-9.]/g, '') }))}
-                          className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
-                          placeholder="กรอกราคาสินค้า (ไม่บังคับ)"
-                          type="text"
-                          inputMode="decimal"
-                        />
-                      </label>
+                        {/* ✅ รุ่น (Model) ในโหมดแก้ไข */}
+                        <label className="text-sm text-gray-600">
+                          รุ่นสินค้าที่ทำการซ่อม
+                          <input
+                            name="model"
+                            value={editForm?.model ?? ''}
+                            onChange={e => setEditForm(f => ({
+                              ...f,
+                              model: stripEmojisAndSpecials(e.target.value),
+                            }))}
+                            maxLength={30}
+                            className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                            placeholder="กรอกรุ่นสินค้าที่ทำการซ่อม"
+                            type="text"
+                          />
+                        </label>
+                      </div>
 
                       <div className="mt-3 grid gap-3 md:grid-cols-2">
                         <label className="text-sm text-gray-600">
+                          Serial No.
+                          <input
+                            name="serial"
+                            value={editForm?.serial ?? ''}
+                            onChange={e => setEditForm(f => ({
+                              ...f,
+                              serial: stripEmojisAndSpecials(e.target.value),
+                            }))}
+                            className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                            placeholder="กรอก Serial No. (ไม่บังคับ)"
+                            type="text"
+                          />
+                        </label>
+
+                        {/* ✅ ราคาการซ่อม (บาท) ในโหมดแก้ไข */}
+                        <label className="text-sm text-gray-600">
+                          ราคาการซ่อม (บาท)
+                          <input
+                            name="price"
+                            value={editForm?.price ?? ''}
+                            onChange={e => setEditForm(f => ({ ...f, price: e.target.value.replace(/[^0-9.]/g, '') }))}
+                            maxLength={7}
+                            className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                            placeholder="กรอกราคาการซ่อม (ไม่บังคับ)"
+                            type="text"
+                            inputMode="decimal"
+                          />
+                        </label>
+                      </div>
+
+                      <div className="mt-3 flex gap-3">
+                        <label className="w-full md:w-1/2 text-sm text-gray-600">
                           ระยะเวลารับประกัน
                           <select
                             name="duration_months"
@@ -2857,21 +2933,6 @@ export default function WarrantyDashboard() {
                             ))}
                             <option value="other">อื่นๆ (ระบุเอง)</option>
                           </select>
-                        </label>
-
-                        <label className="text-sm text-gray-600">
-                          Serial No.
-                          <input
-                            name="serial"
-                            value={editForm?.serial ?? ''}
-                            onChange={e => setEditForm(f => ({
-                              ...f,
-                              serial: stripEmojisAndSpecials(e.target.value),
-                            }))}
-                            className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
-                            placeholder="กรอก Serial No. (ไม่บังคับ)"
-                            type="text"
-                          />
                         </label>
                       </div>
 
@@ -3250,49 +3311,69 @@ export default function WarrantyDashboard() {
                             </div>
                           )}
 
-                          <label className="mt-3 text-sm text-gray-600 block">
-                            ชื่อสินค้าที่ทำการซ่อม <span className="text-red-500">*</span>
-                            <input
-                              value={it.product_name}
-                              onChange={e => patchItem(idx, {
-                                product_name: stripEmojisAndSpecials(e.target.value),
-                              })}
-                              className="mt-1 w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
-                              placeholder="กรอกชื่อสินค้าที่ทำการซ่อม"
-                              type="text"
-                              required
-                            />
-                          </label>
+                          <div className="mt-3 grid gap-3 md:grid-cols-2">
+                            <label className="text-sm text-gray-600 block">
+                              ชื่อสินค้าที่ทำการซ่อม <span className="text-red-500">*</span>
+                              <input
+                                value={it.product_name}
+                                onChange={e => patchItem(idx, {
+                                  product_name: stripEmojisAndSpecials(e.target.value),
+                                })}
+                                maxLength={30}
+                                className="mt-1 w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                                placeholder="กรอกชื่อสินค้าที่ทำการซ่อม"
+                                type="text"
+                                required
+                              />
+                            </label>
 
-                          {/* ✅ รุ่น (Model) ต่อรายการ — ไม่แชร์กันทั้งใบ */}
-                          <label className="mt-3 text-sm text-gray-600 block">
-                            รุ่นสินค้าที่ทำการซ่อม
-                            <input
-                              value={it.model}
-                              onChange={e => patchItem(idx, {
-                                model: stripEmojisAndSpecials(e.target.value),
-                              })}
-                              className="mt-1 w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
-                              placeholder="กรอกรุ่นสินค้าที่ทำการซ่อม"
-                              type="text"
-                            />
-                          </label>
-
-                          {/* ✅ ราคาสินค้า (บาท) ต่อรายการ — ไม่แชร์กันทั้งใบ */}
-                          <label className="mt-3 text-sm text-gray-600 block">
-                            ราคาสินค้า (บาท)
-                            <input
-                              value={it.price}
-                              onChange={e => patchItem(idx, { price: e.target.value.replace(/[^0-9.]/g, '') })}
-                              className="mt-1 w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
-                              placeholder="กรอกราคาสินค้า (ไม่บังคับ)"
-                              type="text"
-                              inputMode="decimal"
-                            />
-                          </label>
+                            {/* ✅ รุ่น (Model) ต่อรายการ — ไม่แชร์กันทั้งใบ */}
+                            <label className="text-sm text-gray-600 block">
+                              รุ่นสินค้าที่ทำการซ่อม
+                              <input
+                                value={it.model}
+                                onChange={e => patchItem(idx, {
+                                  model: stripEmojisAndSpecials(e.target.value),
+                                })}
+                                maxLength={30}
+                                className="mt-1 w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                                placeholder="กรอกรุ่นสินค้าที่ทำการซ่อม"
+                                type="text"
+                              />
+                            </label>
+                          </div>
 
                           <div className="mt-3 grid gap-3 md:grid-cols-2">
                             <label className="text-sm text-gray-600 block">
+                              Serial No.
+                              <input
+                                value={it.serial}
+                                onChange={e => patchItem(idx, {
+                                  serial: stripEmojisAndSpecials(e.target.value),
+                                })}
+                                className="mt-1 w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                                placeholder="กรอก Serial No. (ไม่บังคับ)"
+                                type="text"
+                              />
+                            </label>
+
+                            {/* ✅ ราคาการซ่อม (บาท) ต่อรายการ — ไม่แชร์กันทั้งใบ */}
+                            <label className="text-sm text-gray-600 block">
+                              ราคาการซ่อม (บาท)
+                              <input
+                                value={it.price}
+                                onChange={e => patchItem(idx, { price: e.target.value.replace(/[^0-9.]/g, '') })}
+                                maxLength={7}
+                                className="mt-1 w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                                placeholder="กรอกราคาการซ่อม (ไม่บังคับ)"
+                                type="text"
+                                inputMode="decimal"
+                              />
+                            </label>
+                          </div>
+
+                          <div className="mt-3 flex gap-3">
+                            <label className="w-full md:w-1/2 text-sm text-gray-600 block">
                               ระยะเวลาการรับประกัน
                               <select
                                 value={it.duration_mode === 'preset' ? it.duration_months : 'other'}
@@ -3311,19 +3392,6 @@ export default function WarrantyDashboard() {
                                 ))}
                                 <option value="other">อื่นๆ (ระบุเอง)</option>
                               </select>
-                            </label>
-
-                            <label className="text-sm text-gray-600 block">
-                              Serial No.
-                              <input
-                                value={it.serial}
-                                onChange={e => patchItem(idx, {
-                                  serial: stripEmojisAndSpecials(e.target.value),
-                                })}
-                                className="mt-1 w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
-                                placeholder="กรอก Serial No. (ไม่บังคับ)"
-                                type="text"
-                              />
                             </label>
                           </div>
 
