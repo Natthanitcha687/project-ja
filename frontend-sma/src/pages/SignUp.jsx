@@ -1019,12 +1019,29 @@ export default function Signup() {
 
               <label className="block">
                 <span className="block text-sm font-medium text-gray-700">ชื่อเจ้าของร้าน</span>
-                <InputIcon name="ownerStore" placeholder="ชื่อเจ้าของร้าน" required left={Icon.user()} />
+                <InputIcon
+                  name="ownerStore"
+                  placeholder="ชื่อเจ้าของร้าน"
+                  required
+                  left={Icon.user()}
+                  onChange={(e) => {
+                    e.target.value = stripEmojisAndSpecials(e.target.value)
+                  }}
+                />
               </label>
 
               <label className="block">
                 <span className="block text-sm font-medium text-gray-700">อีเมล</span>
-                <InputIcon name="email" type="email" placeholder="กรอกอีเมลของคุณ" required left={Icon.mail()} />
+                <InputIcon
+                  name="email"
+                  type="email"
+                  placeholder="กรอกอีเมลของคุณ"
+                  required
+                  left={Icon.mail()}
+                  onChange={(e) => {
+                    e.target.value = stripEmojisAndSpecials(e.target.value)
+                  }}
+                />
               </label>
 
               <label className="block">
