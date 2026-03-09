@@ -1005,7 +1005,7 @@ export default function Signup() {
                   required
                   left={Icon.mail()}
                   onChange={(e) => {
-                    e.target.value = e.target.value.replace(/[\u0E00-\u0E7F]/g, "");
+                    e.target.value = stripEmojisAndSpecials(e.target.value).replace(/[\u0E00-\u0E7F]/g, "");
                   }}
                 />
               </label>

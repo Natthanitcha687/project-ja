@@ -624,6 +624,14 @@ export default function WarrantyDashboard() {
     newPassword: '',
     confirmPassword: '',
   })
+    const [pwStrength, setPwStrength] = useState(0)
+    const [pwChecks, setPwChecks] = useState({
+      length: false,
+      lower: false,
+      upper: false,
+      digit: false,
+      symbol: false,
+    })
   const [modalError, setModalError] = useState('')
   const [profileSubmitting, setProfileSubmitting] = useState(false)
   const [passwordSubmitting, setPasswordSubmitting] = useState(false)
@@ -638,6 +646,23 @@ export default function WarrantyDashboard() {
   const [expandedByHeader, setExpandedByHeader] = useState({})
 
   // Notifications and header are handled by the shared DashboardLayout
+  
+    useEffect(() => {
+      const pw = profilePasswords.newPassword || ''
+      const checks = {
+        length: pw.length >= 8,
+        lower: /[a-z]/.test(pw),
+        upper: /[A-Z]/.test(pw),
+        digit: /[0-9]/.test(pw),
+        symbol: /[^A-Za-z0-9]/.test(pw),
+      }
+      setPwChecks(checks)
+      const count = [checks.length, checks.lower, checks.upper, checks.digit, checks.symbol].filter(Boolean).length
+      if (!pw) setPwStrength(0)
+      else if (count <= 2) setPwStrength(1)
+      else if (count <= 4) setPwStrength(2)
+      else setPwStrength(3)
+    }, [profilePasswords.newPassword])
 
   const [warrantySubmitting, setWarrantySubmitting] = useState(false)
   const [warrantyModalError, setWarrantyModalError] = useState('')
@@ -1412,6 +1437,14 @@ export default function WarrantyDashboard() {
     if (!storeIdResolved) return
     if (profilePasswords.newPassword !== profilePasswords.confirmPassword) {
       setModalError('รหัสผ่านใหม่และการยืนยันไม่ตรงกัน')
+      return
+    }
+    if ((profilePasswords.newPassword || '').length < 8) {
+      setModalError('รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร')
+      return
+    }
+    if (pwStrength < 3) {
+      setModalError('กรุณาตั้งรหัสผ่านใหม่ให้ถึงระดับความปลอดภัยสูงก่อนบันทึก')
       return
     }
     setPasswordSubmitting(true)
@@ -2608,10 +2641,88 @@ export default function WarrantyDashboard() {
                           <input
                             required
                             value={profilePasswords[key]}
-                            onChange={(e) => setProfilePasswords((prev) => ({ ...prev, [key]: e.target.value }))}
+                            onChange={(e) => {
+                              let val = e.target.value
+                              if (key === 'newPassword' || key === 'confirmPassword') {
+                                val = stripEmojis(val).replace(/[\u0E00-\u0E7F]/g, '')
+                              }
+                              setProfilePasswords((prev) => ({ ...prev, [key]: val }))
+                            }}
                             className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                             type="password"
                           />
+                          {key === 'newPassword' && profilePasswords.newPassword ? (
+                            <div
+                              className={
+                                "mt-2 rounded-lg border px-3 py-2 " +
+                                (pwStrength <= 1
+                                  ? 'border-red-100 bg-red-50/70'
+                                  : pwStrength === 2
+                                  ? 'border-amber-100 bg-amber-50/70'
+                                  : 'border-emerald-100 bg-emerald-50/70')
+                              }
+                            >
+                              <div className="flex items-center justify-between text-[11px] font-medium">
+                                <span className="text-gray-600 flex items-center gap-1">
+                                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-blue-400" />
+                                  ความปลอดภัยของรหัสผ่านใหม่
+                                </span>
+                                <span
+                                  className={
+                                    pwStrength <= 1
+                                      ? 'text-red-600'
+                                      : pwStrength === 2
+                                      ? 'text-yellow-600'
+                                      : 'text-emerald-600'
+                                  }
+                                >
+                                  {pwStrength <= 1
+                                    ? 'ความปลอดภัยต่ำ'
+                                    : pwStrength === 2
+                                    ? 'ความปลอดภัยปานกลาง'
+                                    : 'ความปลอดภัยสูง'}
+                                </span>
+                              </div>
+                              <div className="mt-1 h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
+                                <div
+                                  className={
+                                    'h-full transition-all duration-200 ' +
+                                    (pwStrength <= 1
+                                      ? 'bg-red-500'
+                                      : pwStrength === 2
+                                      ? 'bg-yellow-500'
+                                      : 'bg-emerald-500')
+                                  }
+                                  style={{ width: `${pwStrength <= 1 ? 33 : pwStrength === 2 ? 66 : 100}%` }}
+                                />
+                              </div>
+                              <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-[11px]">
+                                <p className={pwChecks.length ? 'text-emerald-700' : 'text-gray-500'}>
+                                  <span className="mr-1">{pwChecks.length ? '✓' : '•'}</span>
+                                  ยาวอย่างน้อย 8 ตัวอักษรขึ้นไป
+                                </p>
+                                <p className={pwChecks.lower ? 'text-emerald-700' : 'text-gray-500'}>
+                                  <span className="mr-1">{pwChecks.lower ? '✓' : '•'}</span>
+                                  มีตัวอักษรตัวพิมพ์เล็ก (a-z)
+                                </p>
+                                <p className={pwChecks.upper ? 'text-emerald-700' : 'text-gray-500'}>
+                                  <span className="mr-1">{pwChecks.upper ? '✓' : '•'}</span>
+                                  มีตัวอักษรตัวพิมพ์ใหญ่ (A-Z)
+                                </p>
+                                <p className={pwChecks.digit ? 'text-emerald-700' : 'text-gray-500'}>
+                                  <span className="mr-1">{pwChecks.digit ? '✓' : '•'}</span>
+                                  มีตัวเลข (0-9)
+                                </p>
+                                <p className={pwChecks.symbol ? 'text-emerald-700' : 'text-gray-500'}>
+                                  <span className="mr-1">{pwChecks.symbol ? '✓' : '•'}</span>
+                                  มีอักขระพิเศษ เช่น ! @ # $ %
+                                </p>
+                                <p className="text-[10px] text-gray-400 sm:col-span-2 mt-1">
+                                  กรุณาตั้งรหัสผ่านใหม่ด้วยตัวอักษรภาษาอังกฤษ (a-z, A-Z) ตัวเลข และสัญลักษณ์ โดยไม่ใช้ตัวอักษรไทยหรืออีโมจิ
+                                </p>
+                              </div>
+                            </div>
+                          ) : null}
                         </label>
                       ))}
                     </div>

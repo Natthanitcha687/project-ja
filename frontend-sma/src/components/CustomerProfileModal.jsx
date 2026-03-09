@@ -1,6 +1,29 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { useAuth } from "../store/auth";
+import { stripEmojis } from "../lib/text";
+
+function getPasswordChecks(pw) {
+  if (!pw) {
+    return { length: false, lower: false, upper: false, digit: false, symbol: false };
+  }
+  return {
+    length: pw.length >= 8,
+    lower: /[a-z]/.test(pw),
+    upper: /[A-Z]/.test(pw),
+    digit: /[0-9]/.test(pw),
+    symbol: /[^A-Za-z0-9]/.test(pw),
+  };
+}
+
+function calcPasswordStrength(pw) {
+  if (!pw) return 0;
+  const checks = getPasswordChecks(pw);
+  const count = [checks.length, checks.lower, checks.upper, checks.digit, checks.symbol].filter(Boolean).length;
+  if (count <= 2) return 1;
+  if (count <= 4) return 2;
+  return 3;
+}
 
 /**
  * CustomerProfileModal
@@ -37,6 +60,14 @@ export default function CustomerProfileModal({ open, onClose, initialTab = 'info
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNew, setConfirmNew] = useState("");
+  const [pwStrength, setPwStrength] = useState(0);
+  const [pwChecks, setPwChecks] = useState({
+    length: false,
+    lower: false,
+    upper: false,
+    digit: false,
+    symbol: false,
+  });
 
   const canSaveInfo = useMemo(() => {
     // ต้องกดยืนยัน (ติ๊ก checkbox) จึงจะบันทึกได้
@@ -49,8 +80,19 @@ export default function CustomerProfileModal({ open, onClose, initialTab = 'info
   }, [firstName, lastName, phone, isConsent]);
 
   const canChangePw = useMemo(() => {
-    return oldPassword && newPassword?.length >= 8 && newPassword === confirmNew;
-  }, [oldPassword, newPassword, confirmNew]);
+    return (
+      !!oldPassword &&
+      newPassword?.length >= 8 &&
+      newPassword === confirmNew &&
+      pwStrength >= 3
+    );
+  }, [oldPassword, newPassword, confirmNew, pwStrength]);
+
+  useEffect(() => {
+    const checks = getPasswordChecks(newPassword);
+    setPwChecks(checks);
+    setPwStrength(calcPasswordStrength(newPassword));
+  }, [newPassword]);
 
   // โหลดโปรไฟล์ทุกครั้งที่เปิดโมดัล
   useEffect(() => {
@@ -337,13 +379,101 @@ export default function CustomerProfileModal({ open, onClose, initialTab = 'info
               </div>
               <div>
                 <label className="mb-1 block text-sm text-gray-600">รหัสผ่านใหม่ (อย่างน้อย 8 ตัวอักษร)</label>
-                <input type="password" className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2"
-                  value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="••••••••" />
+                <input
+                  type="password"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2"
+                  value={newPassword}
+                  onChange={(e) => {
+                    const val = stripEmojis(e.target.value).replace(/[\u0E00-\u0E7F]/g, "");
+                    setNewPassword(val);
+                  }}
+                  placeholder="••••••••"
+                />
+                {newPassword ? (
+                  <div
+                    className={
+                      "mt-2 rounded-lg border px-3 py-2 " +
+                      (pwStrength <= 1
+                        ? "border-red-100 bg-red-50/70"
+                        : pwStrength === 2
+                        ? "border-amber-100 bg-amber-50/70"
+                        : "border-emerald-100 bg-emerald-50/70")
+                    }
+                  >
+                    <div className="flex items-center justify-between text-[11px] font-medium">
+                      <span className="text-gray-600 flex items-center gap-1">
+                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-blue-400" />
+                        ความปลอดภัยของรหัสผ่านใหม่
+                      </span>
+                      <span
+                        className={
+                          pwStrength <= 1
+                            ? "text-red-600"
+                            : pwStrength === 2
+                            ? "text-yellow-600"
+                            : "text-emerald-600"
+                        }
+                      >
+                        {pwStrength <= 1
+                          ? "ความปลอดภัยต่ำ"
+                          : pwStrength === 2
+                          ? "ความปลอดภัยปานกลาง"
+                          : "ความปลอดภัยสูง"}
+                      </span>
+                    </div>
+                    <div className="mt-1 h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
+                      <div
+                        className={
+                          "h-full transition-all duration-200 " +
+                          (pwStrength <= 1
+                            ? "bg-red-500"
+                            : pwStrength === 2
+                            ? "bg-yellow-500"
+                            : "bg-emerald-500")
+                        }
+                        style={{ width: `${pwStrength <= 1 ? 33 : pwStrength === 2 ? 66 : 100}%` }}
+                      />
+                    </div>
+                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-[11px]">
+                      <p className={pwChecks.length ? "text-emerald-700" : "text-gray-500"}>
+                        <span className="mr-1">{pwChecks.length ? "✓" : "•"}</span>
+                        ยาวอย่างน้อย 8 ตัวอักษรขึ้นไป
+                      </p>
+                      <p className={pwChecks.lower ? "text-emerald-700" : "text-gray-500"}>
+                        <span className="mr-1">{pwChecks.lower ? "✓" : "•"}</span>
+                        มีตัวอักษรตัวพิมพ์เล็ก (a-z)
+                      </p>
+                      <p className={pwChecks.upper ? "text-emerald-700" : "text-gray-500"}>
+                        <span className="mr-1">{pwChecks.upper ? "✓" : "•"}</span>
+                        มีตัวอักษรตัวพิมพ์ใหญ่ (A-Z)
+                      </p>
+                      <p className={pwChecks.digit ? "text-emerald-700" : "text-gray-500"}>
+                        <span className="mr-1">{pwChecks.digit ? "✓" : "•"}</span>
+                        มีตัวเลข (0-9)
+                      </p>
+                      <p className={pwChecks.symbol ? "text-emerald-700" : "text-gray-500"}>
+                        <span className="mr-1">{pwChecks.symbol ? "✓" : "•"}</span>
+                        มีอักขระพิเศษ เช่น ! @ # $ %
+                      </p>
+                      <p className="text-[10px] text-gray-400 sm:col-span-2 mt-1">
+                        กรุณาตั้งรหัสผ่านใหม่ด้วยตัวอักษรภาษาอังกฤษ (a-z, A-Z) ตัวเลข และสัญลักษณ์ โดยไม่ใช้ตัวอักษรไทยหรืออีโมจิ
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
               </div>
               <div>
                 <label className="mb-1 block text-sm text-gray-600">ยืนยันรหัสผ่านใหม่</label>
-                <input type="password" className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2"
-                  value={confirmNew} onChange={(e) => setConfirmNew(e.target.value)} placeholder="••••••••" />
+                <input
+                  type="password"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2"
+                  value={confirmNew}
+                  onChange={(e) => {
+                    const val = stripEmojis(e.target.value).replace(/[\u0E00-\u0E7F]/g, "");
+                    setConfirmNew(val);
+                  }}
+                  placeholder="••••••••"
+                />
                 {newPassword && confirmNew && newPassword !== confirmNew && (
                   <p className="pt-1 text-sm text-rose-600">รหัสผ่านใหม่และยืนยันไม่ตรงกัน</p>
                 )}
