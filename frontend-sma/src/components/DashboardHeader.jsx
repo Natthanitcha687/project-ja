@@ -237,6 +237,19 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
     avatarUrl = customerProfile?.avatarUrl || ''
   }
 
+  async function handleDeleteAllNotifications() {
+    try {
+      // ลบออกจากรายการที่แสดงทันที
+      setDisplayedNotifications([])
+      await api.post('/notifications/delete-all')
+      if (onFetchNotifications) {
+        try { await onFetchNotifications() } catch (e) { }
+      }
+    } catch (e) {
+      // ถ้าลบไม่สำเร็จ ให้ลองดึงใหม่จาก backend ครั้งหน้า
+    }
+  }
+
   return (
     <>
     <header className="sticky top-0 z-40 border-b border-sky-100 bg-white/80 py-3 backdrop-blur">
@@ -289,13 +302,22 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
               <div className="absolute top-12 w-64 sm:w-80 max-w-[calc(100vw-1rem)] rounded-2xl bg-white p-3 text-sm shadow-xl ring-1 ring-black/5 notif-dropdown sm:right-4 sm:left-auto sm:translate-x-0">
                 <div className="mb-2 flex items-center justify-between">
                   <div className="text-sm font-medium text-slate-900">การแจ้งเตือน</div>
-                  <button
-                    type="button"
-                    onClick={() => setNotifOpen(false)}
-                    className="text-xs text-slate-500"
-                  >
-                    ปิด
-                  </button>
+                  <div className="flex items-center gap-3 text-xs">
+                    <button
+                      type="button"
+                      onClick={handleDeleteAllNotifications}
+                      className="text-rose-500 hover:text-rose-600"
+                    >
+                      ลบทั้งหมด
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNotifOpen(false)}
+                      className="text-slate-500"
+                    >
+                      ปิด
+                    </button>
+                  </div>
                 </div>
                 {(effectiveNotifLoading || suppressEmptyOnOpen) ? (
                   <div className="py-6 text-center text-slate-500">กำลังโหลด...</div>

@@ -89,6 +89,26 @@ router.post('/mark-all-read', requireAuth, async (req, res) => {
   }
 })
 
+// POST /notifications/delete-all - delete all notifications for current user/store
+router.post('/delete-all', requireAuth, async (req, res) => {
+  try {
+    const uid = Number(req.user?.id || req.user?.sub)
+    const isStore = req.user?.role === 'STORE'
+    if (!uid) return res.status(400).json({ message: 'Invalid user' })
+
+    // สำหรับร้านค้า: ลบทั้งแจ้งเตือนที่ผูกกับ storeId และ userId เดียวกัน (เหมือน GET /notifications)
+    const where = isStore
+      ? { OR: [{ storeId: uid }, { userId: uid }] }
+      : { userId: uid }
+
+    const result = await prisma.notification.deleteMany({ where })
+    res.json({ ok: true, deleted: result.count })
+  } catch (err) {
+    console.error('POST /notifications/delete-all error', err)
+    res.status(500).json({ message: 'Unable to delete notifications' })
+  }
+})
+
 // DELETE /notifications/:id - allow deletion of a notification by owner/store
 router.delete('/:id', requireAuth, async (req, res) => {
   try {

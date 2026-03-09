@@ -248,6 +248,20 @@ export default function CustomerNavbar() {
     }
   }
 
+  // ลบการแจ้งเตือนทั้งหมดในกระดิ่งของลูกค้า
+  async function deleteAllNotifications() {
+    try {
+      // ลบออกจาก state ทันที
+      setNotifications([]);
+      setNotifLoading(true);
+      await api.post("/notifications/delete-all");
+    } catch (e) {
+      try { await fetchNotifications(); } catch { }
+    } finally {
+      setNotifLoading(false);
+    }
+  }
+
   // ✅ Load notifications once + สมัคร SSE
   useEffect(() => {
     let mounted = true;
@@ -545,12 +559,20 @@ export default function CustomerNavbar() {
                 <div className="absolute top-12 left-1/2 -translate-x-1/2 sm:left-auto sm:translate-x-0 sm:right-4 w-72 max-w-[calc(100vw-1rem)] rounded-2xl border border-sky-100 bg-white shadow-xl overflow-hidden z-[1200]">
                   <div className="flex items-center justify-between border-b border-sky-50 bg-sky-50/60 px-4 py-2 text-sm font-semibold text-sky-800">
                     <span>การแจ้งเตือน</span>
-                    <button
-                      onClick={markAllAsRead}
-                      className="text-sky-600 hover:underline text-xs font-normal"
-                    >
-                      ทำเครื่องหมายว่าอ่านแล้ว
-                    </button>
+                    <div className="flex items-center gap-3 text-xs font-normal">
+                      <button
+                        onClick={markAllAsRead}
+                        className="text-sky-600 hover:underline"
+                      >
+                        ทำเครื่องหมายว่าอ่านแล้ว
+                      </button>
+                      <button
+                        onClick={deleteAllNotifications}
+                        className="text-rose-500 hover:underline"
+                      >
+                        ลบทั้งหมด
+                      </button>
+                    </div>
                   </div>
                   <div className="max-h-64 overflow-y-auto">
                     {notifLoading ? (
