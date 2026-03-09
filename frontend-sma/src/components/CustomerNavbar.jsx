@@ -219,6 +219,35 @@ export default function CustomerNavbar() {
     }
   }
 
+  // ลบการแจ้งเตือน (รองรับทั้งเคส merge หลายรายการและเคสเดี่ยว)
+  async function deleteNotificationGroup(target) {
+    if (!target) return;
+    const ids =
+      Array.isArray(target._mergedIds) && target._mergedIds.length > 0
+        ? target._mergedIds
+        : target.id != null
+          ? [target.id]
+          : [];
+    if (ids.length === 0) return;
+
+    const norm = ids.map((v) => String(v));
+
+    // optimistic remove จาก state ปัจจุบัน
+    setNotifications((prev) =>
+      (prev || []).filter((n) => !norm.includes(String(n.id)))
+    );
+
+    try {
+      setNotifLoading(true);
+      await Promise.all(norm.map((id) => api.delete(`/notifications/${id}`)));
+    } catch (e) {
+      // ถ้าลบไม่สำเร็จ ให้ลอง sync ใหม่จาก backend ครั้งถัดไป
+      try { await fetchNotifications(); } catch { }
+    } finally {
+      setNotifLoading(false);
+    }
+  }
+
   // ✅ Load notifications once + สมัคร SSE
   useEffect(() => {
     let mounted = true;
@@ -578,11 +607,23 @@ export default function CustomerNavbar() {
                                 </div>
                               ) : null}
                             </div>
-                            {n.createdAt ? (
-                              <div className="text-[10px] text-slate-400 mt-1">
-                                {new Date(n.createdAt).toLocaleString()}
-                              </div>
-                            ) : null}
+                            <div className="mt-1 flex items-center justify-between text-[10px] text-slate-400">
+                              <span>
+                                {n.createdAt ? new Date(n.createdAt).toLocaleString() : ""}
+                              </span>
+                              {id != null && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void deleteNotificationGroup(n);
+                                  }}
+                                  className="ml-2 rounded px-1 py-0.5 text-[10px] text-rose-500 hover:text-rose-600 hover:bg-rose-50"
+                                >
+                                  ลบ
+                                </button>
+                              )}
+                            </div>
                           </div>
                         );
                       })
