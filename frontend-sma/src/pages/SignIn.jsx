@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../store/auth";
+import { stripEmojisAndSpecials } from "../lib/text";
 
 /* ===== ICONS (เทา) ===== */
 const Icon = {
@@ -580,6 +581,9 @@ export default function SignIn() {
                   placeholder={tab === "store" ? "กรอกอีเมลร้านค้า" : "กรอกอีเมลของคุณ"}
                   required
                   left={Icon.mail()}
+                  onChange={(e) => {
+                    e.target.value = stripEmojisAndSpecials(e.target.value).replace(/[\u0E00-\u0E7F]/g, "");
+                  }}
                 />
               </label>
 
