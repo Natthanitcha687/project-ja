@@ -396,6 +396,17 @@ export default function Signup() {
   // other states
   const [consent, setConsent] = useState(false);
   const [pwError, setPwError] = useState("");
+  const [pwStrength, setPwStrength] = useState(0);
+  const [pwChecks, setPwChecks] = useState({
+    length: false,
+    lower: false,
+    upper: false,
+    digit: false,
+    symbol: false,
+  });
+  const [showWeakPwModal, setShowWeakPwModal] = useState(false);
+  const [emailErrorMsg, setEmailErrorMsg] = useState("");
+  const [showEmailModal, setShowEmailModal] = useState(false);
   const confirmRef = useRef(null);
   // terms modal visibility
   const [showTerms, setShowTerms] = useState(false);
@@ -590,6 +601,35 @@ export default function Signup() {
     }
   }
 
+  function getPasswordChecks(pw) {
+    if (!pw) {
+      return { length: false, lower: false, upper: false, digit: false, symbol: false };
+    }
+    return {
+      length: pw.length >= 8,
+      lower: /[a-z]/.test(pw),
+      upper: /[A-Z]/.test(pw),
+      digit: /[0-9]/.test(pw),
+      symbol: /[^A-Za-z0-9]/.test(pw),
+    };
+  }
+
+  function calcPasswordStrength(pw) {
+    if (!pw) return 0;
+    const checks = getPasswordChecks(pw);
+    const count = [
+      checks.length,
+      checks.lower,
+      checks.upper,
+      checks.digit,
+      checks.symbol,
+    ].filter(Boolean).length;
+
+    if (count <= 2) return 1; // อ่อน
+    if (count <= 4) return 2; // ปานกลาง
+    return 3; // แข็งแรง
+  }
+
   // validate password/confirm
   useEffect(() => {
     let msg = "";
@@ -598,11 +638,18 @@ export default function Signup() {
     else if (confirmPassword && password !== confirmPassword) msg = "รหัสผ่านไม่ตรงกัน";
     setPwError(msg);
     if (confirmRef.current) confirmRef.current.setCustomValidity(msg);
+    const checks = getPasswordChecks(password);
+    setPwChecks(checks);
+    setPwStrength(calcPasswordStrength(password));
   }, [password, confirmPassword]);
 
   // separate submit checks: customer uses a single password; store requires confirm
   const canSubmitCustomer =
-    !submitting && consent && password.length >= 8 && confirmPassword.length >= 8 && password === confirmPassword;
+    !submitting &&
+    consent &&
+    password.length >= 8 &&
+    confirmPassword.length >= 8 &&
+    password === confirmPassword;
   const canSubmitStore =
     !submitting &&
     consent &&
@@ -620,6 +667,10 @@ export default function Signup() {
       if (confirmRef.current) confirmRef.current.focus();
       return;
     }
+    if (pwStrength < 3) {
+      setShowWeakPwModal(true);
+      return;
+    }
     setSubmitting(true);
     const fd = new FormData(e.currentTarget);
     const payload = {
@@ -635,7 +686,9 @@ export default function Signup() {
       await api.post("/auth/register/customer", payload);
       navigate("/signin");
     } catch (err) {
-      alert(err?.response?.data?.message || "สมัครสมาชิกไม่สำเร็จ");
+      const msg = err?.response?.data?.message || "สมัครสมาชิกไม่สำเร็จ";
+      setEmailErrorMsg(msg);
+      setShowEmailModal(true);
     } finally {
       setSubmitting(false);
     }
@@ -649,6 +702,10 @@ export default function Signup() {
     if (!canSubmitStore) {
       e.currentTarget.reportValidity();
       if (confirmRef.current) confirmRef.current.focus();
+      return;
+    }
+    if (pwStrength < 3) {
+      setShowWeakPwModal(true);
       return;
     }
     setSubmitting(true);
@@ -674,7 +731,9 @@ export default function Signup() {
       await api.post("/auth/register/store", payload);
       navigate("/signin");
     } catch (err) {
-      alert(err?.response?.data?.message || "สมัครสมาชิกไม่สำเร็จ");
+      const msg = err?.response?.data?.message || "สมัครสมาชิกไม่สำเร็จ";
+      setEmailErrorMsg(msg);
+      setShowEmailModal(true);
     } finally {
       setSubmitting(false);
     }
@@ -682,6 +741,58 @@ export default function Signup() {
 
   return (
     <div className="min-h-[calc(100vh-64px)] bg-[#eaf3ff] flex items-center justify-center px-4 py-10">
+      {/* Weak password modal */}
+      {showWeakPwModal && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl px-6 py-6 text-center relative">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-rose-100 via-pink-100 to-violet-100 shadow-md">
+              <span className="text-2xl">🔒</span>
+            </div>
+            <h2 className="mt-4 text-lg font-semibold text-gray-900">รหัสผ่านยังไม่ปลอดภัยเพียงพอ</h2>
+            <p className="mt-2 text-sm text-gray-600">
+              กรุณาปรับรหัสผ่านให้ผ่านทุกเงื่อนไขจนถึงระดับ
+              <span className="font-semibold text-emerald-600"> "ความปลอดภัยสูง" </span>
+              ก่อนทำการสมัครสมาชิก
+            </p>
+            <p className="mt-3 text-xs text-gray-500">
+              ลองเพิ่มความยาวของรหัสผ่าน ผสมตัวอักษรตัวพิมพ์เล็ก ตัวพิมพ์ใหญ่ ตัวเลข และสัญลักษณ์ให้มากขึ้น
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowWeakPwModal(false)}
+              className="mt-5 inline-flex w-full items-center justify-center rounded-full bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+            >
+              เข้าใจแล้ว
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Email error modal */}
+      {showEmailModal && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl px-6 py-6 text-center relative">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-sky-100 via-blue-100 to-indigo-100 shadow-md">
+              <span className="text-2xl">📧</span>
+            </div>
+            <h2 className="mt-4 text-lg font-semibold text-gray-900">ไม่สามารถใช้ที่อยู่อีเมลนี้ได้</h2>
+            <p className="mt-2 text-sm text-gray-600">
+              {emailErrorMsg || "อีเมลนี้ไม่สามารถใช้สมัครได้ กรุณาลองใช้อีเมลอื่นที่ยังไม่ถูกใช้งานในระบบ"}
+            </p>
+            <p className="mt-3 text-xs text-gray-500">
+              กรุณาตรวจสอบว่าพิมพ์อีเมลถูกต้อง หรือเลือกใช้อีเมลอื่นสำหรับการสมัครสมาชิก
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowEmailModal(false)}
+              className="mt-5 inline-flex w-full items-center justify-center rounded-full bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+            >
+              เข้าใจแล้ว
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Terms modal */}
       {showTerms && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -887,7 +998,16 @@ export default function Signup() {
 
               <label className="block">
                 <span className="block text-sm font-medium text-gray-700">อีเมล</span>
-                <InputIcon name="email" type="email" placeholder="กรอกอีเมลของคุณ" required left={Icon.mail()} />
+                <InputIcon
+                  name="email"
+                  type="email"
+                  placeholder="กรอกอีเมลของคุณ"
+                  required
+                  left={Icon.mail()}
+                  onChange={(e) => {
+                    e.target.value = e.target.value.replace(/[\u0E00-\u0E7F]/g, "");
+                  }}
+                />
               </label>
 
               <label className="block">
@@ -910,12 +1030,87 @@ export default function Signup() {
                   minLength={8}
                   placeholder="กรอกรหัสผ่าน (อย่างน้อย 8 ตัวอักษร)"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[\u0E00-\u0E7F]/g, "");
+                    setPassword(val);
+                  }}
                   required
                   left={Icon.lock()}
                   right={null}
                   invalid={!!pwError && password.length < 8}
                 />
+                {password ? (
+                  <div
+                    className={
+                      "mt-2 rounded-lg border px-3 py-2 " +
+                      (pwStrength <= 1
+                        ? "border-red-100 bg-red-50/70"
+                        : pwStrength === 2
+                        ? "border-amber-100 bg-amber-50/70"
+                        : "border-emerald-100 bg-emerald-50/70")
+                    }
+                  >
+                    <div className="flex items-center justify-between text-[11px] font-medium">
+                      <span className="text-gray-600 flex items-center gap-1">
+                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-blue-400" />
+                        ความปลอดภัยของรหัสผ่าน
+                      </span>
+                      <span
+                        className={
+                          pwStrength <= 1
+                            ? "text-red-600"
+                            : pwStrength === 2
+                            ? "text-yellow-600"
+                            : "text-emerald-600"
+                        }
+                      >
+                        {pwStrength <= 1
+                          ? "ความปลอดภัยต่ำ"
+                          : pwStrength === 2
+                          ? "ความปลอดภัยปานกลาง"
+                          : "ความปลอดภัยสูง"}
+                      </span>
+                    </div>
+                    <div className="mt-1 h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
+                      <div
+                        className={
+                          "h-full transition-all duration-200 " +
+                          (pwStrength <= 1
+                            ? "bg-red-500"
+                            : pwStrength === 2
+                            ? "bg-yellow-500"
+                            : "bg-emerald-500")
+                        }
+                        style={{ width: `${pwStrength <= 1 ? 33 : pwStrength === 2 ? 66 : 100}%` }}
+                      />
+                    </div>
+                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-[11px]">
+                      <p className={pwChecks.length ? "text-emerald-700" : "text-gray-500"}>
+                        <span className="mr-1">{pwChecks.length ? "✓" : "•"}</span>
+                        ยาวอย่างน้อย 8 ตัวอักษรขึ้นไป
+                      </p>
+                      <p className={pwChecks.lower ? "text-emerald-700" : "text-gray-500"}>
+                        <span className="mr-1">{pwChecks.lower ? "✓" : "•"}</span>
+                        มีตัวอักษรตัวพิมพ์เล็ก (a-z)
+                      </p>
+                      <p className={pwChecks.upper ? "text-emerald-700" : "text-gray-500"}>
+                        <span className="mr-1">{pwChecks.upper ? "✓" : "•"}</span>
+                        มีตัวอักษรตัวพิมพ์ใหญ่ (A-Z)
+                      </p>
+                      <p className={pwChecks.digit ? "text-emerald-700" : "text-gray-500"}>
+                        <span className="mr-1">{pwChecks.digit ? "✓" : "•"}</span>
+                        มีตัวเลข (0-9)
+                      </p>
+                      <p className={pwChecks.symbol ? "text-emerald-700" : "text-gray-500"}>
+                        <span className="mr-1">{pwChecks.symbol ? "✓" : "•"}</span>
+                        มีอักขระพิเศษ เช่น ! @ # $ %
+                      </p>
+                      <p className="text-[10px] text-gray-400 sm:col-span-2 mt-1">
+                        กรุณาตั้งรหัสผ่านด้วยตัวอักษรภาษาอังกฤษ (a-z, A-Z) ตัวเลข และสัญลักษณ์ โดยไม่ใช้ตัวอักษรไทย
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
               </label>
 
               {/* customer signup: password + confirm (match store's behavior) */}
@@ -928,7 +1123,10 @@ export default function Signup() {
                   minLength={8}
                   placeholder="กรอกรหัสผ่านอีกครั้ง"
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[\u0E00-\u0E7F]/g, "");
+                    setConfirmPassword(val);
+                  }}
                   required
                   left={Icon.lock()}
                   right={null}
@@ -1039,7 +1237,7 @@ export default function Signup() {
                   required
                   left={Icon.mail()}
                   onChange={(e) => {
-                    e.target.value = stripEmojisAndSpecials(e.target.value)
+                    e.target.value = stripEmojisAndSpecials(e.target.value).replace(/[\u0E00-\u0E7F]/g, "");
                   }}
                 />
               </label>
@@ -1310,12 +1508,87 @@ export default function Signup() {
                   minLength={8}
                   placeholder="กรอกรหัสผ่าน (อย่างน้อย 8 ตัวอักษร)"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[\u0E00-\u0E7F]/g, "");
+                    setPassword(val);
+                  }}
                   required
                   left={Icon.lock()}
                   right={null} // ตัดไอคอนตาออก
                   invalid={!!pwError && password.length < 8}
                 />
+                {password ? (
+                  <div
+                    className={
+                      "mt-2 rounded-lg border px-3 py-2 " +
+                      (pwStrength <= 1
+                        ? "border-red-100 bg-red-50/70"
+                        : pwStrength === 2
+                        ? "border-amber-100 bg-amber-50/70"
+                        : "border-emerald-100 bg-emerald-50/70")
+                    }
+                  >
+                    <div className="flex items-center justify-between text-[11px] font-medium">
+                      <span className="text-gray-600 flex items-center gap-1">
+                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-blue-400" />
+                        ความปลอดภัยของรหัสผ่าน
+                      </span>
+                      <span
+                        className={
+                          pwStrength <= 1
+                            ? "text-red-600"
+                            : pwStrength === 2
+                            ? "text-yellow-600"
+                            : "text-emerald-600"
+                        }
+                      >
+                        {pwStrength <= 1
+                          ? "ความปลอดภัยต่ำ"
+                          : pwStrength === 2
+                          ? "ความปลอดภัยปานกลาง"
+                          : "ความปลอดภัยสูง"}
+                      </span>
+                    </div>
+                    <div className="mt-1 h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
+                      <div
+                        className={
+                          "h-full transition-all duration-200 " +
+                          (pwStrength <= 1
+                            ? "bg-red-500"
+                            : pwStrength === 2
+                            ? "bg-yellow-500"
+                            : "bg-emerald-500")
+                        }
+                        style={{ width: `${pwStrength <= 1 ? 33 : pwStrength === 2 ? 66 : 100}%` }}
+                      />
+                    </div>
+                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-[11px]">
+                      <p className={pwChecks.length ? "text-emerald-700" : "text-gray-500"}>
+                        <span className="mr-1">{pwChecks.length ? "✓" : "•"}</span>
+                        ยาวอย่างน้อย 8 ตัวอักษรขึ้นไป
+                      </p>
+                      <p className={pwChecks.lower ? "text-emerald-700" : "text-gray-500"}>
+                        <span className="mr-1">{pwChecks.lower ? "✓" : "•"}</span>
+                        มีตัวอักษรตัวพิมพ์เล็ก (a-z)
+                      </p>
+                      <p className={pwChecks.upper ? "text-emerald-700" : "text-gray-500"}>
+                        <span className="mr-1">{pwChecks.upper ? "✓" : "•"}</span>
+                        มีตัวอักษรตัวพิมพ์ใหญ่ (A-Z)
+                      </p>
+                      <p className={pwChecks.digit ? "text-emerald-700" : "text-gray-500"}>
+                        <span className="mr-1">{pwChecks.digit ? "✓" : "•"}</span>
+                        มีตัวเลข (0-9)
+                      </p>
+                      <p className={pwChecks.symbol ? "text-emerald-700" : "text-gray-500"}>
+                        <span className="mr-1">{pwChecks.symbol ? "✓" : "•"}</span>
+                        มีอักขระพิเศษ เช่น ! @ # $ %
+                      </p>
+                      <p className="text-[10px] text-gray-400 sm:col-span-2 mt-1">
+                        กรุณาตั้งรหัสผ่านด้วยตัวอักษรภาษาอังกฤษ (a-z, A-Z) ตัวเลข และสัญลักษณ์ โดยไม่ใช้ตัวอักษรไทย
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
               </label>
 
               <label className="block">
@@ -1327,7 +1600,10 @@ export default function Signup() {
                   minLength={8}
                   placeholder="กรอกรหัสผ่านอีกครั้ง"
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[\u0E00-\u0E7F]/g, "");
+                    setConfirmPassword(val);
+                  }}
                   required
                   left={Icon.lock()}
                   right={null} // ตัดไอคอนตาออก
