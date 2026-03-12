@@ -94,7 +94,7 @@ export default function Footer() {
                 <Link to="/warranty" className="text-gray-300 hover:text-white transition-colors">จัดการใบรับประกัน</Link>
               </li>
               <li>
-                <Link to="/customer" className="text-gray-300 hover:text-white transition-colors">จัดการลูกค้า</Link>
+                <Link to="/dashboard/store" className="text-gray-300 hover:text-white transition-colors">จัดการลูกค้า</Link>
               </li>
               <li>
                 <Link to="/dashboard/store" className="text-gray-300 hover:text-white transition-colors">รายงานและสถิติ</Link>
