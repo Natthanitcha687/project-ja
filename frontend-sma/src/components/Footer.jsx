@@ -100,7 +100,7 @@ export default function Footer() {
                 <Link to="/dashboard/store" className="text-gray-300 hover:text-white transition-colors">รายงานและสถิติ</Link>
               </li>
               <li>
-                <Link to="/docs#notifications" className="text-gray-300 hover:text-white transition-colors">การแจ้งเตือน</Link>
+                <Link to="/notifications" className="text-gray-300 hover:text-white transition-colors">การแจ้งเตือน</Link>
               </li>
             </ul>
           </div>
