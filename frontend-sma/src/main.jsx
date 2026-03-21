@@ -1,5 +1,6 @@
 // src/main.jsx
 import React from 'react'
+import Notifications from './pages/Notifications.jsx'
 import { createRoot } from 'react-dom/client'
 import {
   createBrowserRouter,
@@ -132,6 +133,7 @@ const router = createBrowserRouter([
       { path: '/about', element: <About /> },
       { path: '/docs', element: <Docs /> },
       { path: '/faq', element: <Faq /> },
+      { path: '/notifications', element: <Notifications /> },
       { path: '/signin', element: <SignIn /> },
       { path: '/signup', element: <SignUp /> },
 
