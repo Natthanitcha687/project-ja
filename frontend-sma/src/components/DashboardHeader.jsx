@@ -290,7 +290,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
               className="relative grid h-10 w-10 place-items-center rounded-full bg-white shadow ring-1 ring-black/5 hover:bg-gray-50 transition"
               aria-label="การแจ้งเตือน"
             >
-              <HiOutlineBell className="h-5 w-5 text-slate-700" />
+              <img src="/home-assets/noti.jpg" alt="แจ้งเตือน" className="h-5 w-5 object-contain" />
               {unreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 flex h-4 min-w-[14px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] text-white">
                   {unreadCount}
@@ -299,7 +299,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
             </button>
 
             {notifOpen && (
-              <div className="absolute top-12 w-64 sm:w-80 max-w-[calc(100vw-1rem)] rounded-2xl bg-white p-3 text-sm shadow-xl ring-1 ring-black/5 notif-dropdown sm:right-4 sm:left-auto sm:translate-x-0">
+              <div className="notif-dropdown absolute top-12 w-64 sm:w-80 max-w-[calc(100vw-1rem)] rounded-2xl bg-white p-3 text-sm shadow-xl ring-1 ring-black/5 sm:right-4 sm:left-auto sm:translate-x-0">
                 <div className="mb-2 flex items-center justify-between">
                   <div className="text-sm font-medium text-slate-900">การแจ้งเตือน</div>
                   <button
@@ -339,7 +339,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
                       >
                         <div className="flex items-start gap-3">
                           <div className="h-8 w-8 shrink-0 rounded-full bg-sky-100 grid place-items-center text-xs text-sky-700">
-                            <HiOutlineBell className="h-4 w-4" />
+                            <img src="/home-assets/noti.jpg" alt="แจ้งเตือน" className="h-4 w-4 object-contain" />
                           </div>
                           <div className="flex-1">
                             <div className="text-sm font-medium text-slate-900">
@@ -442,9 +442,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
                     alt="Store"
                     className="h-full w-full object-cover"
                   />
-                ) : (
-                  (displayName || '?').charAt(0).toUpperCase()
-                )}
+                ) : null}
               </div>
               <div className="hidden text-left text-sm md:block">
                 <div className="font-medium text-slate-900">{displayName}</div>
@@ -469,9 +467,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
                         alt="Store"
                         className="h-full w-full object-cover"
                       />
-                    ) : (
-                      '👤'
-                    )}
+                    ) : null}
                   </div>
                   <div className="min-w-0">
                     <div className="truncate font-semibold text-slate-900">

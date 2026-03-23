@@ -51,5 +51,16 @@
     "setupAlerts": "Set alerts"
   },
   "labels": { "active": "Active", "expiring": "Expiring", "expired": "Expired" },
-  "accessibilityHints": { "colorAndText": "Use color + text (e.g. 'Active') and an icon to support users who have difficulty perceiving color" }
+  "accessibilityHints": { "colorAndText": "Use color + text (e.g. 'Active') and an icon to support users who have difficulty perceiving color" },
+  "navbar": {
+    "logo": "Warranty",
+    "subtitle": "Manage your warranties in one place",
+    "home": "Home",
+    "warranty": "Warranty",
+    "about": "About Us",
+    "gotoDashboard": "Go to Dashboard",
+    "logout": "Logout",
+    "signin": "Sign In",
+    "signup": "Sign Up"
+  }
 }
