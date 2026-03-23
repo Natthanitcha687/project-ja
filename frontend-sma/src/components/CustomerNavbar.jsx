@@ -3,10 +3,13 @@ import { Link, useNavigate } from "react-router-dom";
 import { api, API_URL, getToken } from "../lib/api";
 import { useAuth } from "../store/auth";
 import AppLogo from "../components/AppLogo"; // ✅ ใช้โลโก้จริง
+import LanguageSwitcher from "./LanguageSwitcher";
+import { useTranslation } from 'react-i18next';
 import CustomerProfileModal from "./CustomerProfileModal";
 import { HiOutlineBell, HiOutlineClipboardList } from "react-icons/hi";
 
 export default function CustomerNavbar() {
+  const { t } = useTranslation();
   const { user, logout, loadMe } = useAuth();
   const navigate = useNavigate();
 
@@ -332,6 +335,7 @@ export default function CustomerNavbar() {
         setOpenMenu(false);
       }
       if (notifRef.current && !notifRef.current.contains(e.target)) {
+          {/* ...existing code... */}
         setOpenNotif(false);
       }
     };
@@ -515,22 +519,22 @@ export default function CustomerNavbar() {
   return (
     <>
       <header className="sticky top-0 z-30 border-b border-sky-200 bg-sky-50/80 backdrop-blur">
-        <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
+        <nav className="mx-auto flex h-16 max-w-6xl items-center px-4">
           {/* --- โลโก้ฝั่งซ้าย --- */}
           <Link to="/" className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-sky-100">
               <AppLogo className="h-6 w-6" />
             </div>
             <div>
-              <div className="text-lg font-semibold text-sky-900">Warranty</div>
+              <div className="text-lg font-semibold text-sky-900">{t('navbar.logo', 'Warranty')}</div>
               <div className="text-xs text-slate-500">
-                จัดการการรับประกันของคุณได้ในที่เดียว
+                {t('navbar.subtitle', 'จัดการการรับประกันของคุณได้ในที่เดียว')}
               </div>
             </div>
           </Link>
 
-          {/* --- ขวา: แจ้งเตือน + โปรไฟล์ --- */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 ml-auto">
+            {/* --- ขวา: แจ้งเตือน + โปรไฟล์ --- */}
             {/* 🔔 ปุ่มแจ้งเตือน */}
             <div className="relative" ref={notifRef}>
               <button
@@ -545,7 +549,7 @@ export default function CustomerNavbar() {
                 }}
                 className="grid h-9 w-9 place-items-center rounded-full bg-white shadow ring-1 ring-sky-100 text-sky-600 hover:bg-sky-50 transition"
               >
-                <HiOutlineBell className="h-5 w-5" />
+                <img src="/home-assets/noti.jpg" alt="แจ้งเตือน" className="h-5 w-5 object-contain" />
                 {/* badge จะแสดงจำนวนที่ยังไม่อ่าน */}
                 {unreadCount > 0 && (
                   <span className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-rose-500 text-[10px] text-white">
@@ -727,6 +731,7 @@ export default function CustomerNavbar() {
                 </Link>
               </div>
             )}
+            <LanguageSwitcher />
           </div>
 
           {/* --- เมนู dropdown โปรไฟล์ (เมื่อล็อกอิน) --- */}

@@ -1,8 +1,11 @@
 // src/components/Navbar.jsx
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../store/auth'
+import LanguageSwitcher from './LanguageSwitcher'
+import { useTranslation } from 'react-i18next';
 
 export default function Navbar() {
+  const { t } = useTranslation();
   const { pathname } = useLocation();
   const navigate = useNavigate();
 
@@ -56,11 +59,12 @@ export default function Navbar() {
             className="w-8 h-8 object-contain drop-shadow-sm"
             draggable="false"
           />
-          <span className="text-xl font-semibold text-gray-900">Warranty</span>
+          <span className="text-xl font-semibold text-gray-900">{t('navbar.logo', 'Warranty')}</span>
         </Link>
+        {/* ...existing code... */}
 
         {/* เมนูกลาง */}
-        <div className="hidden md:flex items-center gap-6">
+        <div className="hidden md:flex items-center gap-6 flex-1 justify-center">
           <NavLink
             end
             to="/"
@@ -68,7 +72,7 @@ export default function Navbar() {
               `text-sm ${isActive ? 'text-gray-900' : 'text-gray-600 hover:text-gray-900'}`
             }
           >
-            หน้าหลัก
+            {t('navbar.home', 'หน้าหลัก')}
           </NavLink>
           <NavLink
             to="/warranty"
@@ -76,7 +80,7 @@ export default function Navbar() {
               `text-sm ${isActive ? 'text-gray-900' : 'text-gray-600 hover:text-gray-900'}`
             }
           >
-            การรับประกัน
+            {t('navbar.warranty', 'การรับประกัน')}
           </NavLink>
           <NavLink
             to="/about"
@@ -84,79 +88,82 @@ export default function Navbar() {
               `text-sm ${isActive ? 'text-gray-900' : 'text-gray-600 hover:text-gray-900'}`
             }
           >
-            เกี่ยวกับเรา
+            {t('navbar.about', 'เกี่ยวกับเรา')}
           </NavLink>
 
           {/* If authenticated, dashboard link is available on the right as 'ไปที่แดชบอร์ด' —
               remove duplicate middle nav item to avoid repetition */}
         </div>
 
-        {/* ปุ่มขวา */}
-        {isAuthenticated ? (
-          <div className="flex items-center gap-4">
-            <Link
-              to={dashHref}
-              className="hidden md:inline text-sm font-medium text-[color:var(--brand)] hover:text-[color:var(--brand-600)]"
-            >
-              ไปที่แดชบอร์ด
-            </Link>
-            <Link
-              to={dashHref}
-              className="flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-sm text-blue-700 hover:bg-blue-100 transition"
-              title="ไปที่แดชบอร์ด"
-            >
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white overflow-hidden">
-                {avatarUrl ? (
-                  <img
-                    src={avatarUrl}
-                    alt="รูปโปรไฟล์ลูกค้า"
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  role === 'STORE' ? (
+        {/* ปุ่มขวา + LanguageSwitcher */}
+        <div className="flex items-center gap-3 ml-auto">
+          {isAuthenticated ? (
+            <>
+              <Link
+                to={dashHref}
+                className="hidden md:inline text-sm font-medium text-[color:var(--brand)] hover:text-[color:var(--brand-600)]"
+              >
+                {t('navbar.gotoDashboard', 'ไปที่แดชบอร์ด')}
+              </Link>
+              <Link
+                to={dashHref}
+                className="flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-sm text-blue-700 hover:bg-blue-100 transition"
+                title={t('navbar.gotoDashboard', 'ไปที่แดชบอร์ด')}
+              >
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white overflow-hidden">
+                  {avatarUrl ? (
                     <img
-                      src="/home-assets/store.png"
-                      alt="Store"
+                      src={avatarUrl}
+                      alt="รูปโปรไฟล์ลูกค้า"
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <span role="img" aria-label="customer-avatar">
-                      👤
-                    </span>
-                  )
-                )}
-              </span>
-              <span className="hidden sm:inline">{displayName}</span>
-            </Link>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="text-sm text-gray-500 hover:text-gray-800 transition"
-            >
-              ออกจากระบบ
-              <img src="/home-assets/logout.png" alt="ออกจากระบบ" className="inline h-4 w-4 object-cover ml-2" aria-hidden="true" />
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-3">
-            {onSignin && (
-              <Link
-                to="/signin"
-                className="inline-flex items-center justify-center rounded-xl border border-blue-600 text-blue-700 px-4 py-2 text-sm font-medium hover:bg-blue-50 transition"
-              >
-                เข้าสู่ระบบ
+                    role === 'STORE' ? (
+                      <img
+                        src="/home-assets/store.png"
+                        alt="Store"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span role="img" aria-label="customer-avatar">
+                        👤
+                      </span>
+                    )
+                  )}
+                </span>
+                <span className="hidden sm:inline">{displayName}</span>
               </Link>
-            )}
-            {onSignup && (
-              <Link
-                to="/signup"
-                className="inline-flex items-center justify-center rounded-xl bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700 transition shadow-sm"
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="text-sm text-gray-500 hover:text-gray-800 transition"
               >
-                สมัครสมาชิก
-              </Link>
-            )}
-          </div>
-        )}
+                {t('navbar.logout', 'ออกจากระบบ')}
+                <img src="/home-assets/logout.png" alt={t('navbar.logout', 'ออกจากระบบ')} className="inline h-4 w-4 object-cover ml-2" aria-hidden="true" />
+              </button>
+            </>
+          ) : (
+            <>
+              {onSignin && (
+                <Link
+                  to="/signin"
+                  className="inline-flex items-center justify-center rounded-xl border border-blue-600 text-blue-700 px-4 py-2 text-sm font-medium hover:bg-blue-50 transition"
+                >
+                  {t('navbar.signin', 'เข้าสู่ระบบ')}
+                </Link>
+              )}
+              {onSignup && (
+                <Link
+                  to="/signup"
+                  className="inline-flex items-center justify-center rounded-xl bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700 transition shadow-sm"
+                >
+                  {t('navbar.signup', 'สมัครสมาชิก')}
+                </Link>
+              )}
+            </>
+          )}
+          <LanguageSwitcher />
+        </div>
       </nav>
     </header>
   );
