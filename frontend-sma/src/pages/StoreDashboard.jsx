@@ -1116,7 +1116,7 @@ export default function StoreDashboard() {
                 {profileAvatarSrc ? (
                   <img src={profileAvatarSrc} alt="Store profile" className="h-12 w-12 rounded-full object-cover" />
                 ) : (
-                  <div className="grid h-12 w-12 place-items-center rounded-full bg-sky-200 text-2xl">🏪</div>
+                  <img src="/home-assets/store.png" alt="Store profile" className="h-12 w-12 rounded-full object-cover" />
                 )}
                 <div>
                   <div className="text-base font-semibold text-gray-900">แก้ไขข้อมูลโปรไฟล์</div>
@@ -1184,7 +1184,7 @@ export default function StoreDashboard() {
                     {profileAvatarSrc ? (
                       <img src={profileAvatarSrc} alt="Store profile" className="h-16 w-16 rounded-full object-cover" />
                     ) : (
-                      <div className="grid h-16 w-16 place-items-center rounded-full bg-sky-200 text-3xl">🏪</div>
+                      <img src="/home-assets/store.png" alt="Store profile" className="h-16 w-16 rounded-full object-cover" />
                     )}
                     <div>
                       <button

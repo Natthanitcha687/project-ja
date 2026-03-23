@@ -669,7 +669,7 @@ export default function CustomerNavbar() {
                   setOpenNotif(false);
                 }}
               >
-                <HiOutlineClipboardList className="h-4 w-4" />
+                <img src="/home-assets/report.jpg" alt="แจ้งปัญหา" className="h-4 w-4 object-cover" />
                 <span className="hidden md:inline">แจ้งปัญหา</span>
               </Link>
             )}
@@ -690,9 +690,11 @@ export default function CustomerNavbar() {
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <span role="img" aria-label="customer-avatar">
-                      👤
-                    </span>
+                    <img
+                      src="/home-assets/customer.jpg"
+                      alt="customer-avatar"
+                      className="h-full w-full object-cover"
+                    />
                   )}
                 </div>
                 <div className="hidden sm:block text-left">
