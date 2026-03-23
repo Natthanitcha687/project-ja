@@ -2138,7 +2138,8 @@ export default function WarrantyDashboard() {
                                         })}
                                         className="rounded-xl border border-sky-400 bg-sky-500 px-4 py-2.5 text-sm text-white font-medium shadow-sm hover:bg-sky-600 hover:-translate-y-0.5 transition flex items-center gap-2"
                                       >
-                                        <span>📋</span>
+                                        <img src="/home-assets/report.jpg" alt="แจ้งปัญหา" className="inline h-5 w-5 object-cover align-text-bottom" />
+                                                                                <img src="/home-assets/report.jpg" alt="แจ้งปัญหา" className="inline h-5 w-5 object-cover align-text-bottom" />
                                         <span>ดูเงื่อนไข ({(it.selectedConditions?.length || 0) + (it.customCondition ? 1 : 0)})</span>
                                       </button>
                                     ) : (
@@ -2206,7 +2207,7 @@ export default function WarrantyDashboard() {
                                       className="flex items-center gap-2 rounded-full border border-sky-500 px-4 py-2 text-sm font-medium text-sky-700 bg-white hover:-translate-y-0.5 hover:bg-sky-50 transition"
                                     >
                                       <span>แก้ไข</span>
-                                      <span aria-hidden>✏️</span>
+                                      <img src="/home-assets/pencil.png" alt="แก้ไข" className="inline h-4 w-4 object-cover ml-2" aria-hidden="true" />
                                     </button>
                                   </div>
                                 </div>
@@ -2277,7 +2278,7 @@ export default function WarrantyDashboard() {
                   {profileAvatarSrc ? (
                     <img src={profileAvatarSrc} alt="Store profile" className="h-12 w-12 rounded-full object-cover" />
                   ) : (
-                    <div className="grid h-12 w-12 place-items-center rounded-full bg-sky-200 text-2xl">🏪</div>
+                    <img src="/home-assets/store.png" alt="Store profile" className="h-12 w-12 rounded-full object-cover" />
                   )}
                   <div>
                     <div className="text-base font-semibold text-gray-900">แก้ไขข้อมูลร้านค้า</div>
@@ -2365,6 +2366,7 @@ export default function WarrantyDashboard() {
                           ) : (
                             <span role="img" aria-label="store-avatar">
                               🏪
+                                                          <img src="/home-assets/store.png" alt="Store profile" className="h-12 w-12 rounded-full object-cover" />
                             </span>
                           )}
                         </div>
@@ -3760,7 +3762,7 @@ export default function WarrantyDashboard() {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
             <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden">
               <div className="flex items-center justify-between bg-sky-600 px-5 py-4">
-                <div className="text-base font-semibold text-white">📋 เงื่อนไขการรับประกัน</div>
+                <div className="text-base font-semibold text-white"><img src="/home-assets/report.jpg" alt="แจ้งปัญหา" className="inline h-5 w-5 object-cover align-text-bottom mr-1" />เงื่อนไขการรับประกัน</div>
                 <button
                   type="button"
                   onClick={() => setConditionsModal({ open: false, conditions: [], custom: '' })}

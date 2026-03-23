@@ -417,7 +417,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
                 setProfileMenuOpen(false)
               }}
             >
-              <HiOutlineClipboardList className="h-4 w-4" />
+              <img src="/home-assets/report.jpg" alt="แจ้งปัญหา" className="h-4 w-4 object-cover" />
               <span className="hidden md:inline">แจ้งปัญหา</span>
             </Link>
           )}
@@ -437,7 +437,11 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
                     className="h-full w-full object-cover"
                   />
                 ) : role === 'STORE' ? (
-                  '🏪'
+                  <img
+                    src="/home-assets/store.png"
+                    alt="Store"
+                    className="h-full w-full object-cover"
+                  />
                 ) : (
                   (displayName || '?').charAt(0).toUpperCase()
                 )}
@@ -460,7 +464,11 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
                         className="h-full w-full object-cover"
                       />
                     ) : role === 'STORE' ? (
-                      '🏪'
+                      <img
+                        src="/home-assets/store.png"
+                        alt="Store"
+                        className="h-full w-full object-cover"
+                      />
                     ) : (
                       '👤'
                     )}
@@ -485,7 +493,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
                   className="flex w-full items-center justify-between rounded-xl bg-sky-50 px-3 py-2 text-slate-700 hover:bg-sky-100"
                 >
                   <span>แก้ไขข้อมูลร้านค้า</span>
-                  <span aria-hidden>✏️</span>
+                  <img src="/home-assets/pencil.png" alt="แก้ไข" className="inline h-4 w-4 object-cover ml-2" aria-hidden="true" />
                 </button>
                 <button
                   type="button"
@@ -496,7 +504,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
                   className="mt-2 flex w-full items-center justify-between rounded-xl px-3 py-2 text-slate-500 hover:bg-slate-50"
                 >
                   <span>ออกจากระบบ</span>
-                  <span aria-hidden>↪️</span>
+                  <img src="/home-assets/logout.png" alt="ออกจากระบบ" className="inline h-4 w-4 object-cover ml-2" aria-hidden="true" />
                 </button>
               </div>
             )}

@@ -114,9 +114,11 @@ export default function Navbar() {
                   />
                 ) : (
                   role === 'STORE' ? (
-                    <span role="img" aria-label="store-avatar">
-                      🏪
-                    </span>
+                    <img
+                      src="/home-assets/store.png"
+                      alt="Store"
+                      className="h-full w-full object-cover"
+                    />
                   ) : (
                     <span role="img" aria-label="customer-avatar">
                       👤
@@ -132,6 +134,7 @@ export default function Navbar() {
               className="text-sm text-gray-500 hover:text-gray-800 transition"
             >
               ออกจากระบบ
+              <img src="/home-assets/logout.png" alt="ออกจากระบบ" className="inline h-4 w-4 object-cover ml-2" aria-hidden="true" />
             </button>
           </div>
         ) : (

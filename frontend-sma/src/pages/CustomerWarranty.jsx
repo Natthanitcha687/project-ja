@@ -761,7 +761,8 @@ export default function CustomerWarranty() {
                                         })}
                                         className="rounded-xl border border-sky-400 bg-sky-500 px-3 py-1.5 text-xs text-white font-medium shadow-sm hover:bg-sky-600 transition inline-flex items-center gap-1"
                                       >
-                                        <span>📋</span>
+                                        <img src="/home-assets/report.jpg" alt="แจ้งปัญหา" className="inline h-5 w-5 object-cover align-text-bottom" />
+                                                                              <img src="/home-assets/report.jpg" alt="แจ้งปัญหา" className="inline h-5 w-5 object-cover align-text-bottom" />
                                         <span>ดูเงื่อนไข ({(it.selectedConditions?.length || 0) + (it.customCondition ? 1 : 0)})</span>
                                       </button>
                                     ) : (
@@ -988,7 +989,7 @@ export default function CustomerWarranty() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between bg-sky-600 px-5 py-4">
-              <div className="text-base font-semibold text-white">📋 เงื่อนไขการรับประกัน</div>
+              <div className="text-base font-semibold text-white"><img src="/home-assets/report.jpg" alt="แจ้งปัญหา" className="inline h-5 w-5 object-cover align-text-bottom mr-1" />เงื่อนไขการรับประกัน</div>
               <button
                 type="button"
                 onClick={() => setConditionsModal({ open: false, conditions: [], custom: '' })}
