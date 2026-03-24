@@ -54,7 +54,7 @@ export default function CustomerProfileModal({ open, onClose, initialTab = 'info
 
   // ✅ วันแจ้งเตือนใกล้หมดประกัน
   const [notifyDaysArray, setNotifyDaysArray] = useState([15]) // default 15 วัน
-  const availableNotifyDays = [15, 7, 3, 1]
+  const availableNotifyDays = [30, 15, 7, 3, 1]
 
   // ---- ฟอร์ม เปลี่ยนรหัสผ่าน ----
   const [oldPassword, setOldPassword] = useState("");

@@ -1563,6 +1563,18 @@ export default function WarrantyDashboard() {
 
         const sameSelected = JSON.stringify(original.selectedConditions || []) === JSON.stringify(Array.isArray(editForm.selectedConditions) ? editForm.selectedConditions : [])
 
+
+        // === Image comparison: count as change if images are added/removed ===
+        const originalImageIds = (selectedItem.images || []).map(img => img.id).filter(Boolean)
+        const currentImageIds = (warrantyImages || [])
+          .filter(img => !(img instanceof File))
+          .map(img => img.id)
+        const newFilesCount = (warrantyImages || []).filter(img => img instanceof File).length
+        const imagesChanged =
+          originalImageIds.length !== currentImageIds.length + newFilesCount ||
+          originalImageIds.some(id => !currentImageIds.includes(id)) ||
+          newFilesCount > 0
+
         const noChange =
           (original.product_name || '') === (editForm.product_name || '') &&
           (original.model || '') === (editForm.model || '') &&
@@ -1577,7 +1589,8 @@ export default function WarrantyDashboard() {
           (original.warranty_terms || '') === (editForm.warranty_terms || '') &&
           (original.note || '') === (editForm.note || '') &&
           sameSelected &&
-          (original.customCondition || '') === (editForm.customCondition || '')
+          (original.customCondition || '') === (editForm.customCondition || '') &&
+          !imagesChanged
 
         if (noChange) {
           Swal.fire({
@@ -2138,8 +2151,7 @@ export default function WarrantyDashboard() {
                                         })}
                                         className="rounded-xl border border-sky-400 bg-sky-500 px-4 py-2.5 text-sm text-white font-medium shadow-sm hover:bg-sky-600 hover:-translate-y-0.5 transition flex items-center gap-2"
                                       >
-                                        <img src="/home-assets/report.jpg" alt="แจ้งปัญหา" className="inline h-5 w-5 object-cover align-text-bottom" />
-                                                                                <img src="/home-assets/report.jpg" alt="แจ้งปัญหา" className="inline h-5 w-5 object-cover align-text-bottom" />
+                                        <img src="/home-assets/condition.png" alt="เงื่อนไขการรับประกัน" className="inline h-5 w-5 object-cover align-text-bottom" />
                                         <span>ดูเงื่อนไข ({(it.selectedConditions?.length || 0) + (it.customCondition ? 1 : 0)})</span>
                                       </button>
                                     ) : (
@@ -2364,10 +2376,11 @@ export default function WarrantyDashboard() {
                               className="h-full w-full object-cover"
                             />
                           ) : (
-                            <span role="img" aria-label="store-avatar">
-                              🏪
-                                                          <img src="/home-assets/store.png" alt="Store profile" className="h-12 w-12 rounded-full object-cover" />
-                            </span>
+                            <img
+                              src="/home-assets/store.png"
+                              alt="Store profile"
+                              className="h-full w-full object-cover"
+                            />
                           )}
                         </div>
                       </div>
@@ -3697,32 +3710,57 @@ export default function WarrantyDashboard() {
                             </div>
                           </div>
 
-                          {/* แนบรูปตอนสร้างเลย */}
+                          {/* แนบรูปตอนสร้างเลย (ใช้ ImageUpload แบบเดียวกับโหมดแก้ไข) */}
                           <div className="mt-3">
-                            <div className="text-sm text-gray-600">รูปภาพประกอบ (อัปโหลดได้สูงสุด 5 รูป)</div>
-                            <div className="mt-2 rounded-2xl border border-dashed border-gray-300 p-4">
-                              <input
-                                type="file"
-                                accept="image/*"
-                                multiple
-                                onChange={(e) => onPickImages(idx, e.target.files)}
-                              />
-                              {it.images?.length > 0 && (
-                                <div className="mt-3 flex flex-wrap gap-2">
-                                  {it.images.map((f, i) => (
-                                    <div key={i} className="h-14 w-14 overflow-hidden rounded-lg border">
-                                      <img
-                                        src={URL.createObjectURL(f)}
-                                        alt={`preview-${i}`}
-                                        className="h-full w-full object-cover"
-                                        onLoad={(e) => URL.revokeObjectURL(e.currentTarget.src)}
-                                      />
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                              <div className="mt-2 text-xs text-gray-500">รองรับ JPG, PNG, GIF, WebP (สูงสุด 5MB, 5 รูป)</div>
-                            </div>
+                            <label className="text-sm text-gray-600">รูปภาพประกอบ</label>
+                            <ImageUpload
+                              images={(it.images || []).map((img, i) => {
+                                if (img && img.previewUrl) {
+                                  // Local file with preview
+                                  return {
+                                    id: i,
+                                    url: img.previewUrl,
+                                    originalName: img.name,
+                                    size: img.size,
+                                  };
+                                } else if (img instanceof File) {
+                                  // Fallback (should not happen after fix)
+                                  return {
+                                    id: i,
+                                    url: '',
+                                    originalName: img.name,
+                                    size: img.size,
+                                  };
+                                } else {
+                                  // Uploaded image from backend
+                                  return img;
+                                }
+                              })}
+                              onUpload={async (files) => {
+                                const current = it.images || [];
+                                const newFiles = Array.from(files).slice(0, 5 - current.length).map(file => ({
+                                  file,
+                                  previewUrl: URL.createObjectURL(file),
+                                  name: file.name,
+                                  size: file.size,
+                                }));
+                                patchItem(idx, { images: [...current, ...newFiles] });
+                              }}
+                              onDelete={async (imageId) => {
+                                let imgs = it.images || [];
+                                // If local file, revoke previewUrl
+                                const img = imgs[imageId];
+                                if (img && img.previewUrl) {
+                                  URL.revokeObjectURL(img.previewUrl);
+                                  imgs = imgs.filter((_, i) => i !== imageId);
+                                } else {
+                                  imgs = imgs.filter((img) => img.id !== imageId);
+                                }
+                                patchItem(idx, { images: imgs });
+                              }}
+                              maxImages={5}
+                              disabled={warrantySubmitting}
+                            />
                           </div>
                         </div>
                       ))}
@@ -3762,7 +3800,7 @@ export default function WarrantyDashboard() {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
             <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden">
               <div className="flex items-center justify-between bg-sky-600 px-5 py-4">
-                <div className="text-base font-semibold text-white"><img src="/home-assets/report.jpg" alt="แจ้งปัญหา" className="inline h-5 w-5 object-cover align-text-bottom mr-1" />เงื่อนไขการรับประกัน</div>
+                <div className="text-base font-semibold text-white"><img src="/home-assets/condition.png" alt="เงื่อนไขการรับประกัน" className="inline h-5 w-5 object-cover align-text-bottom mr-1" />เงื่อนไขการรับประกัน</div>
                 <button
                   type="button"
                   onClick={() => setConditionsModal({ open: false, conditions: [], custom: '' })}

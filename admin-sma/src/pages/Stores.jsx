@@ -41,17 +41,13 @@ function StatusBadge({ status }) {
   );
 }
 
-function StoreAvatar({ avatarUrl }) {
-  // ถ้ามีรูปโปรไฟล์ร้านค้า (avatarUrl) ให้แสดงรูปนั้น ถ้าไม่มี fallback เป็น store.png
-  const src = avatarUrl && avatarUrl.trim() ? avatarUrl : "/home-assets/store.png";
+function StoreAvatar({ name }) {
+  const initial = (name?.trim()?.[0] || "S").toUpperCase();
   return (
-    <div className="grid h-11 w-11 place-items-center rounded-full bg-white ring-1 ring-slate-200 shadow-sm overflow-hidden">
-      <img
-        src={src}
-        alt="Store avatar"
-        className="h-9 w-9 object-cover rounded-full"
-        draggable="false"
-      />
+    <div className="grid h-11 w-11 place-items-center rounded-full bg-white ring-1 ring-slate-200 shadow-sm">
+      <div className="grid h-9 w-9 place-items-center rounded-full bg-sky-50 ring-1 ring-sky-100 text-sky-700 font-extrabold">
+        {initial}
+      </div>
     </div>
   );
 }
@@ -386,14 +382,13 @@ export default function Stores() {
             const type = s?.storeProfile?.storeType || "-";
             const warrantiesCount = s?.warrantiesCount ?? 0;
             const customersCount = s?.customersCount ?? 0;
-            const avatarUrl = s?.storeProfile?.avatarUrl || "";
 
             return (
               <div key={s.id} className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
                 <div className="p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <StoreAvatar avatarUrl={avatarUrl} />
+                      <StoreAvatar name={name} />
                       <div className="min-w-0">
                         <div className="truncate text-base font-extrabold text-slate-900">{name}</div>
                         {/* ✅ เพิ่ม contrast */}

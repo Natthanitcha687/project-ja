@@ -692,6 +692,7 @@ export default function CustomerNavbar() {
                       src={avatarUrl}
                       alt="รูปโปรไฟล์ลูกค้า"
                       className="h-full w-full object-cover"
+                      onError={e => { e.target.src = '/home-assets/customer.jpg'; }}
                     />
                   ) : (
                     <img
