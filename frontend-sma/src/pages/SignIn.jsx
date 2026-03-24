@@ -419,6 +419,10 @@ export default function SignIn() {
     } catch (err) {
       const status = err?.response?.status;
       const body = err?.response?.data || {};
+      if (status === 404) {
+        setError(body?.message || "ไม่พบอีเมลนี้ในระบบ กรุณาสมัครสมาชิกก่อน");
+        return;
+      }
       if (status === 403 && body?.needsVerify) {
         const verifyUrl = body?.verifyUrl;
         const q = new URLSearchParams();

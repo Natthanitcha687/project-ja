@@ -495,7 +495,7 @@ export async function login(req, res) {
 
     if (!user) {
       await logSecurityEvent(req, 'USER_LOGIN_FAIL', { email: email || null })
-      return res.status(401).json({ message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' })
+      return res.status(404).json({ message: 'ไม่พบอีเมลนี้ในระบบ กรุณาสมัครสมาชิกก่อน' })
     }
 
     // ✅ เช็คว่าถูก lock จาก failed login หรือไม่
