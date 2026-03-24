@@ -1,3 +1,61 @@
+// ✅ best-effort audit log ตอนลบข้อมูลระดับ “ใบ” (ห้ามทำให้ระบบพัง)
+async function auditDeleteWarrantyHeaderBestEffort(req, beforeHeader) {
+  try {
+    const actorUserId = Number(req.user?.id ?? req.user?.sub);
+    const actorOk = Number.isInteger(actorUserId) ? actorUserId : null;
+
+    const customerUserId = beforeHeader?.customerUserId ?? null;
+    const customerEmail = beforeHeader?.customerEmail ?? null;
+
+    const targetType = customerUserId ? "User" : customerEmail ? "CustomerEmail" : null;
+    const targetId = customerUserId
+      ? String(customerUserId)
+      : customerEmail
+      ? String(customerEmail)
+      : null;
+
+    const xf = req.headers["x-forwarded-for"];
+    const ipFromXf =
+      typeof xf === "string"
+        ? xf.split(",")[0].trim()
+        : Array.isArray(xf)
+        ? String(xf[0]).split(",")[0].trim()
+        : null;
+
+    const ip =
+      ipFromXf ||
+      req.headers["x-real-ip"]?.toString()?.trim() ||
+      req.headers["cf-connecting-ip"]?.toString()?.trim() ||
+      req.ip ||
+      null;
+
+    const userAgent =
+      (typeof req.get === "function" ? req.get("user-agent") : null) || null;
+
+    await prisma.auditLog.create({
+      data: {
+        actorUserId: actorOk,
+        action: "DELETE_WARRANTY_HEADER",
+        targetType,
+        targetId,
+        ip,
+        userAgent,
+        meta: {
+          result: "SUCCESS",
+          storeId: beforeHeader?.storeId ?? null,
+          warrantyId: beforeHeader?.id ?? null,
+          warrantyCode: beforeHeader?.code ?? null,
+          customerUserId,
+          customerEmail,
+          before: jsonSafe(beforeHeader),
+        },
+      },
+    });
+  } catch (e) {
+    // ห้าม throw error เด็ดขาด
+    console.warn("auditDeleteWarrantyHeaderBestEffort error", e?.message || e);
+  }
+}
 import PDFDocument from "pdfkit";
 import fs from "fs";
 import path from "path";
@@ -678,6 +736,7 @@ export async function deleteWarrantyHeader(req, res) {
     return sendError(res, 401, "ต้องเข้าสู่ระบบร้านค้าก่อน");
   }
 
+
   try {
     const warrantyId = String(req.params.warrantyId);
 
@@ -692,6 +751,9 @@ export async function deleteWarrantyHeader(req, res) {
     if (!header || header.storeId !== storeId) {
       return sendError(res, 404, "ไม่พบใบรับประกัน");
     }
+
+    // ✅ AuditLog: DELETE_WARRANTY_HEADER (best-effort)
+    await auditDeleteWarrantyHeaderBestEffort(req, header);
 
     const code = header.code || "";
     const customerEmail = header.customerEmail || null;
