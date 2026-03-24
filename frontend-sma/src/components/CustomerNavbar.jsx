@@ -687,7 +687,7 @@ export default function CustomerNavbar() {
               >
                 {/* Avatar ลูกค้า: แสดงรูปจริงถ้ามี, ถ้าไม่มีก็ใช้ไอคอนเดิม */}
                 <div className="grid h-10 w-10 place-items-center rounded-full bg-sky-500 text-white text-xl shadow overflow-hidden">
-                  {avatarUrl ? (
+                  {avatarUrl && avatarUrl.trim() !== "" ? (
                     <img
                       src={avatarUrl}
                       alt="รูปโปรไฟล์ลูกค้า"
