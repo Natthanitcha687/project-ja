@@ -261,9 +261,11 @@ export default function CustomerProfileModal({ open, onClose, initialTab = 'info
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <span role="img" aria-label="avatar">
-                        👤
-                      </span>
+                      <img
+                        src="/home-assets/customer.jpg"
+                        alt="customer-avatar"
+                        className="h-full w-full object-cover"
+                      />
                     )}
                   </div>
                 </div>
