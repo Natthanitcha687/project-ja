@@ -1590,7 +1590,37 @@ export default function WarrantyDashboard() {
           (original.note || '') === (editForm.note || '') &&
           sameSelected &&
           (original.customCondition || '') === (editForm.customCondition || '') &&
-          !imagesChanged
+          !imagesChanged &&
+          // Address fields dirty check
+          ((() => {
+            // original address
+            let originalAddressParts = { street: '', province: '', district: '', subdistrict: '', postcode: '' };
+            try {
+              const originalAddress = selectedItem._headerAddress;
+              if (originalAddress && typeof originalAddress === 'string') {
+                try {
+                  const parsed = JSON.parse(originalAddress);
+                  originalAddressParts = {
+                    street: parsed?.street || parsed?.address || '',
+                    province: parsed?.province?.id || parsed?.province?.code || '',
+                    district: parsed?.district?.id || parsed?.district?.code || '',
+                    subdistrict: parsed?.subdistrict?.id || parsed?.subdistrict?.code || '',
+                    postcode: parsed?.postcode || parsed?.subdistrict?.zipcode || '',
+                  };
+                } catch {
+                  originalAddressParts = { street: String(originalAddress), province: '', district: '', subdistrict: '', postcode: '' };
+                }
+              }
+            } catch {}
+            const currentAddressParts = editCustomerAddressParts || { street: '', province: '', district: '', subdistrict: '', postcode: '' };
+            return (
+              (originalAddressParts.street || '') === (currentAddressParts.street || '') &&
+              (originalAddressParts.province || '') === (currentAddressParts.province || '') &&
+              (originalAddressParts.district || '') === (currentAddressParts.district || '') &&
+              (originalAddressParts.subdistrict || '') === (currentAddressParts.subdistrict || '') &&
+              (originalAddressParts.postcode || '') === (currentAddressParts.postcode || '')
+            );
+          })())
 
         if (noChange) {
           Swal.fire({

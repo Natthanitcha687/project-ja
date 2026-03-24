@@ -1,7 +1,7 @@
 // admin-sma/src/pages/Stores.jsx
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
-import { stripEmojisAndSpecials } from "../lib/text";
+import { stripEmojis, stripEmojisAndSpecials } from "../lib/text";
 
 const PAGE_SIZE = 10;
 
