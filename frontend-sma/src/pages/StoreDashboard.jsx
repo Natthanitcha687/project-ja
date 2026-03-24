@@ -229,7 +229,21 @@ export default function StoreDashboard() {
       setProfileStoreTypeValue('')
       setProfileCustomStoreType('')
     }
-    setProfileImage({ file: null, preview: profile?.avatarUrl || '' })
+    // Sanitize avatarUrl: ถ้าไม่ใช่รูป ให้ลบทิ้งทันที (ป้องกันอิโมจิ/ตัวอักษร)
+    let avatarPreview = ''
+    let sanitizedAvatarUrl = ''
+    if (profile?.avatarUrl && /^data:image\//.test(profile.avatarUrl)) {
+      avatarPreview = profile.avatarUrl
+      sanitizedAvatarUrl = profile.avatarUrl
+    } else if (profile?.avatarUrl && /\.(jpg|jpeg|png|gif|webp)$/i.test(profile.avatarUrl)) {
+      avatarPreview = profile.avatarUrl
+      sanitizedAvatarUrl = profile.avatarUrl
+    } else {
+      avatarPreview = ''
+      sanitizedAvatarUrl = ''
+    }
+    setProfile((p) => ({ ...p, avatarUrl: sanitizedAvatarUrl }))
+    setProfileImage({ file: null, preview: avatarPreview })
     setProfileModalOpen(true)
     setProfileTab('info')
     setModalError('')
@@ -248,8 +262,18 @@ export default function StoreDashboard() {
       if (baseType === 'other') {
         finalStoreType = `other:${String(profileCustomStoreType || '').trim()}`
       }
-      if (!finalStoreType && profile?.storeType) {
-        finalStoreType = profile.storeType
+      // fallback: ถ้าไม่มีค่าเลย ให้ส่ง "other" (ป้องกันว่าง)
+      if (!finalStoreType) {
+        finalStoreType = 'other'
+      }
+      // sanitize avatarUrl: อนุญาตเฉพาะ base64 หรือไฟล์รูปเท่านั้น
+      let avatarUrl = profile?.avatarUrl || ''
+      if (
+        avatarUrl &&
+        !/^data:image\//.test(avatarUrl) &&
+        !/\.(jpg|jpeg|png|gif|webp)$/i.test(avatarUrl)
+      ) {
+        avatarUrl = ''
       }
       const payload = {
         storeName: profile?.storeName,
@@ -259,7 +283,7 @@ export default function StoreDashboard() {
         storeType: finalStoreType,
         address: JSON.stringify({ street: addressParts.street || '', subdistrict: addressParts.subdistrict || '', district: addressParts.district || '', province: addressParts.province || '', postcode: addressParts.postcode || '' }),
         businessHours: JSON.stringify(businessSchedule),
-        avatarUrl: profile?.avatarUrl,
+        avatarUrl,
       }
       const response = await api.patch(`/store/${storeIdResolved}/profile`, payload)
       const updatedProfile = response.data?.data?.storeProfile ?? payload
@@ -455,7 +479,8 @@ export default function StoreDashboard() {
   }, [isProfileMenuOpen])
 
   // ---------- ชื่อ-อีเมล-อวตารโชว์บนหัว (เหมือนหน้า Warranty) ----------
-  const profileAvatarSrc = profile?.avatarUrl || ''
+  // Always use uploaded image or fallback, never emoji/initials
+  const profileAvatarSrc = profile?.avatarUrl && profile?.avatarUrl.trim() !== '' ? profile.avatarUrl : '/home-assets/store.png'
   const storeDisplayName = profile?.storeName || user?.store?.name || user?.storeName || user?.name || 'ร้านของฉัน'
   const storeEmail = profile?.email || user?.store?.email || user?.email || ''
   const isAuthenticated = !!user
@@ -1113,11 +1138,7 @@ export default function StoreDashboard() {
           <div className="w-full max-w-full sm:max-w-lg mx-auto rounded-3xl border border-sky-200 bg-white shadow-2xl max-h-[94vh] overflow-x-hidden overflow-y-auto box-border">
             <div className="sticky top-0 z-30 flex items-center justify-between border-b border-sky-100 px-3 sm:px-6 py-3 sm:py-4 bg-white">
               <div className="flex items-center gap-3">
-                {profileAvatarSrc ? (
-                  <img src={profileAvatarSrc} alt="Store profile" className="h-12 w-12 rounded-full object-cover" />
-                ) : (
-                  <img src="/home-assets/store.png" alt="Store profile" className="h-12 w-12 rounded-full object-cover" />
-                )}
+                <img src={profileAvatarSrc} alt="Store profile" className="h-12 w-12 rounded-full object-cover" />
                 <div>
                   <div className="text-base font-semibold text-gray-900">แก้ไขข้อมูลโปรไฟล์</div>
                   <div className="text-xs text-sky-600">ข้อมูลจะใช้โชว์ในหัวหน้า dashboard</div>
@@ -1181,11 +1202,17 @@ export default function StoreDashboard() {
                   />
                   <input type="hidden" name="businessHours" value={JSON.stringify(businessSchedule)} />
                   <div className="mb-4 flex items-center gap-4">
-                    {profileAvatarSrc ? (
-                      <img src={profileAvatarSrc} alt="Store profile" className="h-16 w-16 rounded-full object-cover" />
-                    ) : (
-                      <img src="/home-assets/store.png" alt="Store profile" className="h-16 w-16 rounded-full object-cover" />
-                    )}
+                    <img
+                      src={
+                        profileImage.preview &&
+                        (/^data:image\//.test(profileImage.preview) || /\.(jpg|jpeg|png|gif|webp)$/i.test(profileImage.preview))
+                          ? profileImage.preview
+                          : '/home-assets/store.png'
+                      }
+                      alt="Store profile"
+                      className="h-16 w-16 rounded-full object-cover"
+                      onError={e => { e.target.src = '/home-assets/store.png'; }}
+                    />
                     <div>
                       <button
                         type="button"

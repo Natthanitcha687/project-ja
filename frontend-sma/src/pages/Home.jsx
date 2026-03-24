@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import "./Home.css";
 import ShieldLogo from "../components/AppLogo";
 import { API_URL } from "../lib/api";
+import CustomerNavbar from "../components/CustomerNavbar";
+import { useAuth } from "../store/auth";
 
 <Link to="/" className="flex items-center gap-2">
   <ShieldLogo className="w-8 h-8" />
@@ -10,6 +12,10 @@ import { API_URL } from "../lib/api";
 </Link>
 export default function Home() {
   const [stats, setStats] = useState(null);
+  const { user } = useAuth();
+  const customerProfile = user?.customerProfile || {};
+  const avatarUrl = customerProfile.avatarUrl || "";
+  const isAuthenticated = !!user;
 
   useEffect(() => {
     let cancelled = false;
@@ -49,8 +55,19 @@ export default function Home() {
       : null;
   const satisfactionText = satisfactionPct !== null ? `${satisfactionPct}%` : "-";
 
+  const displayName =
+    user?.storeProfile?.storeName || user?.store?.name || user?.storeName ||
+    (customerProfile.firstName
+      ? `${customerProfile.firstName} ${customerProfile.lastName || ""}`.trim()
+      : user?.firstName
+        ? `${user.firstName} ${user.lastName || ""}`.trim()
+        : "บัญชีของฉัน");
+  const displaySub = user?.storeProfile?.email || user?.email;
+
   return (
     <div className="bg-white text-gray-800 overflow-hidden">
+      {/* ===== CUSTOMER PROFILE AVATAR (เหมือน CustomerNavbar) ===== */}
+      {/* Avatar+ชื่อ+อีเมล แสดงแค่กล่องเดียว (ขวาบน) */}
       {/* ===== HERO SECTION ===== */}
       <section className="relative bg-gradient-to-b from-[#e7f2ff] to-[#f5faff] pb-16 overflow-hidden">
         {/* ==== Floating Bubbles ==== */}
@@ -123,7 +140,7 @@ export default function Home() {
           <div className="mt-16 grid sm:grid-cols-2 gap-8 max-w-3xl mx-auto">
             {[
               {
-                icon: "https://cdn-icons-png.flaticon.com/512/1077/1077114.png",
+                icon: "/home-assets/customer.jpg",
                 title: "ลูกค้า",
                 desc: "ตรวจสอบสถานะและเอกสารรับประกันได้ทุกที่ทุกเวลา พร้อมบันทึกข้อมูลสินค้าอย่างเป็นระบบ",
                 btn: "เริ่มต้นสำหรับลูกค้า",

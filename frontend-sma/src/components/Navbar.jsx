@@ -33,7 +33,9 @@ export default function Navbar() {
     displayName = customerProfile.firstName
       ? `${customerProfile.firstName} ${customerProfile.lastName || ''}`.trim()
       : displayName;
-    avatarUrl = customerProfile.avatarUrl || '';
+    avatarUrl = customerProfile.avatarUrl && customerProfile.avatarUrl.trim() !== ''
+      ? customerProfile.avatarUrl
+      : '';
   }
 
   const onSignin = pathname !== "/signin";
@@ -111,21 +113,36 @@ export default function Navbar() {
                 title={t('navbar.gotoDashboard', 'ไปที่แดชบอร์ด')}
               >
                 <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white overflow-hidden">
-                  {avatarUrl ? (
-                    <img
-                      src={avatarUrl}
-                      alt="รูปโปรไฟล์ลูกค้า"
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    role === 'STORE' ? (
+                  {role === 'CUSTOMER' ? (
+                    avatarUrl && avatarUrl.trim() !== '' ? (
+                      <img
+                        src={avatarUrl}
+                        alt="customer-avatar"
+                        className="h-full w-full object-cover"
+                        onError={e => { e.target.src = '/home-assets/customer.jpg'; }}
+                      />
+                    ) : (
+                      <img
+                        src="/home-assets/customer.jpg"
+                        alt="customer-avatar"
+                        className="h-full w-full object-cover"
+                      />
+                    )
+                  ) : role === 'STORE' ? (
+                    avatarUrl && avatarUrl.trim() !== '' ? (
+                      <img
+                        src={avatarUrl}
+                        alt="Store"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
                       <img
                         src="/home-assets/store.png"
                         alt="Store"
                         className="h-full w-full object-cover"
                       />
-                    ) : null
-                  )}
+                    )
+                  ) : null}
                 </span>
                 <span className="hidden sm:inline">{displayName}</span>
               </Link>
