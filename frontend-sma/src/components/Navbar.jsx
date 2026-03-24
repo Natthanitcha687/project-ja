@@ -124,11 +124,7 @@ export default function Navbar() {
                         alt="Store"
                         className="h-full w-full object-cover"
                       />
-                    ) : (
-                      <span role="img" aria-label="customer-avatar">
-                        👤
-                      </span>
-                    )
+                    ) : null
                   )}
                 </span>
                 <span className="hidden sm:inline">{displayName}</span>

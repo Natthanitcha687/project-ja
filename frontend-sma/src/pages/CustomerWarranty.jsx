@@ -554,7 +554,7 @@ export default function CustomerWarranty() {
         >
           <div className="flex-1">
             <div className="flex items-center rounded-2xl bg-white px-4 py-2 shadow ring-1 ring-black/5">
-              <span className="text-slate-400">🔍</span>
+              <img src="/home-assets/search.jpg" alt="ค้นหา" className="h-5 w-5 object-cover mr-1 opacity-70" />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}

@@ -299,7 +299,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
             </button>
 
             {notifOpen && (
-              <div className="notif-dropdown absolute top-12 w-64 sm:w-80 max-w-[calc(100vw-1rem)] rounded-2xl bg-white p-3 text-sm shadow-xl ring-1 ring-black/5 sm:right-4 sm:left-auto sm:translate-x-0">
+              <div className="notif-dropdown absolute top-12 w-64 sm:w-80 max-w-[calc(100vw-1rem)] rounded-2xl bg-white p-3 text-sm shadow-xl ring-1 ring-black/5 left-1/2 -translate-x-1/2 sm:left-auto sm:right-4 sm:translate-x-0">
                 <div className="mb-2 flex items-center justify-between">
                   <div className="text-sm font-medium text-slate-900">การแจ้งเตือน</div>
                   <button

@@ -922,7 +922,7 @@ export default function StoreDashboard() {
             <div className="mt-6 rounded-xl bg-white border border-blue-200 p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="text-3xl">📅</div>
+                  <img src="/home-assets/calender.png" alt="calendar" className="h-8 w-8 object-cover mr-1" />
                   <div>
                     <h3 className="text-xl font-bold text-blue-700">ต่ออายุใบรับประกัน</h3>
                     <p className="text-sm text-blue-600">รายการทั้งหมด {allItems.length} รายการ</p>
@@ -980,7 +980,7 @@ export default function StoreDashboard() {
                             }}
                             className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500 transition"
                           >
-                            <span>📅</span> ต่ออายุ
+                            <img src="/home-assets/calender.png" alt="calendar" className="h-4 w-4 object-cover mr-1" /> ต่ออายุ
                           </button>
                         </td>
                       </tr>
@@ -1042,7 +1042,7 @@ export default function StoreDashboard() {
                           }}
                           className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 transition shadow-sm"
                         >
-                          <span>📅</span> ต่ออายุ
+                          <img src="/home-assets/calender.png" alt="calendar" className="h-4 w-4 object-cover mr-1" /> ต่ออายุ
                         </button>
                       </div>
                     </div>

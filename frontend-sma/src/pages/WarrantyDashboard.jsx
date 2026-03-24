@@ -1975,7 +1975,7 @@ export default function WarrantyDashboard() {
                   className="mb-6 flex flex-wrap items-center gap-2 sm:gap-3 wp-tour-filter-area"
                 >
                   <div className="flex w-full sm:flex-1 sm:w-auto min-w-0 items-center rounded-2xl bg-white px-3 py-2 sm:px-4 shadow ring-1 ring-black/5">
-                    <span className="text-slate-400">🔍</span>
+                    <img src="/home-assets/search.jpg" alt="ค้นหา" className="h-5 w-5 object-cover mr-1 opacity-70" />
                     <input
                       value={searchTerm}
                       onChange={(event) => setSearchTerm(stripEmojisAndSpecials(event.target.value))}
