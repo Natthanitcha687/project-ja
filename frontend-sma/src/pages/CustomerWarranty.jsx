@@ -42,7 +42,7 @@ const fmtDate = (d) => {
   const y = u.getUTCFullYear();
   const m = String(u.getUTCMonth() + 1).padStart(2, "0");
   const day = String(u.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  return `${day}/${m}/${y}`;
 };
 
 function absolutize(p) {

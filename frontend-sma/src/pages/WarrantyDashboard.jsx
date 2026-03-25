@@ -1,5 +1,8 @@
+import './custom-datepicker-popup.css';
 // frontend-sma/src/pages/WarrantyDashboard.jsx
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, forwardRef } from 'react'
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 import { useLocation } from 'react-router-dom'
 import { API_URL, getToken } from '../lib/api'
 import { useNavigate, Link } from 'react-router-dom'
@@ -18,6 +21,7 @@ import introJs from 'intro.js'
 import 'intro.js/introjs.css'
 import { getConditionsForStoreType } from '../data/warrantyConditionTemplates'
 import { FiTrash2 } from 'react-icons/fi'
+import { FaRegCalendar } from 'react-icons/fa';
 
 
 
@@ -187,6 +191,49 @@ function toISODate(d) {
   if (!d || isNaN(d.getTime())) return ''
   return d.toISOString().slice(0, 10)
 }
+function formatForDisplayDate(raw) {
+  if (!raw) return ''
+  // if already in dd/mm/yyyy return as-is
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) return raw
+  // if ISO yyyy-mm-dd -> convert
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const [y, m, d] = raw.split('-')
+    return `${d.padStart(2,'0')}/${m.padStart(2,'0')}/${y}`
+  }
+  // try Date parse fallback
+  try {
+    const dt = new Date(raw)
+    if (!isNaN(dt.getTime())) {
+      const dd = String(dt.getDate()).padStart(2, '0')
+      const mm = String(dt.getMonth() + 1).padStart(2, '0')
+      const yy = dt.getFullYear()
+      return `${dd}/${mm}/${yy}`
+    }
+  } catch (e) {}
+  return String(raw)
+}
+// Custom input for react-datepicker that correctly forwards ref and click
+const CustomDateInput = forwardRef(({ value, onClick, placeholder }, ref) => {
+  return (
+    <div
+      ref={ref}
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-10 py-2 relative"
+    >
+      <input
+        className="w-full bg-transparent px-0 py-0 text-sm text-gray-900 focus:outline-none"
+        value={value || ''}
+        placeholder={placeholder || 'dd/mm/yyyy'}
+        readOnly
+      />
+      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sky-500 pointer-events-none">
+        <FaRegCalendar size={18} />
+      </span>
+    </div>
+  )
+})
 function formatAddress(raw) {
   if (!raw) return ''
   try {
@@ -277,6 +324,7 @@ export default function WarrantyDashboard() {
   const [profileTab, setProfileTab] = useState('info')
   const profileMenuRef = useRef(null)
   const profileImageInputRef = useRef(null)
+  const editDatePickerRef = useRef(null)
 
   const [storeProfile, setStoreProfile] = useState(initialStoreProfile)
   const [addressParts, setAddressParts] = useState({ street: '', subdistrict: '', district: '', province: '', postcode: '' })
@@ -748,14 +796,23 @@ export default function WarrantyDashboard() {
       const changedCustom = 'duration_mode' in patch || 'custom_unit' in patch || 'custom_value' in patch
 
       if ((changedPurchase || changedPreset || changedCustom) && t.purchase_date) {
+        // purchase_date may be stored as dd/mm/yyyy for display; convert to ISO (yyyy-mm-dd) for calculations
+        let purchaseISO = t.purchase_date
+        if (typeof purchaseISO === 'string' && purchaseISO.includes('/')) {
+          const parts = purchaseISO.split('/')
+          if (parts.length === 3) {
+            const [dd, mm, yyyy] = parts
+            purchaseISO = `${yyyy}-${mm}-${dd}`
+          }
+        }
         if (t.duration_mode === 'custom' && t.custom_value) {
-          next[idx].expiry_date = computeExpiry(t.purchase_date, {
+          next[idx].expiry_date = computeExpiry(purchaseISO, {
             unit: t.custom_unit || 'months',
             value: Number(t.custom_value) || 0,
           })
         } else {
           const m = Number(t.duration_months || 0) || 0
-          next[idx].expiry_date = m > 0 ? addMonthsKeepDay(t.purchase_date, m) : ''
+          next[idx].expiry_date = m > 0 ? addMonthsKeepDay(purchaseISO, m) : ''
         }
       }
 
@@ -1103,6 +1160,13 @@ export default function WarrantyDashboard() {
       const params = new URLSearchParams(location.search)
       if (params.get('openProfile') === '1') {
         openProfileModal()
+        // Remove openProfile=1 from URL so reload/F5 does not trigger modal again
+        params.delete('openProfile')
+        const newSearch = params.toString()
+        if (window.history.replaceState) {
+          const newUrl = window.location.pathname + (newSearch ? '?' + newSearch : '') + window.location.hash
+          window.history.replaceState({}, '', newUrl)
+        }
       }
     } catch (e) { }
   }, [location.search])
@@ -2204,8 +2268,8 @@ export default function WarrantyDashboard() {
                                     </div>
                                     <div className="grid gap-2 text-sm text-slate-600 md:grid-cols-2">
                                       <div>Serial No.: <span className="font-medium text-slate-900">{!it.serial || it.serial.trim() === '' || it.serial === 'SN001' ? '-' : it.serial}</span></div>
-                                      <div>วันที่เริ่มรับประกัน: <span className="font-medium text-slate-900">{it.purchaseDate || '-'}</span></div>
-                                      <div>วันหมดอายุ: <span className="font-medium text-slate-900">{it.expiryDate || '-'}</span></div>
+                                      <div>วันที่เริ่มรับประกัน: <span className="font-medium text-slate-900">{it.purchaseDate ? (() => { const d = new Date(it.purchaseDate); if (isNaN(d)) return '-'; const day = String(d.getDate()).padStart(2, '0'); const m = String(d.getMonth() + 1).padStart(2, '0'); const y = d.getFullYear(); return `${day}/${m}/${y}`; })() : '-'}</span></div>
+                                      <div>วันหมดอายุ: <span className="font-medium text-slate-900">{it.expiryDate ? (() => { const d = new Date(it.expiryDate); if (isNaN(d)) return '-'; const day = String(d.getDate()).padStart(2, '0'); const m = String(d.getMonth() + 1).padStart(2, '0'); const y = d.getFullYear(); return `${day}/${m}/${y}`; })() : '-'}</span></div>
                                       <div>จำนวนวันคงเหลือ: <span className="font-medium text-slate-900">{Math.max(0, it.daysLeft ?? 0)} วัน</span></div>
                                       <div>รุ่น: <span className="font-medium text-slate-900">{it.model || '-'}</span></div>
                                     </div>
@@ -3198,33 +3262,73 @@ export default function WarrantyDashboard() {
                       )}
 
                       <div className="mt-3 grid gap-3 md:grid-cols-2">
-                        <label className="text-sm text-gray-600">
+                        <label className="text-sm text-gray-600 w-full block">
                           วันเริ่มการรับประกัน <span className="text-red-500">*</span>
-                          <input
-                            name="purchase_date"
-                            value={editForm?.purchase_date ?? ''}
-                            onChange={e => {
-                              const v = e.target.value
-                              setEditForm(f => {
-                                const next = { ...f, purchase_date: v }
-                                // Auto-calculate expiry based on duration
-                                if (next.duration_mode === 'custom' && next.custom_value) {
-                                  next.expiry_date = computeExpiry(v, { unit: next.custom_unit || 'months', value: Number(next.custom_value || 0) })
-                                } else {
-                                  next.expiry_date = computeExpiry(v, next.duration_months || 12)
+                          <div className="relative mt-1 w-full">
+                            <DatePicker
+                              ref={editDatePickerRef}
+                              selected={(() => {
+                                if (!editForm?.purchase_date) return null;
+                                if (/^\d{2}\/\d{2}\/\d{4}$/.test(editForm.purchase_date)) {
+                                  const [day, month, year] = editForm.purchase_date.split('/');
+                                  return new Date(`${year}-${month}-${day}`);
                                 }
-                                return next
-                              })
-                            }}
-                            className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
-                            type="date"
-                            required
-                          />
+                                return new Date(editForm.purchase_date);
+                              })()}
+                              onChange={date => {
+                                if (!date) return;
+                                const day = String(date.getDate()).padStart(2, '0');
+                                const m = String(date.getMonth() + 1).padStart(2, '0');
+                                const y = date.getFullYear();
+                                const v = `${day}/${m}/${y}`;
+                                setEditForm(f => {
+                                  const next = { ...f, purchase_date: v };
+                                  if (next.duration_mode === 'custom' && next.custom_value) {
+                                    next.expiry_date = computeExpiry(`${y}-${m}-${day}`, { unit: next.custom_unit || 'months', value: Number(next.custom_value || 0) })
+                                  } else {
+                                    next.expiry_date = computeExpiry(`${y}-${m}-${day}`, next.duration_months || 12)
+                                  }
+                                  return next;
+                                });
+                                try {
+                                  if (editDatePickerRef?.current && typeof editDatePickerRef.current.setOpen === 'function') {
+                                    editDatePickerRef.current.setOpen(false)
+                                  } else if (document.activeElement && document.activeElement.blur) {
+                                    document.activeElement.blur()
+                                  }
+                                  // Additional fallback: blur any react-datepicker input and remove popper if it remains
+                                  setTimeout(() => {
+                                    try {
+                                      const dpInput = document.querySelector('.react-datepicker__input-container input');
+                                      if (dpInput && typeof dpInput.blur === 'function') dpInput.blur();
+                                      const popper = document.querySelector('.react-datepicker-popper');
+                                      if (popper && popper.parentNode) popper.parentNode.removeChild(popper);
+                                    } catch (e2) {
+                                      // ignore
+                                    }
+                                  }, 0);
+                                } catch (e) {
+                                  // ignore
+                                }
+                              }}
+                              dateFormat="dd/MM/yyyy"
+                              shouldCloseOnSelect
+                              className="w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-10 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                              placeholderText="dd/mm/yyyy"
+                              required
+                              popperClassName="datepicker-center-modal"
+                              popperPlacement="auto"
+                              calendarClassName="w-full"
+                              renderCustomHeader={props => <>{props.children}</>}
+                              // เพิ่มไอคอนปฏิทินใน input
+                              customInput={<CustomDateInput value={editForm?.purchase_date ? formatForDisplayDate(editForm.purchase_date) : ''} placeholder="dd/mm/yyyy" />}
+                            />
+                          </div>
                         </label>
-                        <label className="text-sm text-gray-600">
+                        <label className="text-sm text-gray-600 w-full block">
                           วันหมดอายุ
-                          <div className="mt-1 w-full rounded-2xl border border-gray-200 bg-gray-100 px-4 py-2 text-sm text-gray-600">
-                            {editForm?.expiry_date ? new Date(editForm.expiry_date).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' }) : '-'}
+                          <div className="mt-1 w-full rounded-2xl border border-gray-200 bg-gray-100 px-10 py-2 text-sm text-gray-600">
+                            {editForm?.expiry_date ? formatForDisplayDate(editForm.expiry_date) : '-'}
                             <div className="text-xs text-blue-600 mt-1"></div>
                           </div>
                         </label>
@@ -3434,7 +3538,7 @@ export default function WarrantyDashboard() {
                                           const v = stripEmojisAndSpecials(e.target.value)
                                           syncCustomerAddress((p) => ({ ...p, street: v }))
                                         }}
-                                  className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                                  className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-10 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                                   placeholder="เช่น 123/4 ซ.สุขุมวิท 11"
                                   rows={2}
                                 />
@@ -3658,21 +3762,61 @@ export default function WarrantyDashboard() {
                           <div className="mt-3 grid gap-3 md:grid-cols-2">
                             <label className="text-sm text-gray-600 block">
                               วันที่เริ่มรับประกัน <span className="text-red-500">*</span>
-                              <input
-                                value={it.purchase_date}
-                                onChange={e => patchItem(idx, { purchase_date: e.target.value })}
-                                className="mt-1 w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
-                                type="date"
-                                required
-                              />
+                              <div className="relative mt-1 w-full">
+                                <DatePicker
+                                  selected={(() => {
+                                    if (!it.purchase_date) return null;
+                                    if (/^\d{2}\/\d{2}\/\d{4}$/.test(it.purchase_date)) {
+                                      const [day, month, year] = it.purchase_date.split('/');
+                                      return new Date(`${year}-${month}-${day}`);
+                                    }
+                                    return new Date(it.purchase_date);
+                                  })()}
+                                  onChange={(date, e) => {
+                                    if (!date) return;
+                                    const day = String(date.getDate()).padStart(2, '0');
+                                    const m = String(date.getMonth() + 1).padStart(2, '0');
+                                    const y = date.getFullYear();
+                                    const v = `${day}/${m}/${y}`;
+                                    patchItem(idx, { purchase_date: v });
+                                    if (e && e.target) {
+                                      // Defensive: try to close calendar
+                                      setTimeout(() => {
+                                        if (e.target.blur) e.target.blur();
+                                      }, 0);
+                                    }
+                                    if (typeof e === 'object' && e !== null && e.preventDefault) {
+                                      e.preventDefault();
+                                    }
+                                  }}
+                                  dateFormat="dd/MM/yyyy"
+                                  shouldCloseOnSelect
+                                  openToDate={(() => {
+                                    if (!it.purchase_date) return undefined;
+                                    if (/^\d{2}\/\d{2}\/\d{4}$/.test(it.purchase_date)) {
+                                      const [day, month, year] = it.purchase_date.split('/');
+                                      return new Date(`${year}-${month}-${day}`);
+                                    }
+                                    return new Date(it.purchase_date);
+                                  })()}
+                                  className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-10 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
+                                  placeholderText="dd/mm/yyyy"
+                                  required
+                                  popperClassName="datepicker-center-modal"
+                                  popperPlacement="auto"
+                                  calendarClassName="w-full"
+                                  renderCustomHeader={props => <>{props.children}</>}
+                                  customInput={<CustomDateInput value={it.purchase_date ? formatForDisplayDate(it.purchase_date) : ''} placeholder="dd/mm/yyyy" />}
+                                />
+                              </div>
                             </label>
                             <label className="text-sm text-gray-600 block">
                               วันหมดอายุ
                               <input
-                                value={it.expiry_date}
+                                value={formatForDisplayDate(it.expiry_date)}
                                 readOnly
-                                className="mt-1 w-full rounded-2xl border border-sky-100 bg-slate-50 px-4 py-2 text-sm text-gray-500 focus:outline-none cursor-default"
-                                type="date"
+                                className="mt-1 w-full rounded-2xl border border-sky-100 bg-slate-50 px-10 py-2 text-sm text-gray-500 focus:outline-none cursor-default"
+                                placeholder="dd/mm/yyyy"
                               />
                             </label>
                           </div>
