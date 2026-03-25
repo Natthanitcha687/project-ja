@@ -475,11 +475,17 @@ export async function createWarranty(req, res) {
           if (!expiry && dm > 0) expiry = addMonths(purchase, dm);
 
           let serial = String(it.serial || "").trim();
-          if (!serial || usedSerial.has(serial)) {
-            while (usedSerial.has(`SN${pad3(seq)}`)) seq++;
-            serial = `SN${pad3(seq++)}`;
+          if (serial) {
+            if (usedSerial.has(serial)) {
+              // Duplicate provided serial -> treat as not provided
+              serial = null;
+            } else {
+              usedSerial.add(serial);
+            }
+          } else {
+            // No serial provided -> keep null (do not auto-generate placeholder)
+            serial = null;
           }
-          usedSerial.add(serial);
 
           return {
             productName: String(it.product_name || it.productName || "").trim(),
@@ -551,7 +557,8 @@ export async function createWarranty(req, res) {
       const dm = Number(body.duration_months ?? body.durationMonths ?? 0);
       if (!expiry && dm > 0) expiry = addMonths(purchase, dm);
 
-      const serialOne = String(body.serial || "").trim() || `SN${pad3(1)}`;
+      // If serial not provided, store null instead of auto-generating SN001
+      const serialOne = String(body.serial || "").trim() || null;
 
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
@@ -655,7 +662,20 @@ export async function createWarranty(req, res) {
     ) {
       return sendError(res, 409, "รหัสใบรับประกันซ้ำ กรุณาลองใหม่");
     }
-    console.error("createWarranty error", error);
+
+    // เพิ่ม logging เชิงลึกชั่วคราว เพื่อหา root-cause (จะลบเมื่อดีบักเสร็จ)
+    try {
+      console.error("createWarranty error stack:", error?.stack || error);
+      const bodyPreview = {
+        customer_email: body?.customer_email ?? body?.customerEmail ?? null,
+        customer_name: body?.customer_name ?? body?.customerName ?? null,
+        itemsCount: Array.isArray(body?.items) ? body.items.length : 0,
+      };
+      console.error("createWarranty context:", JSON.stringify({ storeId, bodyPreview }));
+    } catch (logErr) {
+      console.error("createWarranty logging failed:", logErr);
+    }
+
     return sendError(res, 500, "ไม่สามารถสร้างใบรับประกันได้");
   }
 }

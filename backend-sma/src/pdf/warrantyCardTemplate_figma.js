@@ -42,6 +42,14 @@ const T = (v, fallback = "-") => {
   return s ? s : fallback;
 };
 
+// Format serial for display: treat empty or placeholder SN001 as blank
+function formatSerial(v) {
+  const s = toText(v).trim();
+  if (!s) return "-";
+  if (s === 'SN001') return "-";
+  return s;
+}
+
 function resolveFirstExisting(candidates) {
   for (const p of candidates) {
     try {
@@ -360,7 +368,7 @@ export function drawWarrantyCardPage(doc, base = {}, item = {}, options = {}) {
   const w3 = (contentW - gap * 2) / 3;
   drawField(doc, margin, y, w3, hField, "สินค้า / Product", item.productName, fonts);
   drawField(doc, margin + w3 + gap, y, w3, hField, "รุ่น / Model", item.model, fonts);
-  drawField(doc, margin + (w3 + gap) * 2, y, w3, hField, "หมายเลขเครื่อง / Serial No.", item.serialNumber ?? item.serial, fonts);
+  drawField(doc, margin + (w3 + gap) * 2, y, w3, hField, "หมายเลขเครื่อง / Serial No.", formatSerial(item.serialNumber ?? item.serial), fonts);
   y += hField + gap;
 
   drawField(doc, margin, y, w2, hField, "วันที่ซื้อ / Purchase Date", safeDateTH(item.purchaseDate), fonts);

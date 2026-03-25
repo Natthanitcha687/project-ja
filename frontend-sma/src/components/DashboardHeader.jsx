@@ -417,7 +417,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
                 setProfileMenuOpen(false)
               }}
             >
-              <img src="/home-assets/report.jpg" alt="แจ้งปัญหา" className="h-4 w-4 object-cover" />
+              <img src="/home-assets/report.jpg" alt="แจ้งปัญหา" className="h-4 w-4 object-contain" />
               <span className="hidden md:inline">แจ้งปัญหา</span>
             </Link>
           )}
