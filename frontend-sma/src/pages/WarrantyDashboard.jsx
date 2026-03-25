@@ -1239,8 +1239,14 @@ export default function WarrantyDashboard() {
       setCustomerSubdistrictOptions([])
 
     } else if (mode === 'edit' && item) {
-      const hasDays = typeof item.durationDays === 'number' && item.durationDays > 0
-      const hasMonths = typeof item.durationMonths === 'number' && item.durationMonths > 0
+      const hasDays = typeof item.durationDays === 'number' && item.durationDays > 0;
+      const hasMonths = typeof item.durationMonths === 'number' && item.durationMonths > 0;
+
+      // ถ้า serial ไม่มี หรือเป็น '-' หรือ 'SN001' ให้ถือว่าไม่ได้กรอกจริง ให้เป็นว่าง
+      let serialValue = '';
+      if (item.serial && item.serial !== '-' && item.serial !== 'SN001') {
+        serialValue = item.serial;
+      }
 
       setEditForm({
         product_name: item.productName || '',
@@ -1252,7 +1258,7 @@ export default function WarrantyDashboard() {
         duration_mode: hasDays ? 'custom' : 'preset',
         custom_unit: hasDays ? 'days' : 'months',
         custom_value: hasDays ? item.durationDays : '',
-        serial: item.serial || '',
+        serial: serialValue,
         purchase_date: item.purchaseDate || '',
         expiry_date: item.expiryDate || '',
         warranty_terms: item.coverageNote || '',
