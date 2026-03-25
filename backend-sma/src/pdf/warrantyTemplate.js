@@ -328,8 +328,15 @@ export function drawWarrantyPage(doc, base, item) {
       drawLabeledCell(doc, left + colL, y, colR, rowH1, "สินค้า", "Product", item.productName, fonts);
       y += rowH1;
 
+      function formatSerial(v) {
+        const s = v === undefined || v === null ? "" : String(v).trim();
+        if (!s) return "-";
+        if (s === 'SN001') return "-";
+        return s;
+      }
+
       drawLabeledCell(doc, left, y, colL, rowH2, "รุ่น", "Model", item.model || "-", fonts);
-      drawLabeledCell(doc, left + colL, y, colR, rowH2, "หมายเลขเครื่อง", "Serial No.", item.serialNumber, fonts);
+      drawLabeledCell(doc, left + colL, y, colR, rowH2, "หมายเลขเครื่อง", "Serial No.", formatSerial(item.serialNumber), fonts);
       y += rowH2;
 
       drawLabeledCell(doc, left, y, colL, rowH3, "ชื่อ-นามสกุล", "Customer's Name", base.customerName, fonts);

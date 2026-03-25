@@ -38,6 +38,14 @@ const T = (v, fallback = "-") => {
   return s ? s : fallback;
 };
 
+// Format serial for display: hide placeholder SN001 or empty values
+function formatSerial(v) {
+  const s = toText(v).trim();
+  if (!s) return "-";
+  if (s === 'SN001') return "-";
+  return s;
+}
+
 function resolveFirstExisting(candidates) {
   for (const p of candidates) {
     try {
@@ -339,7 +347,7 @@ export function drawWarrantyPage(doc, base, item) {
   y += rowH1;
 
   drawLabeledCell(doc, left, y, colL, rowH2, "รุ่น", "Model", item.model || "-", fonts);
-  drawLabeledCell(doc, left + colL, y, colR, rowH2, "หมายเลขเครื่อง", "Serial No.", item.serialNumber, fonts);
+  drawLabeledCell(doc, left + colL, y, colR, rowH2, "หมายเลขเครื่อง", "Serial No.", formatSerial(item.serialNumber), fonts);
   y += rowH2;
 
   drawLabeledCell(doc, left, y, colL, rowH3, "ชื่อ-นามสกุล", "Customer's Name", base.customerName, fonts);
