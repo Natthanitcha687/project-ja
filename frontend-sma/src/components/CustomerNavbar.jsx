@@ -805,7 +805,7 @@ export default function CustomerNavbar() {
                       <div>รุ่น / รุ่นย่อย: <span className="font-medium">{selectedNotification.data.warrantySnapshot.model}</span></div>
                     )}
                     {selectedNotification.data.warrantySnapshot.serial && (
-                      <div>Serial No.: <span className="font-medium">{selectedNotification.data.warrantySnapshot.serial}</span></div>
+                      <div>Serial No.: <span className="font-medium">{!selectedNotification.data.warrantySnapshot.serial || selectedNotification.data.warrantySnapshot.serial === 'SN001' ? '-' : selectedNotification.data.warrantySnapshot.serial}</span></div>
                     )}
                     {selectedNotification.data.warrantySnapshot.purchaseDate && (
                       <div>

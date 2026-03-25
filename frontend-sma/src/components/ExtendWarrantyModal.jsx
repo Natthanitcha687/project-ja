@@ -37,6 +37,9 @@ export default function ExtendWarrantyModal({
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
 
+    // Debug: log item ที่ modal ได้รับ
+    console.log('[ExtendWarrantyModal] item:', item)
+
     if (!isOpen || !item) return null
 
     const currentExpiry = item.expiryDate ? new Date(item.expiryDate) : new Date()
@@ -88,9 +91,9 @@ export default function ExtendWarrantyModal({
                     <div className="rounded-xl bg-slate-50 p-4">
                         <div className="text-sm text-slate-500">สินค้า</div>
                         <div className="font-semibold text-gray-900">{item.productName || '-'}</div>
-                        {item.serial && (
-                            <div className="text-sm text-slate-500">Serial: {item.serial}</div>
-                        )}
+                        <div className="text-sm text-slate-500">
+                            Serial: {!item.serial || item.serial.trim() === '' || item.serial === 'SN001' ? '-' : item.serial}
+                        </div>
                     </div>
 
                     {/* Current Expiry */}

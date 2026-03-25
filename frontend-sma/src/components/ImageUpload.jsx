@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import Swal from 'sweetalert2';
 import { Upload, X, Image as ImageIcon, Eye } from 'lucide-react';
 import ImagePreview from './ImagePreview';
 
@@ -20,7 +21,15 @@ export default function ImageUpload({
 
     // ตรวจสอบจำนวนรูปภาพสูงสุด
     if (images.length + files.length > maxImages) {
-      alert(`สามารถอัปโหลดได้สูงสุด ${maxImages} รูป`);
+      Swal.fire({
+        icon: 'warning',
+        title: 'อัปโหลดรูปภาพ',
+        text: `สามารถอัปโหลดได้สูงสุด ${maxImages} รูป`,
+        confirmButtonText: 'ตกลง',
+        customClass: {
+          popup: 'rounded-2xl'
+        }
+      });
       return;
     }
 
