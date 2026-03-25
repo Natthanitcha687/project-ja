@@ -126,18 +126,36 @@ export default function Stores() {
   const [suspendTarget, setSuspendTarget] = useState(null);
   const [sDaysPreset, setSDaysPreset] = useState(7); // 1/3/7/30/-1(custom)
   const [sDaysCustom, setSDaysCustom] = useState("");
+  // เหตุผลระงับ: radio + อื่นๆ
   const [sReason, setSReason] = useState("");
+  const [sReasonOther, setSReasonOther] = useState("");
+  const suspendReasons = [
+    { value: "ละเมิดข้อตกลงการใช้งาน", label: "ละเมิดข้อตกลงการใช้งาน" },
+    { value: "ใช้ข้อมูลเท็จในการสมัคร", label: "ใช้ข้อมูลเท็จในการสมัคร" },
+    { value: "มีพฤติกรรมไม่เหมาะสม/รบกวนผู้อื่น", label: "มีพฤติกรรมไม่เหมาะสม/รบกวนผู้อื่น" },
+    { value: "คำขอจากเจ้าของบัญชี", label: "คำขอจากเจ้าของบัญชี" },
+    { value: "other", label: "อื่นๆ (โปรดระบุ)" },
+  ];
   const [sSubmitting, setSSubmitting] = useState(false);
 
   // Delete modal
   const [openDelete, setOpenDelete] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  // เหตุผลลบ: radio + อื่นๆ
   const [dReason, setDReason] = useState("");
+  const [dReasonOther, setDReasonOther] = useState("");
+  const deleteReasons = [
+    { value: "ละเมิดข้อตกลงการใช้งาน", label: "ละเมิดข้อตกลงการใช้งาน" },
+    { value: "ใช้ข้อมูลเท็จในการสมัคร", label: "ใช้ข้อมูลเท็จในการสมัคร" },
+    { value: "มีพฤติกรรมไม่เหมาะสม/รบกวนผู้อื่น", label: "มีพฤติกรรมไม่เหมาะสม/รบกวนผู้อื่น" },
+    { value: "คำขอจากเจ้าของบัญชี", label: "คำขอจากเจ้าของบัญชี" },
+    { value: "other", label: "อื่นๆ (โปรดระบุ)" },
+  ];
   const [dSubmitting, setDSubmitting] = useState(false);
 
   // ✅ บังคับเหตุผลก่อนกดได้ (เฉพาะส่วนที่เกี่ยวกับเหตุผล)
-  const sReasonTrim = sReason.trim();
-  const dReasonTrim = dReason.trim();
+  const sReasonTrim = sReason === "other" ? sReasonOther.trim() : sReason.trim();
+  const dReasonTrim = dReason === "other" ? dReasonOther.trim() : dReason.trim();
   const isUnsuspendMode = suspendTarget?.status === "SUSPENDED";
   const canSubmitSuspend = isUnsuspendMode ? true : !!sReasonTrim;
   const canSubmitDelete = !!dReasonTrim;
@@ -244,7 +262,7 @@ export default function Stores() {
         // ระงับ
         await api.patch(`/admin/users/${suspendTarget.id}/status`, {
           status: "SUSPENDED",
-          reason: sReasonTrim,
+          reason: sReason === "other" ? sReasonOther.trim() : sReason,
           days: days ? Number(days) : null,
         });
       }
@@ -265,7 +283,7 @@ export default function Stores() {
     setDSubmitting(true);
     try {
       await api.delete(`/admin/stores/${deleteTarget.id}`, {
-        data: { reason: dReasonTrim },
+        data: { reason: dReason === "other" ? dReasonOther.trim() : dReason },
       });
       setOpenDelete(false);
       await load();
@@ -674,12 +692,30 @@ export default function Stores() {
 
                 <div>
                   <div className="text-sm font-bold text-slate-900">เหตุผล</div>
-                  <textarea
-                    rows={4}
-                    value={sReason}
-                    onChange={(e) => setSReason(stripEmojis(e.target.value))}
-                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none text-slate-900 placeholder:text-slate-500 focus:ring-2 focus:ring-sky-200"
-                  />
+                  <div className="mt-2 space-y-2">
+                    {suspendReasons.map((r) => (
+                      <label key={r.value} className="flex items-center gap-2 text-sm font-normal">
+                        <input
+                          type="radio"
+                          name="suspend-reason"
+                          value={r.value}
+                          checked={sReason === r.value}
+                          onChange={() => setSReason(r.value)}
+                          className="accent-amber-600"
+                        />
+                        {r.label}
+                      </label>
+                    ))}
+                    {sReason === "other" && (
+                      <input
+                        type="text"
+                        value={sReasonOther}
+                        onChange={e => setSReasonOther(stripEmojis(e.target.value))}
+                        placeholder="โปรดระบุเหตุผล"
+                        className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none text-slate-900 placeholder:text-slate-500 focus:ring-2 focus:ring-amber-200"
+                      />
+                    )}
+                  </div>
                   {!sReasonTrim && <div className="mt-2 text-xs font-semibold text-rose-600">กรุณาระบุเหตุผล</div>}
                 </div>
 
@@ -738,13 +774,32 @@ export default function Stores() {
             <div className="text-sm font-bold text-slate-900">ชื่อบัญชี</div>
             <div className="mt-1 font-extrabold text-slate-900">{deleteTarget?.storeProfile?.storeName || "-"}</div>
 
+
             <div className="mt-4 text-sm font-bold text-slate-900">เหตุผลในการลบ</div>
-            <textarea
-              rows={5}
-              value={dReason}
-              onChange={(e) => setDReason(stripEmojis(e.target.value))}
-              className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none text-slate-900 placeholder:text-slate-500 focus:ring-2 focus:ring-rose-200"
-            />
+            <div className="mt-2 space-y-2">
+              {deleteReasons.map((r) => (
+                <label key={r.value} className="flex items-center gap-2 text-sm font-normal">
+                  <input
+                    type="radio"
+                    name="delete-reason"
+                    value={r.value}
+                    checked={dReason === r.value}
+                    onChange={() => setDReason(r.value)}
+                    className="accent-rose-600"
+                  />
+                  {r.label}
+                </label>
+              ))}
+              {dReason === "other" && (
+                <input
+                  type="text"
+                  value={dReasonOther}
+                  onChange={e => setDReasonOther(stripEmojis(e.target.value))}
+                  placeholder="โปรดระบุเหตุผล"
+                  className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none text-slate-900 placeholder:text-slate-500 focus:ring-2 focus:ring-rose-200"
+                />
+              )}
+            </div>
             {!dReasonTrim && <div className="mt-2 text-xs font-semibold text-rose-600">กรุณาระบุเหตุผลในการลบ</div>}
 
             <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
