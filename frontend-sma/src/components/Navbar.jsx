@@ -1,11 +1,9 @@
 // src/components/Navbar.jsx
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../store/auth'
-import LanguageSwitcher from './LanguageSwitcher'
-import { useTranslation } from 'react-i18next';
 
 export default function Navbar() {
-  const { t } = useTranslation();
+  
   const { pathname } = useLocation();
   const navigate = useNavigate();
 
@@ -61,7 +59,7 @@ export default function Navbar() {
             className="w-8 h-8 object-contain drop-shadow-sm"
             draggable="false"
           />
-          <span className="text-xl font-semibold text-gray-900">{t('navbar.logo', 'Warranty')}</span>
+          <span className="text-xl font-semibold text-gray-900">Warranty</span>
         </Link>
         {/* ...existing code... */}
 
@@ -74,7 +72,7 @@ export default function Navbar() {
               `text-sm ${isActive ? 'text-gray-900' : 'text-gray-600 hover:text-gray-900'}`
             }
           >
-            {t('navbar.home', 'หน้าหลัก')}
+            หน้าหลัก
           </NavLink>
           <NavLink
             to="/warranty"
@@ -82,7 +80,7 @@ export default function Navbar() {
               `text-sm ${isActive ? 'text-gray-900' : 'text-gray-600 hover:text-gray-900'}`
             }
           >
-            {t('navbar.warranty', 'การรับประกัน')}
+            การรับประกัน
           </NavLink>
           <NavLink
             to="/about"
@@ -90,7 +88,7 @@ export default function Navbar() {
               `text-sm ${isActive ? 'text-gray-900' : 'text-gray-600 hover:text-gray-900'}`
             }
           >
-            {t('navbar.about', 'เกี่ยวกับเรา')}
+            เกี่ยวกับเรา
           </NavLink>
 
           {/* If authenticated, dashboard link is available on the right as 'ไปที่แดชบอร์ด' —
@@ -105,12 +103,12 @@ export default function Navbar() {
                 to={dashHref}
                 className="hidden md:inline text-sm font-medium text-[color:var(--brand)] hover:text-[color:var(--brand-600)]"
               >
-                {t('navbar.gotoDashboard', 'ไปที่แดชบอร์ด')}
+                ไปที่แดชบอร์ด
               </Link>
               <Link
                 to={dashHref}
                 className="flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-sm text-blue-700 hover:bg-blue-100 transition"
-                title={t('navbar.gotoDashboard', 'ไปที่แดชบอร์ด')}
+                title={"ไปที่แดชบอร์ด"}
               >
                 <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white overflow-hidden">
                   {role === 'CUSTOMER' ? (
@@ -151,8 +149,8 @@ export default function Navbar() {
                 onClick={handleLogout}
                 className="text-sm text-gray-500 hover:text-gray-800 transition"
               >
-                {t('navbar.logout', 'ออกจากระบบ')}
-                <img src="/home-assets/logout.png" alt={t('navbar.logout', 'ออกจากระบบ')} className="inline h-4 w-4 object-cover ml-2" aria-hidden="true" />
+                ออกจากระบบ
+                <img src="/home-assets/logout.png" alt={"ออกจากระบบ"} className="inline h-4 w-4 object-cover ml-2" aria-hidden="true" />
               </button>
             </>
           ) : (
@@ -162,7 +160,7 @@ export default function Navbar() {
                   to="/signin"
                   className="inline-flex items-center justify-center rounded-xl border border-blue-600 text-blue-700 px-4 py-2 text-sm font-medium hover:bg-blue-50 transition"
                 >
-                  {t('navbar.signin', 'เข้าสู่ระบบ')}
+                  เข้าสู่ระบบ
                 </Link>
               )}
               {onSignup && (
@@ -170,12 +168,12 @@ export default function Navbar() {
                   to="/signup"
                   className="inline-flex items-center justify-center rounded-xl bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700 transition shadow-sm"
                 >
-                  {t('navbar.signup', 'สมัครสมาชิก')}
+                  สมัครสมาชิก
                 </Link>
               )}
             </>
           )}
-          <LanguageSwitcher />
+          
         </div>
       </nav>
     </header>
