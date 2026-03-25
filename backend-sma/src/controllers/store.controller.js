@@ -91,6 +91,34 @@ function jsonSafe(v) {
   }
 }
 
+// Parse a date-like input (dd/mm/yyyy, yyyy-mm-dd, timestamp, Date)
+// Returns a valid Date or null if invalid / empty
+function parseDateMaybe(v) {
+  if (v == null || v === '') return null;
+  if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
+  if (typeof v === 'number') {
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  if (typeof v === 'string') {
+    const s = v.trim();
+    // dd/mm/yyyy
+    const dm = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (dm) {
+      const day = Number(dm[1]);
+      const month = Number(dm[2]);
+      const year = Number(dm[3]);
+      const d = new Date(year, month - 1, day);
+      if (d.getFullYear() === year && d.getMonth() === month - 1 && d.getDate() === day) return d;
+      return null;
+    }
+    // ISO-ish or fallback
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+}
+
 // ✅ best-effort audit log ตอนสร้างใบรับประกัน (ห้ามทำให้ระบบพัง)
 async function auditCreateWarrantyBestEffort(req, storeId, createdHeader) {
   try {
@@ -392,6 +420,9 @@ export async function createWarranty(req, res) {
   const storeId = parseStoreId(req, res);
   if (storeId == null) return;
 
+  // move body outside try so catch logging can access it
+  const body = req.body ?? {};
+
   // รวมชื่อจากโปรไฟล์
   const fullNameFromCP = (cp) => {
     if (!cp) return null;
@@ -402,7 +433,6 @@ export async function createWarranty(req, res) {
   };
 
   try {
-    const body = req.body ?? {};
     const storeProfile = await prisma.storeProfile.findUnique({
       where: { userId: storeId },
     });
@@ -469,8 +499,8 @@ export async function createWarranty(req, res) {
         const usedSerial = new Set();
         let seq = 1;
         const itemsToCreate = body.items.map((it) => {
-          const purchase = it.purchase_date ? new Date(it.purchase_date) : new Date();
-          let expiry = it.expiry_date ? new Date(it.expiry_date) : null;
+          const purchase = parseDateMaybe(it.purchase_date) || new Date();
+          let expiry = parseDateMaybe(it.expiry_date) || null;
           const dm = Number(it.duration_months ?? it.durationMonths ?? 0);
           if (!expiry && dm > 0) expiry = addMonths(purchase, dm);
 
@@ -552,8 +582,8 @@ export async function createWarranty(req, res) {
       // ✅ เพิ่ม: ที่อยู่ลูกค้า (ร้านกรอกตอนออกใบ)
       const customerAddress = trimOrNull(body.customer_address ?? body.customerAddress);
 
-      const purchase = body.purchase_date ? new Date(body.purchase_date) : new Date();
-      let expiry = body.expiry_date ? new Date(body.expiry_date) : null;
+      const purchase = parseDateMaybe(body.purchase_date) || new Date();
+      let expiry = parseDateMaybe(body.expiry_date) || null;
       const dm = Number(body.duration_months ?? body.durationMonths ?? 0);
       if (!expiry && dm > 0) expiry = addMonths(purchase, dm);
 
