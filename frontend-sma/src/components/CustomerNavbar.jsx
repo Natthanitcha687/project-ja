@@ -3,13 +3,11 @@ import { Link, useNavigate } from "react-router-dom";
 import { api, API_URL, getToken } from "../lib/api";
 import { useAuth } from "../store/auth";
 import AppLogo from "../components/AppLogo"; // ✅ ใช้โลโก้จริง
-import LanguageSwitcher from "./LanguageSwitcher";
-import { useTranslation } from 'react-i18next';
 import CustomerProfileModal from "./CustomerProfileModal";
 import { HiOutlineBell, HiOutlineClipboardList } from "react-icons/hi";
 
 export default function CustomerNavbar() {
-  const { t } = useTranslation();
+  
   const { user, logout, loadMe } = useAuth();
   const navigate = useNavigate();
 
@@ -526,9 +524,9 @@ export default function CustomerNavbar() {
               <AppLogo className="h-6 w-6" />
             </div>
             <div>
-              <div className="text-lg font-semibold text-sky-900">{t('navbar.logo', 'Warranty')}</div>
+              <div className="text-lg font-semibold text-sky-900">Warranty</div>
               <div className="text-xs text-slate-500">
-                {t('navbar.subtitle', 'จัดการการรับประกันของคุณได้ในที่เดียว')}
+                จัดการการรับประกันของคุณได้ในที่เดียว
               </div>
             </div>
           </Link>
@@ -732,7 +730,7 @@ export default function CustomerNavbar() {
                 </Link>
               </div>
             )}
-            <LanguageSwitcher />
+            
           </div>
 
           {/* --- เมนู dropdown โปรไฟล์ (เมื่อล็อกอิน) --- */}
