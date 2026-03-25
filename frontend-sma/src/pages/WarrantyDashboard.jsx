@@ -669,8 +669,10 @@ export default function WarrantyDashboard() {
   const [downloadingPdfId, setDownloadingPdfId] = useState(null)
   const [deletingWarrantyId, setDeletingWarrantyId] = useState(null)
 
-  // รูปใน modal edit
+  // รูปใน main UI (synced from backend)
   const [warrantyImages, setWarrantyImages] = useState([])
+  // รูปใน modal edit (local state, only sync to main UI on confirm)
+  const [editImages, setEditImages] = useState([])
 
   const [imagePreview, setImagePreview] = useState({ open: false, images: [], index: 0 })
 
@@ -1218,6 +1220,11 @@ export default function WarrantyDashboard() {
     setSelectedItem(item)
     setWarrantyModalError('')
     setWarrantySubmitting(false)
+    if (mode === 'edit' && item) {
+      setEditImages(item?.images ? [...item.images] : [])
+    } else {
+      setEditImages([])
+    }
     setWarrantyImages(item?.images || [])
 
     if (mode === 'create') {
@@ -1566,10 +1573,10 @@ export default function WarrantyDashboard() {
 
         // === Image comparison: count as change if images are added/removed ===
         const originalImageIds = (selectedItem.images || []).map(img => img.id).filter(Boolean)
-        const currentImageIds = (warrantyImages || [])
+        const currentImageIds = (editImages || [])
           .filter(img => !(img instanceof File))
           .map(img => img.id)
-        const newFilesCount = (warrantyImages || []).filter(img => img instanceof File).length
+        const newFilesCount = (editImages || []).filter(img => img instanceof File).length
         const imagesChanged =
           originalImageIds.length !== currentImageIds.length + newFilesCount ||
           originalImageIds.some(id => !currentImageIds.includes(id)) ||
@@ -1688,6 +1695,24 @@ export default function WarrantyDashboard() {
         fd.append('selectedConditions', JSON.stringify(selectedConds))
         fd.append('customCondition', String(editForm?.customCondition || '').trim())
 
+        // Handle image upload/delete: only send new/removed images
+        // 1. Upload new images (objects with .file)
+        const newFiles = (editImages || []).filter(img => img.file instanceof File)
+        if (newFiles.length > 0) {
+          const imgForm = new FormData()
+          newFiles.forEach(img => imgForm.append('images', img.file))
+          await api.post(`/warranty-items/${selectedItem.id}/images`, imgForm, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          })
+        }
+        // 2. Delete removed images
+        const originalIds = (selectedItem.images || []).map(img => img.id).filter(Boolean)
+        const currentIds = (editImages || []).filter(img => !(img instanceof File)).map(img => img.id)
+        const removedIds = originalIds.filter(id => !currentIds.includes(id))
+        for (const id of removedIds) {
+          await api.delete(`/warranty-items/${selectedItem.id}/images/${id}`)
+        }
+
         await api.patch(`/warranty-items/${selectedItem.id}`, fd, {
           headers: { 'Content-Type': 'multipart/form-data' },
         })
@@ -1745,6 +1770,7 @@ export default function WarrantyDashboard() {
         await fetchDashboard()
         setWarrantyModalOpen(false)
         setWarrantySubmitting(false)
+        setEditImages([])
         Swal.fire({
           icon: 'success',
           title: 'แก้ไขสำเร็จ',
@@ -1795,6 +1821,12 @@ export default function WarrantyDashboard() {
         }),
       }
 
+      // Log serial ของแต่ละ item ที่จะส่งไป backend
+      if (payload.items && Array.isArray(payload.items)) {
+        payload.items.forEach((item, idx) => {
+          console.log(`[DEBUG][frontend] item[${idx}].serial:`, item.serial)
+        })
+      }
       console.log('POST /store/' + storeIdResolved + '/warranties payload', payload)
       const res = await api.post(`/store/${storeIdResolved}/warranties`, payload)
       const createdHeader = res.data?.data?.warranty
@@ -1802,7 +1834,8 @@ export default function WarrantyDashboard() {
       // อัปโหลดรูปให้แต่ละ “รายการ” ที่สร้าง
       if (createdHeader?.items?.length) {
         for (let i = 0; i < createdHeader.items.length; i++) {
-          const files = createItems[i]?.images || []
+          // Only send File objects (not preview objects)
+          const files = (createItems[i]?.images || []).filter(img => img instanceof File || (img && img.file instanceof File)).map(img => (img instanceof File ? img : img.file))
           if (files.length) {
             const fd = new FormData()
             files.forEach(f => fd.append('images', f))
@@ -2164,7 +2197,7 @@ export default function WarrantyDashboard() {
 
                                     </div>
                                     <div className="grid gap-2 text-sm text-slate-600 md:grid-cols-2">
-                                      <div>Serial No.: <span className="font-medium text-slate-900">{it.serial || '-'}</span></div>
+                                      <div>Serial No.: <span className="font-medium text-slate-900">{!it.serial || it.serial.trim() === '' || it.serial === 'SN001' ? '-' : it.serial}</span></div>
                                       <div>วันที่เริ่มรับประกัน: <span className="font-medium text-slate-900">{it.purchaseDate || '-'}</span></div>
                                       <div>วันหมดอายุ: <span className="font-medium text-slate-900">{it.expiryDate || '-'}</span></div>
                                       <div>จำนวนวันคงเหลือ: <span className="font-medium text-slate-900">{Math.max(0, it.daysLeft ?? 0)} วัน</span></div>
@@ -3319,9 +3352,34 @@ export default function WarrantyDashboard() {
                       <div className="mt-3 space-y-2">
                         <label className="text-sm text-gray-600">รูปภาพประกอบ</label>
                         <ImageUpload
-                          images={warrantyImages}
-                          onUpload={handleImageUpload}
-                          onDelete={handleImageDelete}
+                          images={editImages}
+                          onUpload={files => {
+                            setEditImages(prev => {
+                              const arr = Array.from(files || [])
+                                .slice(0, 5 - prev.length)
+                                .map(file => ({
+                                  file,
+                                  url: URL.createObjectURL(file),
+                                  originalName: file.name,
+                                  size: file.size,
+                                }));
+                              return [...prev, ...arr];
+                            });
+                          }}
+                          onDelete={imageId => {
+                            setEditImages(prev => {
+                              let imgs = prev;
+                              // Try to find by index first (for new uploads)
+                              if (imgs[imageId] && imgs[imageId].url && imgs[imageId].file) {
+                                URL.revokeObjectURL(imgs[imageId].url);
+                                imgs = imgs.filter((_, i) => i !== imageId);
+                              } else {
+                                // fallback: by id (for backend images)
+                                imgs = imgs.filter(img => img.id !== imageId);
+                              }
+                              return imgs;
+                            });
+                          }}
                           maxImages={5}
                           disabled={warrantySubmitting}
                         />

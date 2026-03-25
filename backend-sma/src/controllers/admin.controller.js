@@ -489,12 +489,15 @@ export async function createStoreWarranty(req, res) {
           const dm = Number(it.duration_months ?? it.durationMonths ?? 0);
           if (!expiry && dm > 0) expiry = addMonths(purchase, dm);
 
+
+          // Log the incoming serial for debugging
+          console.log('[DEBUG] Incoming serial from frontend:', it.serial);
           let serial = String(it.serial || "").trim();
           if (!serial || usedSerial.has(serial)) {
-            while (usedSerial.has(`SN${pad3(seq)}`)) seq++;
-            serial = `SN${pad3(seq++)}`;
+            serial = null;
+          } else {
+            usedSerial.add(serial);
           }
-          usedSerial.add(serial);
 
           return {
             productName: String(it.product_name || it.productName || "").trim(),
@@ -552,7 +555,10 @@ export async function createStoreWarranty(req, res) {
       let expiry = body.expiry_date ? new Date(body.expiry_date) : null;
       const dm = Number(body.duration_months ?? body.durationMonths ?? 0);
       if (!expiry && dm > 0) expiry = addMonths(purchase, dm);
-      const serialOne = String(body.serial || "").trim() || `SN${pad3(1)}`;
+      let serialOne = body.serial;
+      if (serialOne === undefined || serialOne === null) serialOne = '';
+      serialOne = String(serialOne).trim();
+      if (!serialOne) serialOne = null;
 
       for (let attempt = 0; attempt < 3; attempt++) {
         try {

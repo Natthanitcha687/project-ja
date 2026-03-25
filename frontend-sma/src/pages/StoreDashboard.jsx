@@ -979,7 +979,7 @@ export default function StoreDashboard() {
                         </td>
                         <td className="py-3">
                           <div className="font-medium text-gray-900">{item.productName || '-'}</div>
-                          {item.serial && <div className="text-xs text-gray-500">S/N: {item.serial}</div>}
+                          <div className="text-xs text-gray-500">S/N: {(!item.serial || item.serial.trim() === '' || item.serial === 'SN001') ? '-' : item.serial}</div>
                         </td>
                         <td className="py-3">
                           <div className={`font-medium ${item.isExpired ? 'text-rose-600' : item.isExpiringSoon ? 'text-amber-600' : 'text-gray-700'
@@ -1046,7 +1046,7 @@ export default function StoreDashboard() {
 
                       <div className="mb-3 pl-2 border-l-2 border-black/10">
                         <div className="text-sm font-medium text-gray-800">{item.productName || '-'}</div>
-                        {item.serial && <div className="text-xs text-gray-500">S/N: {item.serial}</div>}
+                        <div className="text-xs text-gray-500">S/N: {(!item.serial || item.serial.trim() === '' || item.serial === 'SN001') ? '-' : item.serial}</div>
                       </div>
 
                       <div className="flex items-center justify-between pt-3 border-t border-black/5 mt-2">

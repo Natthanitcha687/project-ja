@@ -728,14 +728,12 @@ export default function CustomerWarranty() {
                                 </div>
 
                                 <div className="grid gap-2 text-sm text-slate-600 md:grid-cols-2">
-                                  {it.serial && (
-                                    <div>
-                                      Serial No.:{" "}
-                                      <span className="font-medium text-slate-900">
-                                        {it.serial}
-                                      </span>
-                                    </div>
-                                  )}
+                                  <div>
+                                    Serial No.:{" "}
+                                    <span className="font-medium text-slate-900">
+                                      {!it.serial || it.serial.trim() === '' || it.serial === 'SN001' ? '-' : it.serial}
+                                    </span>
+                                  </div>
                                   <div>
                                     วันที่ซื้อ:{" "}
                                     <span className="font-medium text-slate-900">
