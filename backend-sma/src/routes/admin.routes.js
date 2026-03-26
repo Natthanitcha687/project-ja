@@ -22,6 +22,7 @@ import {
 
   // ✅ NEW: ลบบัญชีลูกค้า (ถาวร) + ส่งเมล + AuditLog
   deleteCustomerAccount,
+  restoreUserAccount,
   
   // Admin create warranty on behalf of a store
   createStoreWarranty,
@@ -300,6 +301,9 @@ router.patch("/users/:id/status", requireAuth, requireAdmin, setUserStatus);
  *         description: Customer not found
  */
 router.delete("/customers/:id", requireAuth, requireAdmin, deleteCustomerAccount);
+
+// Restore soft-deleted user (Admin)
+router.post('/users/:id/restore', requireAuth, requireAdmin, restoreUserAccount);
 
 /* =========================
  * Security / Logs / Complaints

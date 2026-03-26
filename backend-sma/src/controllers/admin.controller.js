@@ -68,6 +68,15 @@ export async function adminLogin(req, res) {
     return res.status(401).json({ message: "อีเมลหรือรหัสผ่านไม่ถูกต้อง" });
   }
 
+  // ❌ ถูกลบแบบ soft-delete
+  if (user.isDeleted) {
+    await prisma.securityEvent.create({
+      data: { type: 'ADMIN_LOGIN_BLOCKED_DELETED', userId: user.id, email: user.email, ip, userAgent }
+    })
+    await logAudit(req, 'ADMIN_LOGIN', 'User', user.id, { result: 'FAIL', reason: 'DELETED' }, null)
+    return res.status(403).json({ message: 'บัญชีถูกลบ' })
+  }
+
   // ❌ ถูกระงับ
   if (user.status === "SUSPENDED") {
     // ถ้ามีวันหมดระงับและหมดอายุแล้ว -> ปลดอัตโนมัติ
@@ -656,18 +665,14 @@ export async function createStoreWarranty(req, res) {
   } catch (error) {
     if (error?.status) return res.status(error.status).json({ message: error.message });
     if (error?.code === "P2002" && error.meta?.target?.includes?.("warrantyId_serial")) {
-      return res.status(409).json({ message: "Serial ซ้ำภายในใบรับประกัน" });
+      return res.status(409).json({ message: "Serial number duplicated" });
     }
-    if (
-      error?.code === "P2002" &&
-      (error.meta?.target?.includes?.("storeId_code") || error.meta?.target?.includes?.("code"))
-    ) {
-      return res.status(409).json({ message: "รหัสใบรับประกันซ้ำ กรุณาลองใหม่" });
-    }
-    console.error("createStoreWarranty error", error);
+
+    console.error("createStoreWarranty failed:", error?.message || error);
     return res.status(500).json({ message: "ไม่สามารถสร้างใบรับประกันได้" });
   }
-}
+
+  }
 
 // ✅ Delete store
 export async function deleteStoreAccount(req, res) {
@@ -695,7 +700,12 @@ export async function deleteStoreAccount(req, res) {
         <p style="margin:0;font-weight:bold;color:#991b1b;">เหตุผล:</p>
         <p style="margin:4px 0 0 0;color:#b91c1c;">${reason || "-"}</p>
       </div>
-      
+      <p>หากคุณมีข้อสงสัยหรือต้องการยื่นอุทธรณ์ สามารถกรอกแบบฟอร์มได้ที่:</p>
+      <p>
+        <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/appeal-suspension?email=${store.email}" style="color:#2563eb;font-weight:600;text-decoration:none;">
+          📝 ยื่นอุทธรณ์ / ขอปลดระงับ
+        </a>
+      </p>
     `,
     footerNote: "ระบบจัดการใบรับประกันอัจฉริยะ",
   });
@@ -722,8 +732,61 @@ export async function deleteStoreAccount(req, res) {
     console.warn("cleanup related data failed for store:", e?.message || e);
   }
 
-  await prisma.user.delete({ where: { id: storeId } });
+  // Soft-delete: mark only the user as deleted (keep warranty records intact and visible to customers)
+  try {
+    await prisma.user.update({ where: { id: storeId }, data: { isDeleted: true, deletedAt: new Date() } });
+  } catch (e) {
+    console.warn('soft-delete store failed:', e?.message || e);
+  }
+
   res.json({ ok: true });
+}
+
+// ✅ Restore soft-deleted user (within grace period)
+export async function restoreUserAccount(req, res) {
+  const userId = Number(req.params.id);
+  if (!userId) return res.status(400).json({ message: 'user id ไม่ถูกต้อง' });
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return res.status(404).json({ message: 'ไม่พบผู้ใช้' });
+  if (!user.isDeleted) return res.status(400).json({ message: 'บัญชีนี้ไม่ได้ถูกลบหรือกู้คืนไม่ได้' });
+
+  try {
+    // restore user and related warranties
+    await prisma.$transaction([
+      prisma.user.update({ where: { id: userId }, data: { isDeleted: false, deletedAt: null } }),
+      prisma.warranty.updateMany({ where: { OR: [{ storeId: userId }, { customerUserId: userId }, { previousCustomerUserId: userId }] }, data: { isDeleted: false, deletedAt: null } }),
+    ]);
+
+    // Additionally, for CUSTOMER restores: if warranties had previousCustomer* backups, restore them
+    try {
+      const rows = await prisma.warranty.findMany({ where: { previousCustomerUserId: userId } });
+      for (const w of rows) {
+        await prisma.warranty.update({
+          where: { id: w.id },
+          data: {
+            customerUserId: userId,
+            customerEmail: w.previousCustomerEmail ?? null,
+            customerName: w.previousCustomerName ?? null,
+            customerPhone: w.previousCustomerPhone ?? null,
+            previousCustomerUserId: null,
+            previousCustomerEmail: null,
+            previousCustomerName: null,
+            previousCustomerPhone: null,
+          },
+        });
+      }
+    } catch (ee) {
+      console.warn('restore warranties from previousCustomer* failed:', ee?.message || ee);
+    }
+
+    await logAudit(req, 'RESTORE_USER_ACCOUNT', 'User', userId, { result: 'SUCCESS', after: { id: userId } });
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.warn('restoreUserAccount failed', e?.message || e);
+    return res.status(500).json({ message: 'ไม่สามารถกู้คืนบัญชีได้' });
+  }
 }
 
 // ✅ Delete customer (ส่งเมล + AuditLog แบบเดียวฝั่งร้าน)
@@ -739,15 +802,36 @@ export async function deleteCustomerAccount(req, res) {
 
   // ✅ 1. ล้างข้อมูลในใบรับประกันที่ผูกกับ User นี้ (Unlink warranties)
   // เพื่อไม่ให้ใบรับประกันเก่ากลับมาแสดงผลหากลูกค้าสมัครใหม่ด้วยอีเมลเดิม
-  await prisma.warranty.updateMany({
-    where: { customerUserId: customerId },
-    data: {
-      customerEmail: null,
-      customerPhone: null,
-      customerName: null,
-      customerAddress: null,
-    },
-  });
+  // Backup customer info into previousCustomer* and unlink customerUserId
+  try {
+    await prisma.warranty.updateMany({
+      where: { customerUserId: customerId },
+      data: {
+        previousCustomerUserId: prisma.$queryRaw`"customerUserId"`,
+      },
+    });
+  } catch (e) {
+    // Fallback to explicit update when raw subselect not supported: do a normal update mapping fields
+    try {
+      const rows = await prisma.warranty.findMany({ where: { customerUserId: customerId }, select: { id: true, customerUserId: true, customerEmail: true, customerName: true, customerPhone: true } });
+      for (const r of rows) {
+        await prisma.warranty.update({
+          where: { id: r.id },
+          data: {
+            previousCustomerUserId: r.customerUserId ?? null,
+            previousCustomerEmail: r.customerEmail ?? null,
+            previousCustomerName: r.customerName ?? null,
+            previousCustomerPhone: r.customerPhone ?? null,
+            // Keep contact fields on the warranty so the store still sees full data.
+            // Only unlink the association to the user account.
+            customerUserId: null,
+          },
+        });
+      }
+    } catch (ee) {
+      console.warn('backup/unlink warranties failed (ignored):', ee?.message || ee)
+    }
+  }
 
   await logAudit(req, "DELETE_CUSTOMER_ACCOUNT", "User", customerId, {
     result: "SUCCESS",
@@ -764,7 +848,12 @@ export async function deleteCustomerAccount(req, res) {
         <p style="margin:0;font-weight:bold;color:#991b1b;">เหตุผล:</p>
         <p style="margin:4px 0 0 0;color:#b91c1c;">${reason || "-"}</p>
       </div>
-      
+      <p>หากคุณคิดว่าเป็นความผิดพลาด สามารถยื่นอุทธรณ์ได้ที่:</p>
+      <p>
+        <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/appeal-suspension?email=${user.email}" style="color:#2563eb;font-weight:600;text-decoration:none;">
+          📝 ยื่นอุทธรณ์ / ขอปลดระงับ
+        </a>
+      </p>
     `,
     footerNote: "ระบบจัดการใบรับประกันอัจฉริยะ",
   });
@@ -791,7 +880,13 @@ export async function deleteCustomerAccount(req, res) {
     console.warn("cleanup related data failed for customer:", e?.message || e);
   }
 
-  await prisma.user.delete({ where: { id: customerId } });
+  // Soft-delete: mark only the user as deleted (keep warranty records intact and visible)
+  try {
+    await prisma.user.update({ where: { id: customerId }, data: { isDeleted: true, deletedAt: new Date() } });
+  } catch (e) {
+    console.warn('soft-delete customer failed:', e?.message || e);
+  }
+
   res.json({ ok: true });
 }
 

@@ -493,6 +493,12 @@ export async function login(req, res) {
     const { email, password } = req.body
     const user = await prisma.user.findUnique({ where: { email } })
 
+    // Block soft-deleted users
+    if (user?.isDeleted) {
+      await logSecurityEvent(req, 'USER_LOGIN_BLOCKED_DELETED', { userId: user.id, email: user.email })
+      return res.status(403).json({ message: 'บัญชีถูกลบ' })
+    }
+
     if (!user) {
       await logSecurityEvent(req, 'USER_LOGIN_FAIL', { email: email || null })
       return res.status(404).json({ message: 'ไม่พบอีเมลนี้ในระบบ กรุณาสมัครสมาชิกก่อน' })
@@ -721,6 +727,11 @@ export async function verifyLoginOtp(req, res) {
       await logSecurityEvent(req, 'USER_LOGIN_BLOCKED_UNVERIFIED', { userId: row.userId, email: row.user?.email })
       const resp = await ensureVerifyTokenAndSendEmail(row.user)
       return res.status(403).json(resp)
+            // Block soft-deleted users
+            if (row.user.isDeleted) {
+              await logSecurityEvent(req, 'USER_LOGIN_BLOCKED_DELETED', { userId: row.user.id, email: row.user.email })
+              return res.status(403).json({ message: 'บัญชีถูกลบ' })
+            }
     }
 
     await prisma.$transaction([
@@ -998,7 +1009,13 @@ export async function googleStart(req, res) {
     })
 
     if (user) {
-      const guard = await guardSuspendedUser(req, user)
+        // Block soft-deleted users (Google login path)
+        if (user.isDeleted) {
+          await logSecurityEvent(req, 'USER_LOGIN_BLOCKED_DELETED', { userId: user.id, email: user.email })
+          return res.status(403).json({ message: 'บัญชีถูกลบ' })
+        }
+
+        const guard = await guardSuspendedUser(req, user)
       if (!guard.ok) return res.status(guard.status).json(guard.body)
 
       // ✅ โหมดสมัคร: ถ้ามีบัญชีอยู่แล้ว ให้แจ้งเตือน "มีบัญชีแล้ว/อีเมลถูกใช้แล้ว" (ห้ามล็อกอิน)
