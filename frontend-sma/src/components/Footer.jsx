@@ -41,9 +41,9 @@ export default function Footer() {
   const satisfactionText = satisfactionPct !== null ? `${satisfactionPct}%` : "-";
 
   return (
-    <footer className="bg-[#0B1220] text-white pt-12 pb-6 relative overflow-hidden">
-      <div className="max-w-6xl mx-auto px-6">
-        <div className="grid md:grid-cols-3 gap-10 mb-10">
+    <footer className="bg-[#0B1220] text-white pt-8 md:pt-12 pb-6 relative overflow-hidden">
+      <div className="max-w-6xl mx-auto px-4 md:px-6">
+        <div className="grid md:grid-cols-3 gap-6 md:gap-10 mb-8 md:mb-10">
           {/* ---- Brand ---- */}
           <div>
             <div className="flex items-center gap-2 mb-4">
@@ -68,7 +68,7 @@ export default function Footer() {
               </svg>
               <span className="text-lg font-semibold">Warranty</span>
             </div>
-            <p className="text-sm text-gray-300 leading-6 mb-4 max-w-sm">
+            <p className="text-sm text-gray-300 leading-5 mb-3 max-w-none md:max-w-sm">
               แพลตฟอร์มบริหารจัดการการรับประกันสินค้าสำหรับธุรกิจขนาดเล็กถึงขนาดใหญ่
               เพื่อให้การจัดการใบรับประกันเป็นเรื่องง่าย
             </p>
@@ -123,7 +123,7 @@ export default function Footer() {
         </div>
 
         {/* ---- Bottom Bar ---- */}
-        <div className="border-t border-gray-700 pt-5 flex flex-col md:flex-row justify-between text-xs text-gray-400">
+        <div className="border-t border-gray-700 pt-3 md:pt-5 flex flex-col md:flex-row justify-between text-xs text-gray-400">
           <p>
             © 2024 Warranty Management Platform. สงวนลิขสิทธิ์.
           </p>
@@ -132,7 +132,7 @@ export default function Footer() {
       </div>
 
       {/* subtle wave background */}
-      <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#111a2e] to-transparent"></div>
+      <div className="absolute inset-x-0 bottom-0 h-12 md:h-16 bg-gradient-to-t from-[#111a2e] to-transparent"></div>
     </footer>
   );
 }
