@@ -1,6 +1,7 @@
 // src/components/Navbar.jsx
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../store/auth'
+import { useState } from 'react'
 
 export default function Navbar() {
   
@@ -39,6 +40,8 @@ export default function Navbar() {
   const onSignin = pathname !== "/signin";
   const onSignup = pathname !== "/signup";
 
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   const handleLogout = async () => {
     try {
       await logout?.();
@@ -61,7 +64,19 @@ export default function Navbar() {
           />
           <span className="text-xl font-semibold text-gray-900">Warranty</span>
         </Link>
-        {/* ...existing code... */}
+        {/* Mobile hamburger (visible on small screens) */}
+        <div className="md:hidden ml-auto">
+          <button
+            aria-label="Toggle menu"
+            aria-expanded={mobileOpen}
+            className="p-2 rounded-md text-gray-700 hover:bg-gray-100"
+            onClick={() => setMobileOpen((o) => !o)}
+          >
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+        </div>
 
         {/* เมนูกลาง */}
         <div className="hidden md:flex items-center gap-6 flex-1 justify-center">
@@ -95,8 +110,8 @@ export default function Navbar() {
               remove duplicate middle nav item to avoid repetition */}
         </div>
 
-        {/* ปุ่มขวา + LanguageSwitcher */}
-        <div className="flex items-center gap-3 ml-auto">
+        {/* ปุ่มขวา + LanguageSwitcher (ซ่อนบนมือถือ; อยู่ในแฮมเบอร์เกอร์แทน) */}
+        <div className="hidden md:flex items-center gap-3 ml-auto">
           {isAuthenticated ? (
             <>
               <Link
@@ -175,6 +190,43 @@ export default function Navbar() {
           )}
           
         </div>
+
+        {/* Mobile menu panel */}
+        {mobileOpen && (
+          <div className="md:hidden fixed inset-x-0 top-16 z-40 bg-white/95 backdrop-blur-sm shadow-lg border-t border-slate-200 rounded-b-xl">
+            <div className="px-4 pt-4 pb-6 max-w-xl mx-auto">
+              <div className="mb-3 text-center">
+                <span className="text-lg font-semibold text-gray-900">เมนู</span>
+              </div>
+
+              <nav className="flex flex-col gap-2 items-center text-center">
+                <NavLink onClick={() => setMobileOpen(false)} end to="/" className={({isActive})=>`w-full text-center px-4 py-3 rounded-lg text-base ${isActive? 'text-gray-900 bg-gray-50':'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}`}>
+                  หน้าหลัก
+                </NavLink>
+                <NavLink onClick={() => setMobileOpen(false)} to="/warranty" className={({isActive})=>`w-full text-center px-4 py-3 rounded-lg text-base ${isActive? 'text-gray-900 bg-gray-50':'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}`}>
+                  การรับประกัน
+                </NavLink>
+                <NavLink onClick={() => setMobileOpen(false)} to="/about" className={({isActive})=>`w-full text-center px-4 py-3 rounded-lg text-base ${isActive? 'text-gray-900 bg-gray-50':'text-gray-600 hover:text-gray-900 hover:bg-gray-50'}`}>
+                  เกี่ยวกับเรา
+                </NavLink>
+
+                <div className="border-t border-slate-100 mt-4 pt-4 flex flex-col gap-2 w-full">
+                  {isAuthenticated ? (
+                    <>
+                      <Link onClick={() => setMobileOpen(false)} to={dashHref} className="w-full text-center px-4 py-3 rounded-lg text-base text-[color:var(--brand)]">ไปที่แดชบอร์ด</Link>
+                      <button onClick={() => { setMobileOpen(false); handleLogout(); }} className="w-full text-center px-4 py-3 text-sm text-gray-600">ออกจากระบบ</button>
+                    </>
+                  ) : (
+                    <>
+                      <Link onClick={() => setMobileOpen(false)} to="/signin" className="w-full text-center px-4 py-3 rounded-lg text-base text-gray-700">เข้าสู่ระบบ</Link>
+                      <Link onClick={() => setMobileOpen(false)} to="/signup" className="w-full text-center px-4 py-3 rounded-lg text-base text-gray-700">สมัครสมาชิก</Link>
+                    </>
+                  )}
+                </div>
+              </nav>
+            </div>
+          </div>
+        )}
       </nav>
     </header>
   );
