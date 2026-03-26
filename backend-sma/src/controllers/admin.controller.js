@@ -695,12 +695,7 @@ export async function deleteStoreAccount(req, res) {
         <p style="margin:0;font-weight:bold;color:#991b1b;">เหตุผล:</p>
         <p style="margin:4px 0 0 0;color:#b91c1c;">${reason || "-"}</p>
       </div>
-      <p>หากคุณมีข้อสงสัยหรือต้องการยื่นอุทธรณ์ สามารถกรอกแบบฟอร์มได้ที่:</p>
-      <p>
-        <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/appeal-suspension?email=${store.email}" style="color:#2563eb;font-weight:600;text-decoration:none;">
-          📝 ยื่นอุทธรณ์ / ขอปลดระงับ
-        </a>
-      </p>
+      
     `,
     footerNote: "ระบบจัดการใบรับประกันอัจฉริยะ",
   });
@@ -711,6 +706,21 @@ export async function deleteStoreAccount(req, res) {
     text: `บัญชีร้านของคุณถูกลบโดยผู้ดูแลระบบ\nเหตุผล: ${reason || "-"}\nติดต่อ: ${ADMIN_CONTACT_EMAIL}`,
     html,
   });
+
+  // Cleanup: ลบ Complaints และ Feedback ที่เชื่อมกับบัญชีนี้ (ถ้ามี)
+  try {
+    const result = await prisma.$transaction([
+      prisma.complaint.deleteMany({ where: { userId: storeId } }),
+      prisma.satisfaction.deleteMany({ where: { OR: [{ userId: storeId }, { storeId: storeId }] } }),
+    ]);
+
+    await logAudit(req, "CLEANUP_USER_RELATED_DATA", "User", storeId, {
+      result: "SUCCESS",
+      deleted: { complaints: result[0].count, satisfactions: result[1].count },
+    });
+  } catch (e) {
+    console.warn("cleanup related data failed for store:", e?.message || e);
+  }
 
   await prisma.user.delete({ where: { id: storeId } });
   res.json({ ok: true });
@@ -754,12 +764,7 @@ export async function deleteCustomerAccount(req, res) {
         <p style="margin:0;font-weight:bold;color:#991b1b;">เหตุผล:</p>
         <p style="margin:4px 0 0 0;color:#b91c1c;">${reason || "-"}</p>
       </div>
-      <p>หากคุณคิดว่าเป็นความผิดพลาด สามารถยื่นอุทธรณ์ได้ที่:</p>
-      <p>
-        <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/appeal-suspension?email=${user.email}" style="color:#2563eb;font-weight:600;text-decoration:none;">
-          📝 ยื่นอุทธรณ์ / ขอปลดระงับ
-        </a>
-      </p>
+      
     `,
     footerNote: "ระบบจัดการใบรับประกันอัจฉริยะ",
   });
@@ -770,6 +775,21 @@ export async function deleteCustomerAccount(req, res) {
     text: `บัญชีของคุณถูกลบโดยผู้ดูแลระบบ\nเหตุผล: ${reason || "-"}\nติดต่อ: ${ADMIN_CONTACT_EMAIL}`,
     html,
   });
+
+  // Cleanup: ลบ Complaints และ Feedback ที่เชื่อมกับบัญชีลูกค้าก่อนลบ
+  try {
+    const result = await prisma.$transaction([
+      prisma.complaint.deleteMany({ where: { userId: customerId } }),
+      prisma.satisfaction.deleteMany({ where: { OR: [{ userId: customerId }, { storeId: customerId }] } }),
+    ]);
+
+    await logAudit(req, "CLEANUP_USER_RELATED_DATA", "User", customerId, {
+      result: "SUCCESS",
+      deleted: { complaints: result[0].count, satisfactions: result[1].count },
+    });
+  } catch (e) {
+    console.warn("cleanup related data failed for customer:", e?.message || e);
+  }
 
   await prisma.user.delete({ where: { id: customerId } });
   res.json({ ok: true });
