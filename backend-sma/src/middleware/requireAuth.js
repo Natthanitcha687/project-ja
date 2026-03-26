@@ -48,6 +48,7 @@ export async function requireAuth(req, res, next) {
         suspendedAt: true,
         suspendedReason: true,
         suspendedUntil: true, // ✅ ต้องมี field นี้ใน schema แล้ว migrate แล้ว
+        isDeleted: true,
       },
     });
 
@@ -84,6 +85,11 @@ export async function requireAuth(req, res, next) {
           suspendedUntil: dbUser.suspendedUntil || null,
         });
       }
+    }
+
+    // ✅ ถ้าถูกลบแบบ soft-delete -> ปฏิเสธการเข้าถึงทันที
+    if (dbUser.isDeleted) {
+      return res.status(403).json({ message: "บัญชีถูกลบ" });
     }
 
     // ✅ ใส่ req.user ให้ downstream ใช้ต่อ

@@ -294,6 +294,19 @@ export default function Stores() {
     }
   }
 
+  async function doRestore(s) {
+    if (!s) return;
+    setLoading(true);
+    try {
+      await api.post(`/admin/users/${s.id}/restore`);
+      await load();
+    } catch (e) {
+      alert(e?.response?.data?.message || "กู้คืนไม่สำเร็จ");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div>
       {/* Title */}
@@ -474,6 +487,16 @@ export default function Stores() {
                     >
                       ลบบัญชี
                     </button>
+                    {s.isDeleted && (
+                      <button
+                        type="button"
+                        onClick={() => doRestore(s)}
+                        className="rounded-lg border border-emerald-300 bg-emerald-100 px-3 py-2 text-xs font-extrabold text-emerald-900 hover:bg-emerald-200 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                        aria-label={`กู้คืนร้าน ${name}`}
+                      >
+                        กู้คืน
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

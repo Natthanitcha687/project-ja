@@ -245,6 +245,20 @@ export default function Users() {
     }
   }
 
+  async function doRestore(u) {
+    if (!u) return;
+    setErr("");
+    setLoading(true);
+    try {
+      await api.post(`/admin/users/${u.id}/restore`);
+      await load();
+    } catch (e) {
+      setErr(e?.response?.data?.message || "กู้คืนไม่สำเร็จ");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -514,6 +528,16 @@ export default function Users() {
                     >
                       ลบ
                     </button>
+                      {u.isDeleted && (
+                        <button
+                          type="button"
+                          onClick={() => doRestore(u)}
+                          className="rounded-lg bg-emerald-100 text-emerald-900 border border-emerald-300 px-3 py-1 font-semibold hover:bg-emerald-200 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200"
+                          disabled={loading}
+                        >
+                          กู้คืน
+                        </button>
+                      )}
                   </div>
                 </td>
               </tr>
@@ -618,7 +642,18 @@ export default function Users() {
                   </div>
                 )}
               </div>
-
+              {u.isDeleted && (
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    onClick={() => doRestore(u)}
+                    className="w-full rounded-xl bg-emerald-100 text-emerald-900 border border-emerald-300 px-3 py-2 text-sm font-semibold hover:bg-emerald-200 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                    disabled={loading}
+                  >
+                    กู้คืน
+                  </button>
+                </div>
+              )}
               <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-700 text-sm">
                 กด <b>“ยืนยัน”</b> เพื่อปลดระงับบัญชีลูกค้านี้ และกลับมาใช้งานได้ตามปกติ
               </div>

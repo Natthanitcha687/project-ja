@@ -50,6 +50,9 @@ model User {
   failedLoginAttempts  Int       @default(0)    // จำนวนครั้งที่ login ผิด
   failedLoginAt        DateTime?               // เวลาที่เริ่มนับ
   lockedUntil          DateTime?               // เวลาหมดล็อค
+  // ✅ Soft-delete support
+  isDeleted           Boolean   @default(false)
+  deletedAt           DateTime?
 
   customerProfile CustomerProfile?
   storeProfile    StoreProfile?
@@ -80,6 +83,7 @@ model User {
 
   @@index([role])
   @@index([status])
+  @@index([isDeleted, deletedAt])
 }
 
 model CustomerProfile {
@@ -180,11 +184,22 @@ model Warranty {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Soft-delete support for warranties
+  isDeleted  Boolean  @default(false)
+  deletedAt  DateTime?
+
+  // Backup customer info when a CUSTOMER is unlinked (so we can restore later)
+  previousCustomerUserId Int?
+  previousCustomerEmail  String?
+  previousCustomerName   String?
+  previousCustomerPhone  String?
+
   items WarrantyItem[]
 
   /// ทำให้ WR ยูนีค “แยกร้าน”
   @@unique([storeId, code], name: "storeId_code")
   @@index([customerUserId])
+  @@index([previousCustomerUserId])
 }
 
 model WarrantyItem {

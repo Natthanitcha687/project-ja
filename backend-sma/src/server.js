@@ -18,6 +18,7 @@ import customerRoutes from './routes/customer.routes.js';
 import statsRoutes from './routes/stats.routes.js';
 import notificationsRoutes from './routes/notifications.routes.js';
 import runExpiryScanJob from './jobs/notifyExpirations.js';
+import runHardDeleteSweep from './jobs/hardDeleteSweep.js';
 
 // ✅ NEW: Admin routes
 import adminRoutes from './routes/admin.routes.js';
@@ -292,11 +293,19 @@ app.listen(port, () => {
   // start expiry notification job: run once at startup and then every TH midnight
   try {
     runExpiryScanJob();
+    // run hard-delete sweep at startup (safeguard) and schedule daily
+    try {
+      runHardDeleteSweep();
+    } catch (e) {
+      console.warn('Unable to run hardDeleteSweep at startup', e?.message || e)
+    }
 
     const firstDelay = msUntilNextMidnightTH();
     setTimeout(() => {
       runExpiryScanJob();
       setInterval(() => runExpiryScanJob(), 24 * 3600 * 1000);
+      // schedule hard delete sweep daily at TH midnight too
+      setInterval(() => runHardDeleteSweep(), 24 * 3600 * 1000);
       console.log('🔔 Expiry scan job scheduled (every TH midnight)');
     }, firstDelay);
 
