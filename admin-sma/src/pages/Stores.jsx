@@ -479,14 +479,16 @@ export default function Stores() {
                       {s.status === "SUSPENDED" ? "ปลดระงับ" : "ระงับบัญชี"}
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={() => openDeleteModal(s)}
-                      className="rounded-lg border border-rose-300 bg-rose-100 px-3 py-2 text-xs font-extrabold text-rose-900 hover:bg-rose-200 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                      aria-label={`ลบบัญชีร้าน ${name}`}
-                    >
-                      ลบบัญชี
-                    </button>
+                    {!s.isDeleted && (
+                      <button
+                        type="button"
+                        onClick={() => openDeleteModal(s)}
+                        className="rounded-lg border border-rose-300 bg-rose-100 px-3 py-2 text-xs font-extrabold text-rose-900 hover:bg-rose-200 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                        aria-label={`ลบบัญชีร้าน ${name}`}
+                      >
+                        ลบบัญชี
+                      </button>
+                    )}
                     {s.isDeleted && (
                       <button
                         type="button"

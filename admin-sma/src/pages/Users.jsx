@@ -433,14 +433,26 @@ export default function Users() {
                 </button>
               )}
 
-              <button
-                type="button"
-                onClick={() => openDeleteModal(u)}
-                className="rounded-xl bg-rose-100 text-rose-900 border border-rose-300 px-3 py-2 text-sm font-semibold hover:bg-rose-200 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                disabled={loading}
-              >
-                ลบ
-              </button>
+              {!u.isDeleted && (
+                <button
+                  type="button"
+                  onClick={() => openDeleteModal(u)}
+                  className="rounded-xl bg-rose-100 text-rose-900 border border-rose-300 px-3 py-2 text-sm font-semibold hover:bg-rose-200 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                  disabled={loading}
+                >
+                  ลบ
+                </button>
+              )}
+              {u.isDeleted && (
+                <button
+                  type="button"
+                  onClick={() => doRestore(u)}
+                  className="rounded-xl bg-emerald-100 text-emerald-900 border border-emerald-300 px-3 py-2 text-sm font-semibold hover:bg-emerald-200 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                  disabled={loading}
+                >
+                  กู้คืน
+                </button>
+              )}
             </div>
 
             {u.suspendedUntil && (
@@ -520,24 +532,26 @@ export default function Users() {
                       </button>
                     )}
 
-                    <button
-                      type="button"
-                      onClick={() => openDeleteModal(u)}
-                      className="rounded-lg bg-rose-100 text-rose-900 border border-rose-300 px-3 py-1 font-semibold hover:bg-rose-200 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200"
-                      disabled={loading}
-                    >
-                      ลบ
-                    </button>
-                      {u.isDeleted && (
-                        <button
-                          type="button"
-                          onClick={() => doRestore(u)}
-                          className="rounded-lg bg-emerald-100 text-emerald-900 border border-emerald-300 px-3 py-1 font-semibold hover:bg-emerald-200 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200"
-                          disabled={loading}
-                        >
-                          กู้คืน
-                        </button>
-                      )}
+                    {!u.isDeleted && (
+                      <button
+                        type="button"
+                        onClick={() => openDeleteModal(u)}
+                        className="rounded-lg bg-rose-100 text-rose-900 border border-rose-300 px-3 py-1 font-semibold hover:bg-rose-200 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200"
+                        disabled={loading}
+                      >
+                        ลบ
+                      </button>
+                    )}
+                    {u.isDeleted && (
+                      <button
+                        type="button"
+                        onClick={() => doRestore(u)}
+                        className="rounded-lg bg-emerald-100 text-emerald-900 border border-emerald-300 px-3 py-1 font-semibold hover:bg-emerald-200 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200"
+                        disabled={loading}
+                      >
+                        กู้คืน
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
