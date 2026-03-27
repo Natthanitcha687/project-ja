@@ -672,7 +672,7 @@ export default function CustomerNavbar() {
                 }}
               >
                     <img src="/home-assets/report.jpg" alt="แจ้งปัญหา" className="h-4 w-4 object-contain" />
-                <span className="text-[11px] sm:text-sm whitespace-nowrap">แจ้งปัญหา</span>
+                <span className="hidden sm:inline text-sm whitespace-nowrap">แจ้งปัญหา</span>
               </Link>
             )}
 
