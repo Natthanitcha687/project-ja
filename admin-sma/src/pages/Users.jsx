@@ -113,6 +113,11 @@ export default function Users() {
   // Delete modal
   const [openDelete, setOpenDelete] = useState(false);
   const [dTarget, setDTarget] = useState(null);
+
+  // Restore modal
+  const [openRestore, setOpenRestore] = useState(false);
+  const [restoreTarget, setRestoreTarget] = useState(null);
+  const [rSubmitting, setRSubmitting] = useState(false);
   // เหตุผลลบ: radio + อื่นๆ
   const [dReason, setDReason] = useState("");
   const [dReasonOther, setDReasonOther] = useState("");
@@ -171,6 +176,11 @@ export default function Users() {
     setDTarget(u);
     setOpenDelete(true);
     setDReason("");
+  }
+
+  function openRestoreModal(u) {
+    setRestoreTarget(u);
+    setOpenRestore(true);
   }
 
   async function doUnsuspendConfirm() {
@@ -245,17 +255,18 @@ export default function Users() {
     }
   }
 
-  async function doRestore(u) {
-    if (!u) return;
+  async function submitRestore() {
+    if (!restoreTarget) return;
     setErr("");
-    setLoading(true);
+    setRSubmitting(true);
     try {
-      await api.post(`/admin/users/${u.id}/restore`);
+      await api.post(`/admin/users/${restoreTarget.id}/restore`);
+      setOpenRestore(false);
       await load();
     } catch (e) {
       setErr(e?.response?.data?.message || "กู้คืนไม่สำเร็จ");
     } finally {
-      setLoading(false);
+      setRSubmitting(false);
     }
   }
 
@@ -446,7 +457,7 @@ export default function Users() {
               {u.isDeleted && (
                 <button
                   type="button"
-                  onClick={() => doRestore(u)}
+                  onClick={() => openRestoreModal(u)}
                   className="rounded-xl bg-emerald-100 text-emerald-900 border border-emerald-300 px-3 py-2 text-sm font-semibold hover:bg-emerald-200 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-sky-200"
                   disabled={loading}
                 >
@@ -545,7 +556,7 @@ export default function Users() {
                     {u.isDeleted && (
                       <button
                         type="button"
-                        onClick={() => doRestore(u)}
+                        onClick={() => openRestoreModal(u)}
                         className="rounded-lg bg-emerald-100 text-emerald-900 border border-emerald-300 px-3 py-1 font-semibold hover:bg-emerald-200 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200"
                         disabled={loading}
                       >
@@ -656,11 +667,11 @@ export default function Users() {
                   </div>
                 )}
               </div>
-              {u.isDeleted && (
+              {uTarget?.isDeleted && (
                 <div className="mt-2">
                   <button
                     type="button"
-                    onClick={() => doRestore(u)}
+                    onClick={() => openRestoreModal(uTarget)}
                     className="w-full rounded-xl bg-emerald-100 text-emerald-900 border border-emerald-300 px-3 py-2 text-sm font-semibold hover:bg-emerald-200 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-sky-200"
                     disabled={loading}
                   >
@@ -915,6 +926,60 @@ export default function Users() {
                 disabled={loading || !dReasonTrim}
               >
                 ยืนยัน
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================
+       * Restore Modal
+       * ========================= */}
+      {openRestore && restoreTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="กู้คืนบัญชีลูกค้า"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setOpenRestore(false);
+          }}
+        >
+          <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl">
+            <div className="p-5 border-b border-slate-100">
+              <div className="text-lg font-semibold text-emerald-600">กู้คืนบัญชีลูกค้า</div>
+              <div className="mt-1 text-sm text-slate-600">วิธีกู้คืนบัญชีเพื่อให้ลูกค้ากลับมาใช้งานได้ตามปกติ</div>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="text-sm">
+                <div className="text-slate-700">อีเมล</div>
+                <div className="font-semibold text-slate-900 break-words">{restoreTarget.email}</div>
+              </div>
+
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-700 text-sm">
+                กด “ยืนยัน” เพื่อกู้คืนบัญชีลูกค้านี้ และกลับมาใช้งานได้ตามปกติ
+              </div>
+            </div>
+
+            <div className="p-5 border-t border-slate-100 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-xl border border-slate-200 bg-white px-5 py-2 font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                onClick={() => setOpenRestore(false)}
+                disabled={rSubmitting}
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                className={`rounded-xl px-5 py-2 font-semibold text-white focus:outline-none focus:ring-2 focus:ring-sky-200 ${
+                  rSubmitting ? "opacity-60 cursor-not-allowed bg-emerald-600" : "bg-emerald-600 hover:bg-emerald-700"
+                }`}
+                onClick={submitRestore}
+                disabled={rSubmitting}
+              >
+                {rSubmitting ? "กำลังทำรายการ..." : "ยืนยัน"}
               </button>
             </div>
           </div>

@@ -153,6 +153,11 @@ export default function Stores() {
   ];
   const [dSubmitting, setDSubmitting] = useState(false);
 
+  // Restore modal
+  const [openRestore, setOpenRestore] = useState(false);
+  const [restoreTarget, setRestoreTarget] = useState(null);
+  const [rSubmitting, setRSubmitting] = useState(false);
+
   // ✅ บังคับเหตุผลก่อนกดได้ (เฉพาะส่วนที่เกี่ยวกับเหตุผล)
   const sReasonTrim = sReason === "other" ? sReasonOther.trim() : sReason.trim();
   const dReasonTrim = dReason === "other" ? dReasonOther.trim() : dReason.trim();
@@ -239,6 +244,11 @@ export default function Stores() {
     setOpenDelete(true);
   }
 
+  function openRestoreModal(store) {
+    setRestoreTarget(store);
+    setOpenRestore(true);
+  }
+
   async function submitSuspend() {
     if (!suspendTarget) return;
 
@@ -294,16 +304,17 @@ export default function Stores() {
     }
   }
 
-  async function doRestore(s) {
-    if (!s) return;
-    setLoading(true);
+  async function submitRestore() {
+    if (!restoreTarget) return;
+    setRSubmitting(true);
     try {
-      await api.post(`/admin/users/${s.id}/restore`);
+      await api.post(`/admin/users/${restoreTarget.id}/restore`);
+      setOpenRestore(false);
       await load();
     } catch (e) {
       alert(e?.response?.data?.message || "กู้คืนไม่สำเร็จ");
     } finally {
-      setLoading(false);
+      setRSubmitting(false);
     }
   }
 
@@ -492,7 +503,7 @@ export default function Stores() {
                     {s.isDeleted && (
                       <button
                         type="button"
-                        onClick={() => doRestore(s)}
+                        onClick={() => openRestoreModal(s)}
                         className="rounded-lg border border-emerald-300 bg-emerald-100 px-3 py-2 text-xs font-extrabold text-emerald-900 hover:bg-emerald-200 focus:outline-none focus:ring-2 focus:ring-sky-200"
                         aria-label={`กู้คืนร้าน ${name}`}
                       >
@@ -857,6 +868,51 @@ export default function Stores() {
                 {dSubmitting ? "กำลังลบ..." : "ยืนยัน"}
               </button>
             </div>
+          </div>
+        </div>
+      </ModalShell>
+
+      {/* ============ Restore Modal ============ */}
+      <ModalShell
+        open={openRestore}
+        onClose={() => setOpenRestore(false)}
+        widthClass="max-w-xl"
+        ariaLabel="กู้คืนบัญชีร้านค้า"
+      >
+        <div className="p-6">
+          <div className="text-lg font-extrabold text-emerald-600">กู้คืนบัญชีร้านค้า</div>
+          <div className="text-sm text-slate-600">บัญชีนี้จะสามารถกลับมาใช้งานได้ตามปกติ</div>
+
+          <div className="mt-5">
+            <div className="text-sm font-bold text-slate-900">ชื่อบัญชี</div>
+            <div className="mt-1 font-extrabold text-slate-900">{restoreTarget?.storeProfile?.storeName || "-"}</div>
+
+            <div className="mt-4 text-sm font-bold text-slate-900">อีเมล</div>
+            <div className="mt-1 text-slate-700 break-words">{restoreTarget?.email || "-"}</div>
+            
+            <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+              กด “ยืนยัน” เพื่อกู้คืนบัญชีร้านค้านี้ และกลับมาใช้งานได้ตามปกติ
+            </div>
+          </div>
+
+          <div className="mt-6 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setOpenRestore(false)}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-sky-200"
+            >
+              ยกเลิก
+            </button>
+            <button
+              type="button"
+              disabled={rSubmitting}
+              onClick={submitRestore}
+              className={`rounded-xl px-4 py-2 text-sm font-extrabold text-white focus:outline-none focus:ring-2 focus:ring-sky-200 ${
+                rSubmitting ? "opacity-60 cursor-not-allowed bg-emerald-600" : "bg-emerald-600 hover:bg-emerald-700"
+              }`}
+            >
+              {rSubmitting ? "กำลังทำรายการ..." : "ยืนยัน"}
+            </button>
           </div>
         </div>
       </ModalShell>
