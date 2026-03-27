@@ -411,13 +411,13 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
               to="/dashboard/complaints"
               title="ร้องเรียน/ติดต่อแอดมิน"
               aria-label="ร้องเรียน/ติดต่อแอดมิน"
-              className="inline-flex items-center gap-1.5 sm:gap-2 rounded-full bg-white shadow ring-1 ring-black/5 px-2.5 py-1.5 sm:px-3 sm:py-2 font-semibold text-slate-700 hover:bg-slate-50 transition"
+              className="flex items-center justify-center h-10 w-10 sm:h-auto sm:w-auto sm:px-3 sm:py-2 gap-1.5 sm:gap-2 rounded-full bg-white shadow ring-1 ring-black/5 font-semibold text-slate-700 hover:bg-slate-50 transition"
               onClick={() => {
                 setNotifOpen(false)
                 setProfileMenuOpen(false)
               }}
             >
-              <img src="/home-assets/report.jpg" alt="แจ้งปัญหา" className="h-4 w-4 object-contain" />
+              <img src="/home-assets/report.jpg" alt="แจ้งปัญหา" className="h-5 w-5 sm:h-4 sm:w-4 object-contain" />
               <span className="hidden sm:inline text-sm whitespace-nowrap">แจ้งปัญหา</span>
             </Link>
           )}
