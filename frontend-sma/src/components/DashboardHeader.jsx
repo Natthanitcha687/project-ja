@@ -260,7 +260,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
           </div>
           <div>
             <div className="text-lg font-semibold text-slate-900">{title}</div>
-            <div className="text-xs text-slate-500">{subtitle}</div>
+            <div className="text-xs text-slate-500 hidden sm:block">{subtitle}</div>
           </div>
         </Link>
 
@@ -418,7 +418,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
               }}
             >
               <img src="/home-assets/report.jpg" alt="แจ้งปัญหา" className="h-4 w-4 object-contain" />
-              <span className="text-xs sm:text-sm">แจ้งปัญหา</span>
+              <span className="text-[11px] sm:text-sm whitespace-nowrap">แจ้งปัญหา</span>
             </Link>
           )}
 

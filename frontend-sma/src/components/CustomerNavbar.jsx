@@ -525,7 +525,7 @@ export default function CustomerNavbar() {
             </div>
             <div>
               <div className="text-lg font-semibold text-sky-900">Warranty</div>
-              <div className="text-xs text-slate-500">
+              <div className="text-xs text-slate-500 hidden sm:block">
                 จัดการการรับประกันของคุณได้ในที่เดียว
               </div>
             </div>
@@ -672,7 +672,7 @@ export default function CustomerNavbar() {
                 }}
               >
                     <img src="/home-assets/report.jpg" alt="แจ้งปัญหา" className="h-4 w-4 object-contain" />
-                <span className="text-xs sm:text-sm">แจ้งปัญหา</span>
+                <span className="text-[11px] sm:text-sm whitespace-nowrap">แจ้งปัญหา</span>
               </Link>
             )}
 
