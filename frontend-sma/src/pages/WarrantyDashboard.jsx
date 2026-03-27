@@ -2050,13 +2050,12 @@ export default function WarrantyDashboard() {
       <div className="min-h-screen bg-gradient-to-b from-sky-50 to-sky-100/60 pb-16 overflow-x-hidden">
         {/* Header provided by shared `/dashboard` layout */}
 
-
         <main className="mx-auto mt-8 max-w-6xl px-2 sm:px-6 lg:px-8">
           {/* Welcome modal shown only for new store accounts on Warranty page */}
           <WelcomeOnboardingModal
             open={showWelcomeModal}
             onClose={() => {
-              setShowWelcomeModal(false)
+              setShowWelcomeModal(false);
             }}
             title="ยินดีต้อนรับสู่ระบบการรับประกัน"
             description="สร้างใบรับประกันแรกของคุณและดูวิธีใช้งานฟีเจอร์สำคัญในไม่กี่ขั้นตอน"
@@ -2069,7 +2068,7 @@ export default function WarrantyDashboard() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setDashboardError('')}
+                  onClick={() => setDashboardError("")}
                   className="rounded-full bg-white px-3 py-1 text-xs font-medium text-sky-600 shadow hover:bg-sky-100"
                 >
                   ปิด
@@ -2092,11 +2091,15 @@ export default function WarrantyDashboard() {
 
           <div className="rounded-3xl border border-sky-100 bg-gradient-to-b from-white to-sky-50 p-4 sm:p-6 shadow-xl min-w-0">
             {dashboardLoading ? (
-              <div className="grid min-h-[320px] place-items-center text-sm text-slate-500">กำลังโหลดข้อมูล...</div>
+              <div className="grid min-h-[320px] place-items-center text-sm text-slate-500">
+                กำลังโหลดข้อมูล...
+              </div>
             ) : !storeIdResolved ? (
               <div className="grid min-h-[320px] place-items-center text-center text-sm text-slate-500">
                 <div>
-                  <div className="text-base font-medium text-slate-700">หน้านี้สำหรับบัญชีร้านค้าเท่านั้น</div>
+                  <div className="text-base font-medium text-slate-700">
+                    หน้านี้สำหรับบัญชีร้านค้าเท่านั้น
+                  </div>
                 </div>
               </div>
             ) : (
@@ -2108,7 +2111,7 @@ export default function WarrantyDashboard() {
                     <button
                       id="step-create-warranty"
                       type="button"
-                      onClick={() => openWarrantyModal('create')}
+                      onClick={() => openWarrantyModal("create")}
                       className="rounded-full bg-sky-600 px-4 py-2 text-sm font-medium text-white shadow hover:-translate-y-0.5 hover:bg-sky-500 transition wp-tour-create-button"
                     >
                       สร้างใบรับประกัน
@@ -2121,10 +2124,18 @@ export default function WarrantyDashboard() {
                   className="mb-6 flex flex-wrap items-center gap-2 sm:gap-3 wp-tour-filter-area"
                 >
                   <div className="flex w-full sm:flex-1 sm:w-auto min-w-0 items-center rounded-2xl bg-white px-3 py-2 sm:px-4 shadow ring-1 ring-black/5">
-                    <img src="/home-assets/search.jpg" alt="ค้นหา" className="h-5 w-5 object-cover mr-1 opacity-70" />
+                    <img
+                      src="/home-assets/search.jpg"
+                      alt="ค้นหา"
+                      className="h-5 w-5 object-cover mr-1 opacity-70"
+                    />
                     <input
                       value={searchTerm}
-                      onChange={(event) => setSearchTerm(stripEmojisAndSpecials(event.target.value))}
+                      onChange={(event) =>
+                        setSearchTerm(
+                          stripEmojisAndSpecials(event.target.value),
+                        )
+                      }
                       className="w-full bg-transparent px-2 py-2 text-sm focus:outline-none"
                       placeholder="ค้นหาด้วยรหัสใบรับประกัน, ชื่อลูกค้า, อีเมลลูกค้า, ชื่อสินค้า"
                     />
@@ -2133,22 +2144,22 @@ export default function WarrantyDashboard() {
                   {/* 🟦 ปุ่มกรอง: ใช้โทนสีและ logic เดียวกับโค้ด1 */}
                   <div className="flex flex-wrap gap-2">
                     {filters.map((f) => {
-                      const isActive = activeFilter === f.value
+                      const isActive = activeFilter === f.value;
                       const colors = isActive
-                        ? f.value === 'active'
-                          ? 'bg-emerald-600 text-white border-emerald-600'
-                          : f.value === 'nearing_expiration'
-                            ? 'bg-amber-500 text-white border-amber-500'
-                            : f.value === 'expired'
-                              ? 'bg-rose-600 text-white border-rose-600'
-                              : 'bg-slate-900 text-white border-slate-900'
-                        : f.value === 'active'
-                          ? 'bg-white text-emerald-700 border-emerald-400'
-                          : f.value === 'nearing_expiration'
-                            ? 'bg-white text-amber-700 border-amber-300'
-                            : f.value === 'expired'
-                              ? 'bg-white text-rose-700 border-rose-300'
-                              : 'bg-white text-slate-800 border-slate-300'
+                        ? f.value === "active"
+                          ? "bg-emerald-600 text-white border-emerald-600"
+                          : f.value === "nearing_expiration"
+                            ? "bg-amber-500 text-white border-amber-500"
+                            : f.value === "expired"
+                              ? "bg-rose-600 text-white border-rose-600"
+                              : "bg-slate-900 text-white border-slate-900"
+                        : f.value === "active"
+                          ? "bg-white text-emerald-700 border-emerald-400"
+                          : f.value === "nearing_expiration"
+                            ? "bg-white text-amber-700 border-amber-300"
+                            : f.value === "expired"
+                              ? "bg-white text-rose-700 border-rose-300"
+                              : "bg-white text-slate-800 border-slate-300";
 
                       return (
                         <button
@@ -2159,7 +2170,7 @@ export default function WarrantyDashboard() {
                         >
                           {f.label}
                         </button>
-                      )
+                      );
                     })}
                   </div>
                 </div>
@@ -2174,26 +2185,33 @@ export default function WarrantyDashboard() {
                       ยังไม่มีใบรับประกัน
                     </div>
                   ) : (
-                    paginatedHeaders.map(header => {
-                      const expanded = !!expandedByHeader[header.id]
-                      const totalItems = header._filteredItems?.length ?? header.items?.length ?? 0
+                    paginatedHeaders.map((header) => {
+                      const expanded = !!expandedByHeader[header.id];
+                      const totalItems =
+                        header._filteredItems?.length ??
+                        header.items?.length ??
+                        0;
                       const firstItemName =
-                        (Array.isArray(header._filteredItems) && header._filteredItems[0]?.productName) ||
-                        (Array.isArray(header.items) && header.items[0]?.productName) ||
-                        null
+                        (Array.isArray(header._filteredItems) &&
+                          header._filteredItems[0]?.productName) ||
+                        (Array.isArray(header.items) &&
+                          header.items[0]?.productName) ||
+                        null;
 
                       const titleText = header.code
                         ? `ใบรับประกัน #${header.code}`
-                        : 'ใบรับประกัน'
+                        : "ใบรับประกัน";
 
-                      const createdAtDate = header.createdAt ? new Date(header.createdAt) : null
+                      const createdAtDate = header.createdAt
+                        ? new Date(header.createdAt)
+                        : null;
                       const createdLabel = createdAtDate
-                        ? createdAtDate.toLocaleDateString('th-TH', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
+                        ? createdAtDate.toLocaleDateString("th-TH", {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
                           })
-                        : '-'
+                        : "-";
                       return (
                         // 🟦 การ์ดใบรับประกัน: โทนสเลทแบบโค้ด1
                         <div
@@ -2203,35 +2221,73 @@ export default function WarrantyDashboard() {
                         >
                           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                             <div className="flex-1 min-w-0">
-                              <div className="text-lg font-semibold text-slate-900 truncate" title={titleText}>{titleText}</div>
+                              <div
+                                className="text-lg font-semibold text-slate-900 truncate"
+                                title={titleText}
+                              >
+                                {titleText}
+                              </div>
                               <div className="mt-2 grid gap-1 text-sm text-slate-700 md:grid-cols-2">
-                                <div>วันที่ออกใบรับประกัน: <span className="font-medium text-slate-900">{createdLabel}</span></div>
-                                <div>ลูกค้า: <span className="font-medium text-slate-900">{header.customerName || '-'}</span></div>
-                                <div>เบอร์โทรศัพท์: <span className="font-medium text-slate-900">{header.customerPhone || '-'}</span></div>
-                                <div>อีเมลลูกค้า: <span className="font-medium text-slate-900">{header.customerEmail || '-'}</span></div>
+                                <div>
+                                  วันที่ออกใบรับประกัน:{" "}
+                                  <span className="font-medium text-slate-900">
+                                    {createdLabel}
+                                  </span>
+                                </div>
+                                <div>
+                                  ลูกค้า:{" "}
+                                  <span className="font-medium text-slate-900">
+                                    {header.customerName || "-"}
+                                  </span>
+                                </div>
+                                <div>
+                                  เบอร์โทรศัพท์:{" "}
+                                  <span className="font-medium text-slate-900">
+                                    {header.customerPhone || "-"}
+                                  </span>
+                                </div>
+                                <div>
+                                  อีเมลลูกค้า:{" "}
+                                  <span className="font-medium text-slate-900">
+                                    {header.customerEmail || "-"}
+                                  </span>
+                                </div>
                               </div>
                             </div>
 
                             <div className="flex flex-col gap-2 items-stretch md:items-end">
                               <button
                                 type="button"
-                                onClick={() => header && handleDownloadPdf(header.id)}
-                                disabled={!header || downloadingPdfId === header.id}
+                                onClick={() =>
+                                  header && handleDownloadPdf(header.id)
+                                }
+                                disabled={
+                                  !header || downloadingPdfId === header.id
+                                }
                                 className={`h-9 w-full rounded-full border border-sky-300 px-3 py-1.5 text-xs font-semibold text-sky-700 bg-white transition md:h-10 md:w-auto md:min-w-[96px] md:px-4 md:py-2 md:text-sm ${
                                   !header || downloadingPdfId === header.id
-                                    ? 'cursor-not-allowed opacity-70'
-                                    : 'hover:-translate-y-0.5 hover:bg-sky-50'
+                                    ? "cursor-not-allowed opacity-70"
+                                    : "hover:-translate-y-0.5 hover:bg-sky-50"
                                 }`}
                               >
-                                {downloadingPdfId === header.id ? 'กำลังดาวน์โหลด…' : 'PDF'}
+                                {downloadingPdfId === header.id
+                                  ? "กำลังดาวน์โหลด…"
+                                  : "PDF"}
                               </button>
                               <div className="flex flex-wrap items-center justify-end gap-2 md:gap-3">
                                 <button
                                   type="button"
-                                  onClick={() => setExpandedByHeader(prev => ({ ...prev, [header.id]: !prev[header.id] }))}
+                                  onClick={() =>
+                                    setExpandedByHeader((prev) => ({
+                                      ...prev,
+                                      [header.id]: !prev[header.id],
+                                    }))
+                                  }
                                   className="w-full rounded-full border border-sky-300 px-3 py-1.5 text-xs font-semibold text-sky-700 bg-white hover:-translate-y-0.5 hover:bg-sky-50 transition md:w-auto md:px-4 md:py-2"
                                 >
-                                  {expanded ? 'ซ่อนรายละเอียด' : 'รายละเอียดเพิ่มเติม'}
+                                  {expanded
+                                    ? "ซ่อนรายละเอียด"
+                                    : "รายละเอียดเพิ่มเติม"}
                                 </button>
                                 <button
                                   type="button"
@@ -2239,8 +2295,8 @@ export default function WarrantyDashboard() {
                                   disabled={deletingWarrantyId === header.id}
                                   className={`p-2 rounded-full transition-colors ${
                                     deletingWarrantyId === header.id
-                                      ? 'cursor-not-allowed text-rose-300'
-                                      : 'text-rose-500 hover:bg-rose-50 hover:text-rose-600'
+                                      ? "cursor-not-allowed text-rose-300"
+                                      : "text-rose-500 hover:bg-rose-50 hover:text-rose-600"
                                   }`}
                                   aria-label="ลบใบรับประกัน"
                                 >
@@ -2252,60 +2308,165 @@ export default function WarrantyDashboard() {
 
                           {/* สรุปรายการในใบ */}
                           <p className="mt-4 rounded-xl bg-white/70 p-3 text-xs text-slate-700">
-                            ใบนี้มีทั้งหมด {header._filteredItems?.length ?? header.items?.length ?? 0} รายการ
+                            ใบนี้มีทั้งหมด{" "}
+                            {header._filteredItems?.length ??
+                              header.items?.length ??
+                              0}{" "}
+                            รายการ
                           </p>
 
                           {/* รายการในใบ */}
                           {expanded && (
                             <div className="mt-4 grid gap-4">
                               {(header._filteredItems || []).map((it) => (
-                                <div key={it.id} className="flex flex-col justify-between gap-6 rounded-2xl bg-white p-4 shadow ring-1 ring-black/5 md:flex-row">
+                                <div
+                                  key={it.id}
+                                  className="flex flex-col justify-between gap-6 rounded-2xl bg-white p-4 shadow ring-1 ring-black/5 md:flex-row"
+                                >
                                   <div className="flex-1 min-w-0 space-y-3">
                                     <div className="flex flex-wrap items-center gap-3">
-                                      <div className="text-base font-semibold text-slate-900">{it.productName}</div>
-                                      <StatusBadge label={it.statusTag} className={it.statusColor} />
-
+                                      <div className="text-base font-semibold text-slate-900">
+                                        {it.productName}
+                                      </div>
+                                      <StatusBadge
+                                        label={it.statusTag}
+                                        className={it.statusColor}
+                                      />
                                     </div>
                                     <div className="grid gap-2 text-sm text-slate-600 md:grid-cols-2">
-                                      <div>Serial No.: <span className="font-medium text-slate-900">{!it.serial || it.serial.trim() === '' || it.serial === 'SN001' ? '-' : it.serial}</span></div>
-                                      <div>วันที่เริ่มรับประกัน: <span className="font-medium text-slate-900">{it.purchaseDate ? (() => { const d = new Date(it.purchaseDate); if (isNaN(d)) return '-'; const day = String(d.getDate()).padStart(2, '0'); const m = String(d.getMonth() + 1).padStart(2, '0'); const y = d.getFullYear(); return `${day}/${m}/${y}`; })() : '-'}</span></div>
-                                      <div>วันหมดอายุ: <span className="font-medium text-slate-900">{it.expiryDate ? (() => { const d = new Date(it.expiryDate); if (isNaN(d)) return '-'; const day = String(d.getDate()).padStart(2, '0'); const m = String(d.getMonth() + 1).padStart(2, '0'); const y = d.getFullYear(); return `${day}/${m}/${y}`; })() : '-'}</span></div>
-                                      <div>จำนวนวันคงเหลือ: <span className="font-medium text-slate-900">{Math.max(0, it.daysLeft ?? 0)} วัน</span></div>
-                                      <div>รุ่น: <span className="font-medium text-slate-900">{it.model || '-'}</span></div>
+                                      <div>
+                                        Serial No.:{" "}
+                                        <span className="font-medium text-slate-900">
+                                          {!it.serial ||
+                                          it.serial.trim() === "" ||
+                                          it.serial === "SN001"
+                                            ? "-"
+                                            : it.serial}
+                                        </span>
+                                      </div>
+                                      <div>
+                                        วันที่เริ่มรับประกัน:{" "}
+                                        <span className="font-medium text-slate-900">
+                                          {it.purchaseDate
+                                            ? (() => {
+                                                const d = new Date(
+                                                  it.purchaseDate,
+                                                );
+                                                if (isNaN(d)) return "-";
+                                                const day = String(
+                                                  d.getDate(),
+                                                ).padStart(2, "0");
+                                                const m = String(
+                                                  d.getMonth() + 1,
+                                                ).padStart(2, "0");
+                                                const y = d.getFullYear();
+                                                return `${day}/${m}/${y}`;
+                                              })()
+                                            : "-"}
+                                        </span>
+                                      </div>
+                                      <div>
+                                        วันหมดอายุ:{" "}
+                                        <span className="font-medium text-slate-900">
+                                          {it.expiryDate
+                                            ? (() => {
+                                                const d = new Date(
+                                                  it.expiryDate,
+                                                );
+                                                if (isNaN(d)) return "-";
+                                                const day = String(
+                                                  d.getDate(),
+                                                ).padStart(2, "0");
+                                                const m = String(
+                                                  d.getMonth() + 1,
+                                                ).padStart(2, "0");
+                                                const y = d.getFullYear();
+                                                return `${day}/${m}/${y}`;
+                                              })()
+                                            : "-"}
+                                        </span>
+                                      </div>
+                                      <div>
+                                        จำนวนวันคงเหลือ:{" "}
+                                        <span className="font-medium text-slate-900">
+                                          {Math.max(0, it.daysLeft ?? 0)} วัน
+                                        </span>
+                                      </div>
+                                      <div>
+                                        รุ่น:{" "}
+                                        <span className="font-medium text-slate-900">
+                                          {it.model || "-"}
+                                        </span>
+                                      </div>
                                     </div>
                                     {/* ✅ ปุ่มดูเงื่อนไขการรับประกัน */}
-                                    {(Array.isArray(it.selectedConditions) && it.selectedConditions.length > 0) || it.customCondition ? (
+                                    {(Array.isArray(it.selectedConditions) &&
+                                      it.selectedConditions.length > 0) ||
+                                    it.customCondition ? (
                                       <button
                                         type="button"
-                                        onClick={() => setConditionsModal({
-                                          open: true,
-                                          conditions: it.selectedConditions || [],
-                                          custom: it.customCondition || ''
-                                        })}
+                                        onClick={() =>
+                                          setConditionsModal({
+                                            open: true,
+                                            conditions:
+                                              it.selectedConditions || [],
+                                            custom: it.customCondition || "",
+                                          })
+                                        }
                                         className="rounded-xl border border-sky-400 bg-sky-500 px-4 py-2.5 text-sm text-white font-medium shadow-sm hover:bg-sky-600 hover:-translate-y-0.5 transition flex items-center gap-2"
                                       >
-                                        <img src="/home-assets/condition.png" alt="เงื่อนไขการรับประกัน" className="inline h-5 w-5 object-cover align-text-bottom" />
-                                        <span>ดูเงื่อนไข ({(it.selectedConditions?.length || 0) + (it.customCondition ? 1 : 0)})</span>
+                                        <img
+                                          src="/home-assets/condition.png"
+                                          alt="เงื่อนไขการรับประกัน"
+                                          className="inline h-5 w-5 object-cover align-text-bottom"
+                                        />
+                                        <span>
+                                          ดูเงื่อนไข (
+                                          {(it.selectedConditions?.length ||
+                                            0) + (it.customCondition ? 1 : 0)}
+                                          )
+                                        </span>
                                       </button>
                                     ) : (
-                                      <p className="rounded-xl bg-gray-50 p-3 text-sm text-gray-400">- ไม่มีเงื่อนไข -</p>
+                                      <p className="rounded-xl bg-gray-50 p-3 text-sm text-gray-400">
+                                        - ไม่มีเงื่อนไข -
+                                      </p>
                                     )}
 
                                     {it.images && it.images.length > 0 && (
                                       <div className="space-y-2">
-                                        <div className="text-sm font-medium text-slate-700">รูปภาพประกอบ</div>
+                                        <div className="text-sm font-medium text-slate-700">
+                                          รูปภาพประกอบ
+                                        </div>
                                         <div className="flex gap-2 overflow-x-auto">
                                           {it.images.map((image, index) => (
-                                            <div key={image.id || index} className="group relative flex-shrink-0 cursor-pointer">
+                                            <div
+                                              key={image.id || index}
+                                              className="group relative flex-shrink-0 cursor-pointer"
+                                            >
                                               <img
-                                                src={`${import.meta.env.VITE_API_URL || 'http://localhost:4000'}${image.url}`}
-                                                alt={image.originalName || 'Warranty image'}
+                                                src={`${import.meta.env.VITE_API_URL || "http://localhost:4000"}${image.url}`}
+                                                alt={
+                                                  image.originalName ||
+                                                  "Warranty image"
+                                                }
                                                 className="h-20 w-20 rounded-lg object-cover transition-transform group-hover:scale-105"
-                                                onClick={() => setImagePreview({ open: true, images: it.images, index })}
-                                                onError={(e) => { e.currentTarget.style.display = 'none' }}
+                                                onClick={() =>
+                                                  setImagePreview({
+                                                    open: true,
+                                                    images: it.images,
+                                                    index,
+                                                  })
+                                                }
+                                                onError={(e) => {
+                                                  e.currentTarget.style.display =
+                                                    "none";
+                                                }}
                                               />
                                               <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
-                                                <span className="text-xs text-white">👁️</span>
+                                                <span className="text-xs text-white">
+                                                  👁️
+                                                </span>
                                               </div>
                                             </div>
                                           ))}
@@ -2320,10 +2481,16 @@ export default function WarrantyDashboard() {
                                       {it.images && it.images.length > 0 ? (
                                         <div
                                           className="group relative h-full w-full cursor-pointer"
-                                          onClick={() => setImagePreview({ open: true, images: it.images, index: 0 })}
+                                          onClick={() =>
+                                            setImagePreview({
+                                              open: true,
+                                              images: it.images,
+                                              index: 0,
+                                            })
+                                          }
                                         >
                                           <img
-                                            src={`${import.meta.env.VITE_API_URL || 'http://localhost:4000'}${it.images[0].url}`}
+                                            src={`${import.meta.env.VITE_API_URL || "http://localhost:4000"}${it.images[0].url}`}
                                             alt="Warranty preview"
                                             className="h-full w-full object-cover transition-transform group-hover:scale-105"
                                           />
@@ -2333,13 +2500,17 @@ export default function WarrantyDashboard() {
                                             </div>
                                           )}
                                           <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
-                                            <span className="text-white">👁️ ดูรูป</span>
+                                            <span className="text-white">
+                                              👁️ ดูรูป
+                                            </span>
                                           </div>
                                         </div>
                                       ) : (
                                         <div className="flex h-full w-full items-center justify-center text-sm text-slate-400">
                                           <div className="text-center">
-                                            <div className="mb-1 text-2xl">📷</div>
+                                            <div className="mb-1 text-2xl">
+                                              📷
+                                            </div>
                                             <div>ไม่มีรูปภาพ</div>
                                           </div>
                                         </div>
@@ -2348,11 +2519,24 @@ export default function WarrantyDashboard() {
 
                                     <button
                                       type="button"
-                                      onClick={() => openWarrantyModal('edit', { ...it, _headerId: header.id, _headerEmail: header.customerEmail, _headerAddress: header.customerAddress })} // ✅ ส่งข้อมูลใบมาด้วย
+                                      onClick={() =>
+                                        openWarrantyModal("edit", {
+                                          ...it,
+                                          _headerId: header.id,
+                                          _headerEmail: header.customerEmail,
+                                          _headerAddress:
+                                            header.customerAddress,
+                                        })
+                                      } // ✅ ส่งข้อมูลใบมาด้วย
                                       className="flex items-center gap-2 rounded-full border border-sky-500 px-4 py-2 text-sm font-medium text-sky-700 bg-white hover:-translate-y-0.5 hover:bg-sky-50 transition"
                                     >
                                       <span>แก้ไข</span>
-                                      <img src="/home-assets/pencil.png" alt="แก้ไข" className="inline h-4 w-4 object-cover ml-2" aria-hidden="true" />
+                                      <img
+                                        src="/home-assets/pencil.png"
+                                        alt="แก้ไข"
+                                        className="inline h-4 w-4 object-cover ml-2"
+                                        aria-hidden="true"
+                                      />
                                     </button>
                                   </div>
                                 </div>
@@ -2360,7 +2544,7 @@ export default function WarrantyDashboard() {
                             </div>
                           )}
                         </div>
-                      )
+                      );
                     })
                   )}
                 </div>
@@ -2369,20 +2553,36 @@ export default function WarrantyDashboard() {
                 {filteredHeaders.length > 0 && (
                   <div className="mt-6 flex flex-col items-center gap-3 md:flex-row md:justify-between">
                     <div className="text-xs text-slate-500">
-                      หน้า <span className="font-medium text-slate-900">{currentPage}</span> จาก{' '}
-                      <span className="font-medium text-slate-900">{totalPages}</span>
-                      {' • '}
-                      แสดง {Math.min((currentPage - 1) * PAGE_SIZE + 1, filteredHeaders.length)}–
-                      {Math.min(currentPage * PAGE_SIZE, filteredHeaders.length)} จาก {filteredHeaders.length} ใบ
+                      หน้า{" "}
+                      <span className="font-medium text-slate-900">
+                        {currentPage}
+                      </span>{" "}
+                      จาก{" "}
+                      <span className="font-medium text-slate-900">
+                        {totalPages}
+                      </span>
+                      {" • "}
+                      แสดง{" "}
+                      {Math.min(
+                        (currentPage - 1) * PAGE_SIZE + 1,
+                        filteredHeaders.length,
+                      )}
+                      –
+                      {Math.min(
+                        currentPage * PAGE_SIZE,
+                        filteredHeaders.length,
+                      )}{" "}
+                      จาก {filteredHeaders.length} ใบ
                     </div>
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => setPage((p) => Math.max(1, p - 1))}
                         disabled={currentPage === 1}
-                        className={`rounded-full px-3 py-2 text-xs font-medium shadow-sm ${currentPage === 1
-                          ? 'cursor-not-allowed bg-white text-slate-300 ring-1 ring-black/10'
-                          : 'bg-white text-slate-700 ring-1 ring-black/10 hover:-translate-y-0.5 hover:bg-slate-50 transition'
-                          }`}
+                        className={`rounded-full px-3 py-2 text-xs font-medium shadow-sm ${
+                          currentPage === 1
+                            ? "cursor-not-allowed bg-white text-slate-300 ring-1 ring-black/10"
+                            : "bg-white text-slate-700 ring-1 ring-black/10 hover:-translate-y-0.5 hover:bg-slate-50 transition"
+                        }`}
                       >
                         ก่อนหน้า
                       </button>
@@ -2390,19 +2590,25 @@ export default function WarrantyDashboard() {
                         <button
                           key={n}
                           onClick={() => setPage(n)}
-                          className={`rounded-full px-3 py-2 text-xs font-medium shadow-sm ${n === currentPage ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 ring-1 ring-black/10 hover:-translate-y-0.5 hover:bg-slate-50 transition'
-                            }`}
+                          className={`rounded-full px-3 py-2 text-xs font-medium shadow-sm ${
+                            n === currentPage
+                              ? "bg-slate-900 text-white"
+                              : "bg-white text-slate-700 ring-1 ring-black/10 hover:-translate-y-0.5 hover:bg-slate-50 transition"
+                          }`}
                         >
                           {n}
                         </button>
                       ))}
                       <button
-                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                        onClick={() =>
+                          setPage((p) => Math.min(totalPages, p + 1))
+                        }
                         disabled={currentPage === totalPages}
-                        className={`rounded-full px-3 py-2 text-xs font-medium shadow-sm ${currentPage === totalPages
-                          ? 'cursor-not-allowed bg-white text-slate-300 ring-1 ring-black/10'
-                          : 'bg-white text-slate-700 ring-1 ring-black/10 hover:-translate-y-0.5 hover:bg-slate-50 transition'
-                          }`}
+                        className={`rounded-full px-3 py-2 text-xs font-medium shadow-sm ${
+                          currentPage === totalPages
+                            ? "cursor-not-allowed bg-white text-slate-300 ring-1 ring-black/10"
+                            : "bg-white text-slate-700 ring-1 ring-black/10 hover:-translate-y-0.5 hover:bg-slate-50 transition"
+                        }`}
                       >
                         ถัดไป
                       </button>
@@ -2421,22 +2627,34 @@ export default function WarrantyDashboard() {
               <div className="sticky top-0 z-30 flex items-center justify-between border-b border-sky-100 px-6 py-4 bg-white">
                 <div className="flex items-center gap-3">
                   {profileAvatarSrc ? (
-                    <img src={profileAvatarSrc} alt="Store profile" className="h-12 w-12 rounded-full object-cover" />
+                    <img
+                      src={profileAvatarSrc}
+                      alt="Store profile"
+                      className="h-12 w-12 rounded-full object-cover"
+                    />
                   ) : (
-                    <img src="/home-assets/store.png" alt="Store profile" className="h-12 w-12 rounded-full object-cover" />
+                    <img
+                      src="/home-assets/store.png"
+                      alt="Store profile"
+                      className="h-12 w-12 rounded-full object-cover"
+                    />
                   )}
                   <div>
-                    <div className="text-base font-semibold text-gray-900">แก้ไขข้อมูลร้านค้า</div>
-                    <div className="text-xs text-sky-600">ข้อมูลจะใช้แสดงในใบรับประกัน</div>
+                    <div className="text-base font-semibold text-gray-900">
+                      แก้ไขข้อมูลร้านค้า
+                    </div>
+                    <div className="text-xs text-sky-600">
+                      ข้อมูลจะใช้แสดงในใบรับประกัน
+                    </div>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => {
-                    setProfileModalOpen(false)
-                    setModalError('')
-                    setProfileSubmitting(false)
-                    setPasswordSubmitting(false)
+                    setProfileModalOpen(false);
+                    setModalError("");
+                    setProfileSubmitting(false);
+                    setPasswordSubmitting(false);
                   }}
                   className="text-2xl text-gray-400 hover:text-gray-600"
                 >
@@ -2444,27 +2662,46 @@ export default function WarrantyDashboard() {
                 </button>
               </div>
 
-              <div className="px-4 sm:px-6 pt-2 overflow-y-auto pb-6" style={{ maxHeight: 'calc(94vh - 160px)' }}>
+              <div
+                className="px-4 sm:px-6 pt-2 overflow-y-auto pb-6"
+                style={{ maxHeight: "calc(94vh - 160px)" }}
+              >
                 <div className="mb-2 flex gap-2">
                   <button
                     type="button"
-                    onClick={() => { setProfileTab('info'); setModalError('') }}
-                    className={`flex-1 min-w-0 rounded-2xl px-4 py-2 text-sm font-medium ${profileTab === 'info' ? 'bg-sky-100 text-sky-700' : 'bg-sky-50 text-gray-500'}`}
+                    onClick={() => {
+                      setProfileTab("info");
+                      setModalError("");
+                    }}
+                    className={`flex-1 min-w-0 rounded-2xl px-4 py-2 text-sm font-medium ${profileTab === "info" ? "bg-sky-100 text-sky-700" : "bg-sky-50 text-gray-500"}`}
                   >
                     ข้อมูลร้านค้า
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setProfileTab('password'); setModalError('') }}
-                    className={`flex-1 min-w-0 rounded-2xl px-4 py-2 text-sm font-medium ${profileTab === 'password' ? 'bg-sky-100 text-sky-700' : 'bg-sky-50 text-gray-500'}`}
+                    onClick={() => {
+                      setProfileTab("password");
+                      setModalError("");
+                    }}
+                    className={`flex-1 min-w-0 rounded-2xl px-4 py-2 text-sm font-medium ${profileTab === "password" ? "bg-sky-100 text-sky-700" : "bg-sky-50 text-gray-500"}`}
                   >
                     เปลี่ยนรหัสผ่าน
                   </button>
                 </div>
 
-                {profileTab === 'info' ? (
-                  <form id="profileForm" onSubmit={handleProfileSubmit} className="px-6 pb-6">
-                    <input ref={profileImageInputRef} accept="image/*" className="sr-only" onChange={handleProfileAvatarSelect} type="file" />
+                {profileTab === "info" ? (
+                  <form
+                    id="profileForm"
+                    onSubmit={handleProfileSubmit}
+                    className="px-6 pb-6"
+                  >
+                    <input
+                      ref={profileImageInputRef}
+                      accept="image/*"
+                      className="sr-only"
+                      onChange={handleProfileAvatarSelect}
+                      type="file"
+                    />
                     {/* hidden combined fields for compatibility with signup-style submission */}
                     <input
                       type="hidden"
@@ -2473,24 +2710,58 @@ export default function WarrantyDashboard() {
                         street: addressParts.street,
                         province: {
                           id: addressParts.province,
-                          name: (provincesList.find((p) => String(p.code) === String(addressParts.province))?.name) || addressParts.province || '',
+                          name:
+                            provincesList.find(
+                              (p) =>
+                                String(p.code) ===
+                                String(addressParts.province),
+                            )?.name ||
+                            addressParts.province ||
+                            "",
                         },
                         district: {
                           id: addressParts.district,
-                          name: (districtOptions.find((d) => String(d.code) === String(addressParts.district))?.name) || addressParts.district || '',
+                          name:
+                            districtOptions.find(
+                              (d) =>
+                                String(d.code) ===
+                                String(addressParts.district),
+                            )?.name ||
+                            addressParts.district ||
+                            "",
                         },
                         subdistrict: {
                           id: addressParts.subdistrict,
-                          name: (subdistrictOptions.find((s) => String(s.code) === String(addressParts.subdistrict))?.name) || addressParts.subdistrict || '',
-                          zipcode: addressParts.postcode || (subdistrictOptions.find((s) => String(s.code) === String(addressParts.subdistrict))?.zipcode || ''),
+                          name:
+                            subdistrictOptions.find(
+                              (s) =>
+                                String(s.code) ===
+                                String(addressParts.subdistrict),
+                            )?.name ||
+                            addressParts.subdistrict ||
+                            "",
+                          zipcode:
+                            addressParts.postcode ||
+                            subdistrictOptions.find(
+                              (s) =>
+                                String(s.code) ===
+                                String(addressParts.subdistrict),
+                            )?.zipcode ||
+                            "",
                         },
                         postcode: addressParts.postcode,
                       })}
                     />
-                    <input type="hidden" name="businessHours" value={JSON.stringify(businessSchedule)} />
+                    <input
+                      type="hidden"
+                      name="businessHours"
+                      value={JSON.stringify(businessSchedule)}
+                    />
 
-                    {modalError && profileTab === 'info' && (
-                      <div className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600">{modalError}</div>
+                    {modalError && profileTab === "info" && (
+                      <div className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600">
+                        {modalError}
+                      </div>
                     )}
                     {/* Avatar preview + actions (เหมือนฝั่งลูกค้า) */}
                     <div className="mb-4 flex items-center gap-4">
@@ -2521,7 +2792,9 @@ export default function WarrantyDashboard() {
                         <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
-                            onClick={() => profileImageInputRef.current?.click()}
+                            onClick={() =>
+                              profileImageInputRef.current?.click()
+                            }
                             className="rounded-full bg-sky-600 px-4 py-1.5 text-sm font-medium text-white shadow hover:bg-sky-700"
                           >
                             เปลี่ยนรูปโปรไฟล์
@@ -2530,8 +2803,11 @@ export default function WarrantyDashboard() {
                             <button
                               type="button"
                               onClick={() => {
-                                setProfileImage({ file: null, preview: '' })
-                                setStoreProfile((prev) => ({ ...prev, avatarUrl: '' }))
+                                setProfileImage({ file: null, preview: "" });
+                                setStoreProfile((prev) => ({
+                                  ...prev,
+                                  avatarUrl: "",
+                                }));
                               }}
                               className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100"
                             >
@@ -2546,22 +2822,27 @@ export default function WarrantyDashboard() {
                     </div>
                     <div className="grid gap-3 max-w-2xl mx-auto">
                       {[
-                        ['storeName', 'ชื่อร้าน'],
-                        ['contactName', 'ชื่อผู้ติดต่อ'],
-                        ['storeType', 'ประเภทร้านค้า'],
-                        ['email', 'อีเมล'],
-                        ['phone', 'เบอร์ติดต่อ'],
-                        ['address', 'ที่อยู่'],
-                        ['businessHours', 'เวลาทำการ'],
+                        ["storeName", "ชื่อร้าน"],
+                        ["contactName", "ชื่อผู้ติดต่อ"],
+                        ["storeType", "ประเภทร้านค้า"],
+                        ["email", "อีเมล"],
+                        ["phone", "เบอร์ติดต่อ"],
+                        ["address", "ที่อยู่"],
+                        ["businessHours", "เวลาทำการ"],
                       ].map(([key, label]) => (
                         <label key={key} className="text-sm text-gray-600">
                           {label}
-                          {key === 'address' ? (
+                          {key === "address" ? (
                             <div className="mt-2 grid gap-2">
                               <textarea
                                 placeholder="เลขที่ ซอย ถนน"
                                 value={addressParts.street}
-                                onChange={(e) => setAddressParts((p) => ({ ...p, street: e.target.value }))}
+                                onChange={(e) =>
+                                  setAddressParts((p) => ({
+                                    ...p,
+                                    street: e.target.value,
+                                  }))
+                                }
                                 rows={2}
                                 className="mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none bg-sky-50/60"
                                 type="text"
@@ -2573,19 +2854,31 @@ export default function WarrantyDashboard() {
                                   <select
                                     value={addressParts.province}
                                     onChange={async (e) => {
-                                      const code = e.target.value
-                                      setAddressParts((p) => ({ ...p, province: code, district: '', subdistrict: '', postcode: '' }))
-                                      await loadDistrictsForProvince(code)
-                                      setSubdistrictOptions([])
+                                      const code = e.target.value;
+                                      setAddressParts((p) => ({
+                                        ...p,
+                                        province: code,
+                                        district: "",
+                                        subdistrict: "",
+                                        postcode: "",
+                                      }));
+                                      await loadDistrictsForProvince(code);
+                                      setSubdistrictOptions([]);
                                     }}
                                     className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                                   >
                                     <option value="">เลือกจังหวัด</option>
-                                    {provincesList.length > 0 ? provincesList.map((p) => (
-                                      <option key={p.code} value={p.code}>{p.name}</option>
-                                    )) : TH_PROVINCES.map((pv) => (
-                                      <option key={pv} value={pv}>{pv}</option>
-                                    ))}
+                                    {provincesList.length > 0
+                                      ? provincesList.map((p) => (
+                                          <option key={p.code} value={p.code}>
+                                            {p.name}
+                                          </option>
+                                        ))
+                                      : TH_PROVINCES.map((pv) => (
+                                          <option key={pv} value={pv}>
+                                            {pv}
+                                          </option>
+                                        ))}
                                   </select>
                                 </div>
 
@@ -2594,15 +2887,26 @@ export default function WarrantyDashboard() {
                                   <select
                                     value={addressParts.district}
                                     onChange={async (e) => {
-                                      const code = e.target.value
-                                      setAddressParts((p) => ({ ...p, district: code, subdistrict: '', postcode: '' }))
-                                      await loadSubdistrictsForDistrict(code)
+                                      const code = e.target.value;
+                                      setAddressParts((p) => ({
+                                        ...p,
+                                        district: code,
+                                        subdistrict: "",
+                                        postcode: "",
+                                      }));
+                                      await loadSubdistrictsForDistrict(code);
                                     }}
                                     className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                                   >
-                                    <option value="" disabled>{districtOptions.length ? 'เลือกอำเภอ/เขต' : 'เลือกอำเภอ/เขต'}</option>
+                                    <option value="" disabled>
+                                      {districtOptions.length
+                                        ? "เลือกอำเภอ/เขต"
+                                        : "เลือกอำเภอ/เขต"}
+                                    </option>
                                     {districtOptions.map((d) => (
-                                      <option key={d.code} value={d.code}>{d.name}</option>
+                                      <option key={d.code} value={d.code}>
+                                        {d.name}
+                                      </option>
                                     ))}
                                   </select>
                                 </div>
@@ -2612,15 +2916,27 @@ export default function WarrantyDashboard() {
                                   <select
                                     value={addressParts.subdistrict}
                                     onChange={(e) => {
-                                      const code = e.target.value
-                                      const found = subdistrictOptions.find((s) => String(s.code) === String(code))
-                                      setAddressParts((p) => ({ ...p, subdistrict: code, postcode: found?.zipcode || '' }))
+                                      const code = e.target.value;
+                                      const found = subdistrictOptions.find(
+                                        (s) => String(s.code) === String(code),
+                                      );
+                                      setAddressParts((p) => ({
+                                        ...p,
+                                        subdistrict: code,
+                                        postcode: found?.zipcode || "",
+                                      }));
                                     }}
                                     className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                                   >
-                                    <option value="" disabled>{subdistrictOptions.length ? 'เลือกตำบล/แขวง' : 'เลือกตำบล/แขวง'}</option>
+                                    <option value="" disabled>
+                                      {subdistrictOptions.length
+                                        ? "เลือกตำบล/แขวง"
+                                        : "เลือกตำบล/แขวง"}
+                                    </option>
                                     {subdistrictOptions.map((s) => (
-                                      <option key={s.code} value={s.code}>{s.name}</option>
+                                      <option key={s.code} value={s.code}>
+                                        {s.name}
+                                      </option>
                                     ))}
                                   </select>
                                 </div>
@@ -2630,40 +2946,60 @@ export default function WarrantyDashboard() {
                                 <input
                                   placeholder="รหัสไปรษณีย์"
                                   value={addressParts.postcode}
-                                  onChange={(e) => setAddressParts((p) => ({ ...p, postcode: e.target.value.replace(/[^0-9]/g, '') }))}
+                                  onChange={(e) =>
+                                    setAddressParts((p) => ({
+                                      ...p,
+                                      postcode: e.target.value.replace(
+                                        /[^0-9]/g,
+                                        "",
+                                      ),
+                                    }))
+                                  }
                                   maxLength={5}
                                   className="mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none bg-sky-50/60"
                                   type="text"
                                 />
-                                <div className="text-xs text-gray-400 flex items-center">ตัวอย่าง: เลขที่/ซอย/ถนน, ตำบล, อำเภอ, จังหวัด</div>
+                                <div className="text-xs text-gray-400 flex items-center">
+                                  ตัวอย่าง: เลขที่/ซอย/ถนน, ตำบล, อำเภอ, จังหวัด
+                                </div>
                               </div>
                             </div>
-                          ) : key === 'storeType' ? (
+                          ) : key === "storeType" ? (
                             <div className="mt-1 space-y-2">
                               <select
                                 value={profileStoreTypeValue}
                                 onChange={(e) => {
-                                  const v = e.target.value
-                                  setProfileStoreTypeValue(v)
-                                  if (v !== 'other') setProfileCustomStoreType('')
+                                  const v = e.target.value;
+                                  setProfileStoreTypeValue(v);
+                                  if (v !== "other")
+                                    setProfileCustomStoreType("");
                                 }}
                                 className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                                 required
                               >
                                 <option value="">เลือกประเภทร้านค้า</option>
-                                <option value="electronics">อิเล็กทรอนิกส์</option>
-                                <option value="appliance">เครื่องใช้ไฟฟ้า</option>
+                                <option value="electronics">
+                                  อิเล็กทรอนิกส์
+                                </option>
+                                <option value="appliance">
+                                  เครื่องใช้ไฟฟ้า
+                                </option>
                                 <option value="furniture">เฟอร์นิเจอร์</option>
                                 <option value="automotive">ยานยนต์</option>
-                                <option value="machine">เครื่องจักร / เครื่องมือช่าง</option>
+                                <option value="machine">
+                                  เครื่องจักร / เครื่องมือช่าง
+                                </option>
                                 <option value="other">อื่น ๆ</option>
                               </select>
-                              {profileStoreTypeValue === 'other' && (
+                              {profileStoreTypeValue === "other" && (
                                 <input
                                   value={profileCustomStoreType}
                                   onChange={(e) => {
-                                    const raw = e.target.value.replace(/[^a-zA-Z0-9ก-๙\s.\-/]/g, '')
-                                    setProfileCustomStoreType(raw)
+                                    const raw = e.target.value.replace(
+                                      /[^a-zA-Z0-9ก-๙\s.\-/]/g,
+                                      "",
+                                    );
+                                    setProfileCustomStoreType(raw);
                                   }}
                                   placeholder="ระบุประเภทร้านค้า"
                                   className="w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none bg-sky-50/60"
@@ -2671,13 +3007,18 @@ export default function WarrantyDashboard() {
                                 />
                               )}
                             </div>
-                          ) : key !== 'businessHours' ? (
+                          ) : key !== "businessHours" ? (
                             <input
                               required
-                              value={storeProfile[key] ?? ''}
-                              onChange={(e) => setStoreProfile((prev) => ({ ...prev, [key]: e.target.value }))}
-                              readOnly={key === 'email'}
-                              className={`mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none ${key === 'email' ? 'bg-slate-200 border-slate-300' : 'bg-sky-50/60'}`}
+                              value={storeProfile[key] ?? ""}
+                              onChange={(e) =>
+                                setStoreProfile((prev) => ({
+                                  ...prev,
+                                  [key]: e.target.value,
+                                }))
+                              }
+                              readOnly={key === "email"}
+                              className={`mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none ${key === "email" ? "bg-slate-200 border-slate-300" : "bg-sky-50/60"}`}
                               type="text"
                             />
                           ) : (
@@ -2685,24 +3026,33 @@ export default function WarrantyDashboard() {
                               <div className="mt-2 rounded-lg border border-sky-100 bg-white p-2 mx-auto max-w-sm w-full">
                                 <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                   <div className="text-xs text-gray-500">
-                                    กำหนดเวลาเปิด-ปิดในแต่ละวัน หรือใช้ทางลัดเพื่อตั้งเวลาเดียวกันทุกวัน
+                                    กำหนดเวลาเปิด-ปิดในแต่ละวัน
+                                    หรือใช้ทางลัดเพื่อตั้งเวลาเดียวกันทุกวัน
                                   </div>
                                   <button
                                     type="button"
                                     onClick={() => {
                                       setBusinessSchedule((prev) => {
-                                        const entries = Object.entries(prev || {})
-                                        const firstOn = entries.find(([, v]) => v?.on && v.start && v.end)
-                                        if (!firstOn) return prev
-                                        const [, firstVal] = firstOn
-                                        const next = { ...prev }
+                                        const entries = Object.entries(
+                                          prev || {},
+                                        );
+                                        const firstOn = entries.find(
+                                          ([, v]) => v?.on && v.start && v.end,
+                                        );
+                                        if (!firstOn) return prev;
+                                        const [, firstVal] = firstOn;
+                                        const next = { ...prev };
                                         for (const [k, v] of entries) {
                                           if (v?.on) {
-                                            next[k] = { ...v, start: firstVal.start, end: firstVal.end }
+                                            next[k] = {
+                                              ...v,
+                                              start: firstVal.start,
+                                              end: firstVal.end,
+                                            };
                                           }
                                         }
-                                        return next
-                                      })
+                                        return next;
+                                      });
                                     }}
                                     className="inline-flex items-center justify-center rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-100 hover:border-sky-300 whitespace-nowrap"
                                   >
@@ -2711,52 +3061,81 @@ export default function WarrantyDashboard() {
                                 </div>
                                 <div className="grid grid-cols-1 gap-2">
                                   {[
-                                    ['mon', 'จ.'],
-                                    ['tue', 'อ.'],
-                                    ['wed', 'พ.'],
-                                    ['thu', 'พฤ.'],
-                                    ['fri', 'ศ.'],
-                                    ['sat', 'ส.'],
-                                    ['sun', 'อา.'],
+                                    ["mon", "จ."],
+                                    ["tue", "อ."],
+                                    ["wed", "พ."],
+                                    ["thu", "พฤ."],
+                                    ["fri", "ศ."],
+                                    ["sat", "ส."],
+                                    ["sun", "อา."],
                                   ].map(([d, lbl]) => (
-                                    <div key={d} className="flex flex-col sm:flex-row items-start sm:items-center gap-2 text-xs md:text-sm">
+                                    <div
+                                      key={d}
+                                      className="flex flex-col sm:flex-row items-start sm:items-center gap-2 text-xs md:text-sm"
+                                    >
                                       <div className="flex items-center gap-2">
                                         <input
                                           type="checkbox"
                                           checked={!!businessSchedule[d]?.on}
                                           onChange={() =>
                                             setBusinessSchedule((s) => {
-                                              const current = s?.[d] || {}
-                                              const nextOn = !current.on
-                                              const next = { ...(s || {}) }
+                                              const current = s?.[d] || {};
+                                              const nextOn = !current.on;
+                                              const next = { ...(s || {}) };
                                               next[d] = {
                                                 ...current,
                                                 on: nextOn,
                                                 ...(nextOn && {
-                                                  start: current.start || '09:00',
-                                                  end: current.end || '18:00',
+                                                  start:
+                                                    current.start || "09:00",
+                                                  end: current.end || "18:00",
                                                 }),
-                                              }
-                                              return next
+                                              };
+                                              return next;
                                             })
                                           }
                                           className="h-4 w-4 rounded border-gray-300 text-blue-600"
                                         />
-                                        <div className="w-8 text-xs text-gray-700">{lbl}</div>
+                                        <div className="w-8 text-xs text-gray-700">
+                                          {lbl}
+                                        </div>
                                       </div>
                                       <div className="flex items-center gap-2 ml-0 sm:ml-2 flex-wrap min-w-0">
                                         <input
                                           type="time"
-                                          value={businessSchedule[d]?.start || '09:00'}
-                                          onChange={(e) => setBusinessSchedule((s) => ({ ...s, [d]: { ...s[d], start: e.target.value } }))}
+                                          value={
+                                            businessSchedule[d]?.start ||
+                                            "09:00"
+                                          }
+                                          onChange={(e) =>
+                                            setBusinessSchedule((s) => ({
+                                              ...s,
+                                              [d]: {
+                                                ...s[d],
+                                                start: e.target.value,
+                                              },
+                                            }))
+                                          }
                                           className="h-8 w-16 sm:w-20 rounded border border-gray-200 px-2 text-xs min-w-0"
                                           disabled={!businessSchedule[d]?.on}
                                         />
-                                        <span className="text-xs text-gray-400">—</span>
+                                        <span className="text-xs text-gray-400">
+                                          —
+                                        </span>
                                         <input
                                           type="time"
-                                          value={businessSchedule[d]?.end || '18:00'}
-                                          onChange={(e) => setBusinessSchedule((s) => ({ ...s, [d]: { ...s[d], end: e.target.value } }))}
+                                          value={
+                                            businessSchedule[d]?.end || "18:00"
+                                          }
+                                          onChange={(e) =>
+                                            setBusinessSchedule((s) => ({
+                                              ...s,
+                                              [d]: {
+                                                ...s[d],
+                                                end: e.target.value,
+                                              },
+                                            }))
+                                          }
                                           className="h-8 w-16 sm:w-20 rounded border border-gray-200 px-2 text-xs min-w-0"
                                           disabled={!businessSchedule[d]?.on}
                                         />
@@ -2764,7 +3143,6 @@ export default function WarrantyDashboard() {
                                     </div>
                                   ))}
                                 </div>
-
                               </div>
                             </div>
                           )}
@@ -2774,15 +3152,21 @@ export default function WarrantyDashboard() {
                     {/* button moved to sticky footer */}
                   </form>
                 ) : (
-                  <form id="passwordForm" onSubmit={handlePasswordSubmit} className="px-6 pb-6">
-                    {modalError && profileTab === 'password' && (
-                      <div className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600">{modalError}</div>
+                  <form
+                    id="passwordForm"
+                    onSubmit={handlePasswordSubmit}
+                    className="px-6 pb-6"
+                  >
+                    {modalError && profileTab === "password" && (
+                      <div className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600">
+                        {modalError}
+                      </div>
                     )}
                     <div className="grid gap-3">
                       {[
-                        ['currentPassword', 'รหัสผ่านเก่า'],
-                        ['newPassword', 'รหัสผ่านใหม่'],
-                        ['confirmPassword', 'ยืนยันรหัสผ่านใหม่'],
+                        ["currentPassword", "รหัสผ่านเก่า"],
+                        ["newPassword", "รหัสผ่านใหม่"],
+                        ["confirmPassword", "ยืนยันรหัสผ่านใหม่"],
                       ].map(([key, label]) => (
                         <label key={key} className="text-sm text-gray-600">
                           {label}
@@ -2790,24 +3174,34 @@ export default function WarrantyDashboard() {
                             required
                             value={profilePasswords[key]}
                             onChange={(e) => {
-                              let val = e.target.value
-                              if (key === 'newPassword' || key === 'confirmPassword') {
-                                val = stripEmojis(val).replace(/[\u0E00-\u0E7F]/g, '')
+                              let val = e.target.value;
+                              if (
+                                key === "newPassword" ||
+                                key === "confirmPassword"
+                              ) {
+                                val = stripEmojis(val).replace(
+                                  /[\u0E00-\u0E7F]/g,
+                                  "",
+                                );
                               }
-                              setProfilePasswords((prev) => ({ ...prev, [key]: val }))
+                              setProfilePasswords((prev) => ({
+                                ...prev,
+                                [key]: val,
+                              }));
                             }}
                             className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                             type="password"
                           />
-                          {key === 'newPassword' && profilePasswords.newPassword ? (
+                          {key === "newPassword" &&
+                          profilePasswords.newPassword ? (
                             <div
                               className={
                                 "mt-2 rounded-lg border px-3 py-2 " +
                                 (pwStrength <= 1
-                                  ? 'border-red-100 bg-red-50/70'
+                                  ? "border-red-100 bg-red-50/70"
                                   : pwStrength === 2
-                                  ? 'border-amber-100 bg-amber-50/70'
-                                  : 'border-emerald-100 bg-emerald-50/70')
+                                    ? "border-amber-100 bg-amber-50/70"
+                                    : "border-emerald-100 bg-emerald-50/70")
                               }
                             >
                               <div className="flex items-center justify-between text-[11px] font-medium">
@@ -2818,55 +3212,99 @@ export default function WarrantyDashboard() {
                                 <span
                                   className={
                                     pwStrength <= 1
-                                      ? 'text-red-600'
+                                      ? "text-red-600"
                                       : pwStrength === 2
-                                      ? 'text-yellow-600'
-                                      : 'text-emerald-600'
+                                        ? "text-yellow-600"
+                                        : "text-emerald-600"
                                   }
                                 >
                                   {pwStrength <= 1
-                                    ? 'ความปลอดภัยต่ำ'
+                                    ? "ความปลอดภัยต่ำ"
                                     : pwStrength === 2
-                                    ? 'ความปลอดภัยปานกลาง'
-                                    : 'ความปลอดภัยสูง'}
+                                      ? "ความปลอดภัยปานกลาง"
+                                      : "ความปลอดภัยสูง"}
                                 </span>
                               </div>
                               <div className="mt-1 h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
                                 <div
                                   className={
-                                    'h-full transition-all duration-200 ' +
+                                    "h-full transition-all duration-200 " +
                                     (pwStrength <= 1
-                                      ? 'bg-red-500'
+                                      ? "bg-red-500"
                                       : pwStrength === 2
-                                      ? 'bg-yellow-500'
-                                      : 'bg-emerald-500')
+                                        ? "bg-yellow-500"
+                                        : "bg-emerald-500")
                                   }
-                                  style={{ width: `${pwStrength <= 1 ? 33 : pwStrength === 2 ? 66 : 100}%` }}
+                                  style={{
+                                    width: `${pwStrength <= 1 ? 33 : pwStrength === 2 ? 66 : 100}%`,
+                                  }}
                                 />
                               </div>
                               <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-[11px]">
-                                <p className={pwChecks.length ? 'text-emerald-700' : 'text-gray-500'}>
-                                  <span className="mr-1">{pwChecks.length ? '✓' : '•'}</span>
+                                <p
+                                  className={
+                                    pwChecks.length
+                                      ? "text-emerald-700"
+                                      : "text-gray-500"
+                                  }
+                                >
+                                  <span className="mr-1">
+                                    {pwChecks.length ? "✓" : "•"}
+                                  </span>
                                   ยาวอย่างน้อย 8 ตัวอักษรขึ้นไป
                                 </p>
-                                <p className={pwChecks.lower ? 'text-emerald-700' : 'text-gray-500'}>
-                                  <span className="mr-1">{pwChecks.lower ? '✓' : '•'}</span>
+                                <p
+                                  className={
+                                    pwChecks.lower
+                                      ? "text-emerald-700"
+                                      : "text-gray-500"
+                                  }
+                                >
+                                  <span className="mr-1">
+                                    {pwChecks.lower ? "✓" : "•"}
+                                  </span>
                                   มีตัวอักษรตัวพิมพ์เล็ก (a-z)
                                 </p>
-                                <p className={pwChecks.upper ? 'text-emerald-700' : 'text-gray-500'}>
-                                  <span className="mr-1">{pwChecks.upper ? '✓' : '•'}</span>
+                                <p
+                                  className={
+                                    pwChecks.upper
+                                      ? "text-emerald-700"
+                                      : "text-gray-500"
+                                  }
+                                >
+                                  <span className="mr-1">
+                                    {pwChecks.upper ? "✓" : "•"}
+                                  </span>
                                   มีตัวอักษรตัวพิมพ์ใหญ่ (A-Z)
                                 </p>
-                                <p className={pwChecks.digit ? 'text-emerald-700' : 'text-gray-500'}>
-                                  <span className="mr-1">{pwChecks.digit ? '✓' : '•'}</span>
+                                <p
+                                  className={
+                                    pwChecks.digit
+                                      ? "text-emerald-700"
+                                      : "text-gray-500"
+                                  }
+                                >
+                                  <span className="mr-1">
+                                    {pwChecks.digit ? "✓" : "•"}
+                                  </span>
                                   มีตัวเลข (0-9)
                                 </p>
-                                <p className={pwChecks.symbol ? 'text-emerald-700' : 'text-gray-500'}>
-                                  <span className="mr-1">{pwChecks.symbol ? '✓' : '•'}</span>
+                                <p
+                                  className={
+                                    pwChecks.symbol
+                                      ? "text-emerald-700"
+                                      : "text-gray-500"
+                                  }
+                                >
+                                  <span className="mr-1">
+                                    {pwChecks.symbol ? "✓" : "•"}
+                                  </span>
                                   มีอักขระพิเศษ เช่น ! @ # $ %
                                 </p>
                                 <p className="text-[10px] text-gray-400 sm:col-span-2 mt-1">
-                                  กรุณาตั้งรหัสผ่านใหม่ด้วยตัวอักษรภาษาอังกฤษ (a-z, A-Z) ตัวเลข และสัญลักษณ์ โดยไม่ใช้ตัวอักษรไทยหรืออีโมจิ
+                                  กรุณาตั้งรหัสผ่านใหม่ด้วยตัวอักษรภาษาอังกฤษ
+                                  (a-z, A-Z) ตัวเลข และสัญลักษณ์
+                                  โดยไม่ใช้ตัวอักษรไทยหรืออีโมจิ
                                 </p>
                               </div>
                             </div>
@@ -2884,28 +3322,31 @@ export default function WarrantyDashboard() {
                 <div className="flex justify-end gap-3">
                   <button
                     type="button"
-                    onClick={() => { setProfileModalOpen(false); setModalError(''); }}
+                    onClick={() => {
+                      setProfileModalOpen(false);
+                      setModalError("");
+                    }}
                     className="rounded-full px-4 py-2 text-sm font-medium bg-white border border-slate-200 hover:bg-slate-50"
                   >
                     ยกเลิก
                   </button>
-                  {profileTab === 'info' ? (
+                  {profileTab === "info" ? (
                     <button
                       type="submit"
                       form="profileForm"
                       disabled={profileSubmitting}
-                      className={`rounded-full bg-sky-600 px-5 py-2 text-sm font-semibold text-white shadow transition ${profileSubmitting ? 'cursor-not-allowed opacity-70' : 'hover:bg-sky-500'}`}
+                      className={`rounded-full bg-sky-600 px-5 py-2 text-sm font-semibold text-white shadow transition ${profileSubmitting ? "cursor-not-allowed opacity-70" : "hover:bg-sky-500"}`}
                     >
-                      {profileSubmitting ? 'กำลังบันทึก...' : 'บันทึก'}
+                      {profileSubmitting ? "กำลังบันทึก..." : "บันทึก"}
                     </button>
                   ) : (
                     <button
                       type="submit"
                       form="passwordForm"
                       disabled={passwordSubmitting}
-                      className={`rounded-full bg-sky-500 px-5 py-2 text-sm font-semibold text-white shadow transition ${passwordSubmitting ? 'cursor-not-allowed opacity-70' : 'hover:bg-sky-400'}`}
+                      className={`rounded-full bg-sky-500 px-5 py-2 text-sm font-semibold text-white shadow transition ${passwordSubmitting ? "cursor-not-allowed opacity-70" : "hover:bg-sky-400"}`}
                     >
-                      {passwordSubmitting ? 'กำลังบันทึก...' : 'ยืนยัน'}
+                      {passwordSubmitting ? "กำลังบันทึก..." : "ยืนยัน"}
                     </button>
                   )}
                 </div>
@@ -2917,31 +3358,57 @@ export default function WarrantyDashboard() {
         {isWarrantyModalOpen && (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
-            style={{ padding: '1rem', paddingBottom: `calc(1rem + env(safe-area-inset-bottom))` }}
+            style={{
+              padding: "1rem",
+              paddingBottom: `calc(1rem + env(safe-area-inset-bottom))`,
+            }}
           >
-            <div className="w-full max-w-lg sm:max-w-2xl rounded-2xl sm:rounded-3xl bg-white shadow-2xl mx-auto overflow-hidden" style={{ maxHeight: 'calc(100vh - 2rem)' }}>
+            <div
+              className="w-full max-w-lg sm:max-w-2xl rounded-2xl sm:rounded-3xl bg-white shadow-2xl mx-auto overflow-hidden"
+              style={{ maxHeight: "calc(100vh - 2rem)" }}
+            >
               {/* header */}
               <div className="flex items-center justify-between rounded-t-3xl bg-sky-600 px-6 py-4 text-white">
                 <div>
-                  <div className="text-base font-semibold">{modalMode === 'create' ? 'สร้างใบรับประกันใหม่' : 'แก้ไขรายการสินค้า'}</div>
-                  {modalMode === 'create' && <div className="text-xs text-sky-100">ใบรับประกัน 1 ใบ สามารถเพิ่มสินค้าหลายรายการได้</div>}
+                  <div className="text-base font-semibold">
+                    {modalMode === "create"
+                      ? "สร้างใบรับประกันใหม่"
+                      : "แก้ไขรายการสินค้า"}
+                  </div>
+                  {modalMode === "create" && (
+                    <div className="text-xs text-sky-100">
+                      ใบรับประกัน 1 ใบ สามารถเพิ่มสินค้าหลายรายการได้
+                    </div>
+                  )}
                 </div>
                 <button
                   type="button"
-                  onClick={() => { setWarrantyModalOpen(false); setWarrantyModalError(''); setWarrantySubmitting(false) }}
+                  onClick={() => {
+                    setWarrantyModalOpen(false);
+                    setWarrantyModalError("");
+                    setWarrantySubmitting(false);
+                  }}
                   className="text-2xl text-white/80 hover:text-white"
                 >
                   ×
                 </button>
               </div>
 
-              <form className="flex flex-col h-full" onSubmit={handleWarrantySubmit}>
-                <div className="overflow-y-auto overflow-x-hidden px-5 sm:px-6 pt-5 pb-3 flex-1" style={{ maxHeight: '72vh' }}>
+              <form
+                className="flex flex-col h-full"
+                onSubmit={handleWarrantySubmit}
+              >
+                <div
+                  className="overflow-y-auto overflow-x-hidden px-5 sm:px-6 pt-5 pb-3 flex-1"
+                  style={{ maxHeight: "72vh" }}
+                >
                   {warrantyModalError && (
-                    <div className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600">{warrantyModalError}</div>
+                    <div className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600">
+                      {warrantyModalError}
+                    </div>
                   )}
 
-                  {modalMode === 'edit' ? (
+                  {modalMode === "edit" ? (
                     <>
                       {/* ✅ แก้ไขอีเมลลูกค้า (ระดับใบ) */}
                       <label className="mb-3 block text-sm text-gray-100">
@@ -2950,22 +3417,29 @@ export default function WarrantyDashboard() {
                       <label className="text-sm text-gray-600 block">
                         อีเมลลูกค้า <span className="text-red-500">*</span>
                         <div className="mt-1 w-full rounded-2xl border border-gray-200 bg-gray-100 px-4 py-2 text-sm text-gray-600">
-                          {editHeaderEmail || '-'}
+                          {editHeaderEmail || "-"}
                         </div>
                       </label>
 
                       {/* ✅ ที่อยู่ลูกค้า (ระดับใบ) – ใช้ selector แบบเดียวกับหน้าสร้างใบรับประกัน */}
                       <div className="mt-3">
-                        <div className="text-sm text-gray-600">ที่อยู่ลูกค้า</div>
+                        <div className="text-sm text-gray-600">
+                          ที่อยู่ลูกค้า
+                        </div>
 
                         <div className="mt-1 rounded-2xl border border-sky-100 bg-white p-4">
-                          <div className="text-xs text-gray-500">เลขที่ / ซอย / ถนน</div>
+                          <div className="text-xs text-gray-500">
+                            เลขที่ / ซอย / ถนน
+                          </div>
                           <textarea
                             value={editCustomerAddressParts.street}
                             onChange={(e) => {
-                              const v = stripEmojisAndSpecials(e.target.value)
-                              setEditCustomerAddressParts((p) => ({ ...p, street: v }))
-                              setEditHeaderAddress((prev) => prev) // keep raw; will rebuild on submit
+                              const v = stripEmojisAndSpecials(e.target.value);
+                              setEditCustomerAddressParts((p) => ({
+                                ...p,
+                                street: v,
+                              }));
+                              setEditHeaderAddress((prev) => prev); // keep raw; will rebuild on submit
                             }}
                             className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                             placeholder="เช่น 123/4 ซ.สุขุมวิท 11"
@@ -2974,28 +3448,49 @@ export default function WarrantyDashboard() {
 
                           <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
                             <div>
-                              <div className="text-xs text-gray-500">จังหวัด</div>
+                              <div className="text-xs text-gray-500">
+                                จังหวัด
+                              </div>
                               <select
                                 value={editCustomerAddressParts.province}
                                 onChange={async (e) => {
-                                  const code = e.target.value
-                                  setEditCustomerAddressParts((p) => ({ ...p, province: code, district: '', subdistrict: '', postcode: '' }))
+                                  const code = e.target.value;
+                                  setEditCustomerAddressParts((p) => ({
+                                    ...p,
+                                    province: code,
+                                    district: "",
+                                    subdistrict: "",
+                                    postcode: "",
+                                  }));
                                   try {
-                                    await loadCustomerDistrictsForProvince(code)
+                                    await loadCustomerDistrictsForProvince(
+                                      code,
+                                    );
                                     if (code) {
                                       if (districtsMap) {
-                                        const list = (districtsMap[String(code)] || []).map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code }))
-                                        setEditCustomerDistrictOptions(list.sort((a, b) => a.name.localeCompare(b.name, 'th')))
+                                        const list = (
+                                          districtsMap[String(code)] || []
+                                        ).map((d) => ({
+                                          name: d.name_th || d.name,
+                                          code: d.id ?? d.code,
+                                        }));
+                                        setEditCustomerDistrictOptions(
+                                          list.sort((a, b) =>
+                                            a.name.localeCompare(b.name, "th"),
+                                          ),
+                                        );
                                       } else {
-                                        setEditCustomerDistrictOptions(customerDistrictOptions)
+                                        setEditCustomerDistrictOptions(
+                                          customerDistrictOptions,
+                                        );
                                       }
                                     } else {
-                                      setEditCustomerDistrictOptions([])
+                                      setEditCustomerDistrictOptions([]);
                                     }
-                                    setEditCustomerSubdistrictOptions([])
+                                    setEditCustomerSubdistrictOptions([]);
                                   } catch {
-                                    setEditCustomerDistrictOptions([])
-                                    setEditCustomerSubdistrictOptions([])
+                                    setEditCustomerDistrictOptions([]);
+                                    setEditCustomerSubdistrictOptions([]);
                                   }
                                 }}
                                 className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
@@ -3003,45 +3498,71 @@ export default function WarrantyDashboard() {
                                 <option value="">เลือกจังหวัด</option>
                                 {provincesList.length > 0
                                   ? provincesList.map((p) => (
-                                    <option key={p.code} value={p.code}>
-                                      {p.name}
-                                    </option>
-                                  ))
+                                      <option key={p.code} value={p.code}>
+                                        {p.name}
+                                      </option>
+                                    ))
                                   : TH_PROVINCES.map((pv) => (
-                                    <option key={pv} value={pv}>
-                                      {pv}
-                                    </option>
-                                  ))}
+                                      <option key={pv} value={pv}>
+                                        {pv}
+                                      </option>
+                                    ))}
                               </select>
                             </div>
 
                             <div>
-                              <div className="text-xs text-gray-500">อำเภอ/เขต</div>
+                              <div className="text-xs text-gray-500">
+                                อำเภอ/เขต
+                              </div>
                               <select
                                 value={editCustomerAddressParts.district}
                                 onChange={async (e) => {
-                                  const code = e.target.value
-                                  setEditCustomerAddressParts((p) => ({ ...p, district: code, subdistrict: '', postcode: '' }))
+                                  const code = e.target.value;
+                                  setEditCustomerAddressParts((p) => ({
+                                    ...p,
+                                    district: code,
+                                    subdistrict: "",
+                                    postcode: "",
+                                  }));
                                   try {
-                                    await loadCustomerSubdistrictsForDistrict(code)
+                                    await loadCustomerSubdistrictsForDistrict(
+                                      code,
+                                    );
                                     if (code) {
                                       if (subdistrictsMap) {
-                                        const list = (subdistrictsMap[String(code)] || []).map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip }))
-                                        setEditCustomerSubdistrictOptions(list.sort((a, b) => a.name.localeCompare(b.name, 'th')))
+                                        const list = (
+                                          subdistrictsMap[String(code)] || []
+                                        ).map((s) => ({
+                                          name: s.name_th || s.name,
+                                          code: s.id ?? s.code,
+                                          zipcode:
+                                            s.zip_code || s.zipcode || s.zip,
+                                        }));
+                                        setEditCustomerSubdistrictOptions(
+                                          list.sort((a, b) =>
+                                            a.name.localeCompare(b.name, "th"),
+                                          ),
+                                        );
                                       } else {
-                                        setEditCustomerSubdistrictOptions(customerSubdistrictOptions)
+                                        setEditCustomerSubdistrictOptions(
+                                          customerSubdistrictOptions,
+                                        );
                                       }
                                     } else {
-                                      setEditCustomerSubdistrictOptions([])
+                                      setEditCustomerSubdistrictOptions([]);
                                     }
                                   } catch {
-                                    setEditCustomerSubdistrictOptions([])
+                                    setEditCustomerSubdistrictOptions([]);
                                   }
                                 }}
                                 disabled={!editCustomerAddressParts.province}
                                 className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none disabled:opacity-60"
                               >
-                                <option value="">{editCustomerAddressParts.province ? 'เลือกอำเภอ/เขต' : 'เลือกจังหวัดก่อน'}</option>
+                                <option value="">
+                                  {editCustomerAddressParts.province
+                                    ? "เลือกอำเภอ/เขต"
+                                    : "เลือกจังหวัดก่อน"}
+                                </option>
                                 {editCustomerDistrictOptions.map((d) => (
                                   <option key={d.code} value={d.code}>
                                     {d.name}
@@ -3051,18 +3572,31 @@ export default function WarrantyDashboard() {
                             </div>
 
                             <div>
-                              <div className="text-xs text-gray-500">ตำบล/แขวง</div>
+                              <div className="text-xs text-gray-500">
+                                ตำบล/แขวง
+                              </div>
                               <select
                                 value={editCustomerAddressParts.subdistrict}
                                 onChange={(e) => {
-                                  const code = e.target.value
-                                  const found = editCustomerSubdistrictOptions.find((s) => String(s.code) === String(code))
-                                  setEditCustomerAddressParts((p) => ({ ...p, subdistrict: code, postcode: found?.zipcode || '' }))
+                                  const code = e.target.value;
+                                  const found =
+                                    editCustomerSubdistrictOptions.find(
+                                      (s) => String(s.code) === String(code),
+                                    );
+                                  setEditCustomerAddressParts((p) => ({
+                                    ...p,
+                                    subdistrict: code,
+                                    postcode: found?.zipcode || "",
+                                  }));
                                 }}
                                 disabled={!editCustomerAddressParts.district}
                                 className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none disabled:opacity-60"
                               >
-                                <option value="">{editCustomerAddressParts.district ? 'เลือกตำบล/แขวง' : 'เลือกอำเภอก่อน'}</option>
+                                <option value="">
+                                  {editCustomerAddressParts.district
+                                    ? "เลือกตำบล/แขวง"
+                                    : "เลือกอำเภอก่อน"}
+                                </option>
                                 {editCustomerSubdistrictOptions.map((s) => (
                                   <option key={s.code} value={s.code}>
                                     {s.name}
@@ -3074,12 +3608,20 @@ export default function WarrantyDashboard() {
 
                           <div className="mt-3 grid gap-2 sm:grid-cols-2">
                             <div>
-                              <div className="text-xs text-gray-500">รหัสไปรษณีย์</div>
+                              <div className="text-xs text-gray-500">
+                                รหัสไปรษณีย์
+                              </div>
                               <input
                                 value={editCustomerAddressParts.postcode}
                                 onChange={(e) => {
-                                  const v = e.target.value.replace(/[^0-9]/g, '')
-                                  setEditCustomerAddressParts((p) => ({ ...p, postcode: v }))
+                                  const v = e.target.value.replace(
+                                    /[^0-9]/g,
+                                    "",
+                                  );
+                                  setEditCustomerAddressParts((p) => ({
+                                    ...p,
+                                    postcode: v,
+                                  }));
                                 }}
                                 maxLength={5}
                                 className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
@@ -3089,7 +3631,8 @@ export default function WarrantyDashboard() {
                               />
                             </div>
                             <div className="flex items-end text-xs text-gray-400">
-                              ตัวอย่าง: เลขที่/ซอย/ถนน, ตำบล, อำเภอ, จังหวัด, รหัสไปรษณีย์
+                              ตัวอย่าง: เลขที่/ซอย/ถนน, ตำบล, อำเภอ, จังหวัด,
+                              รหัสไปรษณีย์
                             </div>
                           </div>
                         </div>
@@ -3098,14 +3641,19 @@ export default function WarrantyDashboard() {
                       {/* ฟอร์มแก้ไขแบบ controlled + auto-expiry */}
                       <div className="mt-3 grid gap-3 md:grid-cols-2">
                         <label className="text-sm text-gray-600">
-                          ชื่อสินค้าที่ทำการซ่อม <span className="text-red-500">*</span>
+                          ชื่อสินค้าที่ทำการซ่อม{" "}
+                          <span className="text-red-500">*</span>
                           <input
                             name="product_name"
-                            value={editForm?.product_name ?? ''}
-                            onChange={e => setEditForm(f => ({
-                              ...f,
-                              product_name: stripEmojisAndSpecials(e.target.value),
-                            }))}
+                            value={editForm?.product_name ?? ""}
+                            onChange={(e) =>
+                              setEditForm((f) => ({
+                                ...f,
+                                product_name: stripEmojisAndSpecials(
+                                  e.target.value,
+                                ),
+                              }))
+                            }
                             maxLength={30}
                             className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                             placeholder="กรอกชื่อสินค้าที่ทำการซ่อม"
@@ -3119,11 +3667,13 @@ export default function WarrantyDashboard() {
                           รุ่นสินค้าที่ทำการซ่อม
                           <input
                             name="model"
-                            value={editForm?.model ?? ''}
-                            onChange={e => setEditForm(f => ({
-                              ...f,
-                              model: stripEmojisAndSpecials(e.target.value),
-                            }))}
+                            value={editForm?.model ?? ""}
+                            onChange={(e) =>
+                              setEditForm((f) => ({
+                                ...f,
+                                model: stripEmojisAndSpecials(e.target.value),
+                              }))
+                            }
                             maxLength={30}
                             className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                             placeholder="กรอกรุ่นสินค้าที่ทำการซ่อม"
@@ -3137,11 +3687,13 @@ export default function WarrantyDashboard() {
                           Serial No.
                           <input
                             name="serial"
-                            value={editForm?.serial ?? ''}
-                            onChange={e => setEditForm(f => ({
-                              ...f,
-                              serial: stripEmojisAndSpecials(e.target.value),
-                            }))}
+                            value={editForm?.serial ?? ""}
+                            onChange={(e) =>
+                              setEditForm((f) => ({
+                                ...f,
+                                serial: stripEmojisAndSpecials(e.target.value),
+                              }))
+                            }
                             className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                             placeholder="กรอก Serial No. (ไม่บังคับ)"
                             type="text"
@@ -3153,8 +3705,13 @@ export default function WarrantyDashboard() {
                           ราคาการซ่อม (บาท)
                           <input
                             name="price"
-                            value={editForm?.price ?? ''}
-                            onChange={e => setEditForm(f => ({ ...f, price: e.target.value.replace(/[^0-9.]/g, '') }))}
+                            value={editForm?.price ?? ""}
+                            onChange={(e) =>
+                              setEditForm((f) => ({
+                                ...f,
+                                price: e.target.value.replace(/[^0-9.]/g, ""),
+                              }))
+                            }
                             maxLength={7}
                             className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                             placeholder="กรอกราคาการซ่อม (ไม่บังคับ)"
@@ -3169,49 +3726,76 @@ export default function WarrantyDashboard() {
                           ระยะเวลารับประกัน
                           <select
                             name="duration_months"
-                            value={editForm?.duration_mode === 'preset' ? (editForm?.duration_months ?? 12) : 'other'}
-                            onChange={e => {
-                              const v = e.target.value
-                              setEditForm(f => {
-                                if (v === 'other') {
-                                  const next = { ...f, duration_mode: 'custom', custom_unit: 'months', custom_value: 12 }
-                                  next.expiry_date = computeExpiry(next.purchase_date, { unit: 'months', value: 12 })
-                                  return next
+                            value={
+                              editForm?.duration_mode === "preset"
+                                ? (editForm?.duration_months ?? 12)
+                                : "other"
+                            }
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setEditForm((f) => {
+                                if (v === "other") {
+                                  const next = {
+                                    ...f,
+                                    duration_mode: "custom",
+                                    custom_unit: "months",
+                                    custom_value: 12,
+                                  };
+                                  next.expiry_date = computeExpiry(
+                                    next.purchase_date,
+                                    { unit: "months", value: 12 },
+                                  );
+                                  return next;
                                 } else {
-                                  const vNum = Number(v || 12)
-                                  const next = { ...f, duration_mode: 'preset', duration_months: vNum }
-                                  next.expiry_date = computeExpiry(next.purchase_date, vNum)
-                                  return next
+                                  const vNum = Number(v || 12);
+                                  const next = {
+                                    ...f,
+                                    duration_mode: "preset",
+                                    duration_months: vNum,
+                                  };
+                                  next.expiry_date = computeExpiry(
+                                    next.purchase_date,
+                                    vNum,
+                                  );
+                                  return next;
                                 }
-                              })
+                              });
                             }}
                             className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                           >
-                            {[1, 3, 6, 12, 18, 24].map(month => (
-                              <option key={month} value={month}>{month} เดือน</option>
+                            {[1, 3, 6, 12, 18, 24].map((month) => (
+                              <option key={month} value={month}>
+                                {month} เดือน
+                              </option>
                             ))}
                             <option value="other">อื่นๆ (ระบุเอง)</option>
                           </select>
                         </label>
                       </div>
 
-                      {editForm?.duration_mode === 'custom' && (
+                      {editForm?.duration_mode === "custom" && (
                         <div className="mt-2 grid gap-3 md:grid-cols-2">
                           <label className="text-sm text-gray-600">
                             จำนวน (วัน/เดือน)
                             <input
                               inputMode="numeric"
-                              value={editForm?.custom_value ?? ''}
-                              onChange={e => {
-                                const val = e.target.value.replace(/[^0-9]/g, '')
-                                setEditForm(f => {
-                                  const next = { ...f, custom_value: val }
-                                  next.expiry_date = computeExpiry(next.purchase_date, {
-                                    unit: f.custom_unit || 'months',
-                                    value: Number(val || 0),
-                                  })
-                                  return next
-                                })
+                              value={editForm?.custom_value ?? ""}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(
+                                  /[^0-9]/g,
+                                  "",
+                                );
+                                setEditForm((f) => {
+                                  const next = { ...f, custom_value: val };
+                                  next.expiry_date = computeExpiry(
+                                    next.purchase_date,
+                                    {
+                                      unit: f.custom_unit || "months",
+                                      value: Number(val || 0),
+                                    },
+                                  );
+                                  return next;
+                                });
                               }}
                               className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                               placeholder="เช่น 45"
@@ -3226,15 +3810,24 @@ export default function WarrantyDashboard() {
                                 <input
                                   type="radio"
                                   name="unit-edit"
-                                  checked={editForm?.custom_unit === 'days'}
+                                  checked={editForm?.custom_unit === "days"}
                                   onChange={() => {
-                                    setEditForm(f => {
-                                      const next = { ...f, custom_unit: 'days' }
+                                    setEditForm((f) => {
+                                      const next = {
+                                        ...f,
+                                        custom_unit: "days",
+                                      };
                                       if (f.purchase_date && f.custom_value) {
-                                        next.expiry_date = computeExpiry(f.purchase_date, { unit: 'days', value: Number(f.custom_value) })
+                                        next.expiry_date = computeExpiry(
+                                          f.purchase_date,
+                                          {
+                                            unit: "days",
+                                            value: Number(f.custom_value),
+                                          },
+                                        );
                                       }
-                                      return next
-                                    })
+                                      return next;
+                                    });
                                   }}
                                 />
                                 วัน
@@ -3243,15 +3836,24 @@ export default function WarrantyDashboard() {
                                 <input
                                   type="radio"
                                   name="unit-edit"
-                                  checked={editForm?.custom_unit === 'months'}
+                                  checked={editForm?.custom_unit === "months"}
                                   onChange={() => {
-                                    setEditForm(f => {
-                                      const next = { ...f, custom_unit: 'months' }
+                                    setEditForm((f) => {
+                                      const next = {
+                                        ...f,
+                                        custom_unit: "months",
+                                      };
                                       if (f.purchase_date && f.custom_value) {
-                                        next.expiry_date = computeExpiry(f.purchase_date, { unit: 'months', value: Number(f.custom_value) })
+                                        next.expiry_date = computeExpiry(
+                                          f.purchase_date,
+                                          {
+                                            unit: "months",
+                                            value: Number(f.custom_value),
+                                          },
+                                        );
                                       }
-                                      return next
-                                    })
+                                      return next;
+                                    });
                                   }}
                                 />
                                 เดือน
@@ -3262,54 +3864,90 @@ export default function WarrantyDashboard() {
                       )}
 
                       <div className="mt-3 grid gap-3 md:grid-cols-2">
+                        {/* คอลัมน์ซ้าย: วันเริ่มการรับประกัน */}
                         <label className="text-sm text-gray-600 w-full block">
-                          วันเริ่มการรับประกัน <span className="text-red-500">*</span>
+                          วันเริ่มการรับประกัน{" "}
+                          <span className="text-red-500">*</span>
                           <div className="relative mt-1 w-full">
                             <DatePicker
                               ref={editDatePickerRef}
                               selected={(() => {
                                 if (!editForm?.purchase_date) return null;
-                                if (/^\d{2}\/\d{2}\/\d{4}$/.test(editForm.purchase_date)) {
-                                  const [day, month, year] = editForm.purchase_date.split('/');
+                                if (
+                                  /^\d{2}\/\d{2}\/\d{4}$/.test(
+                                    editForm.purchase_date,
+                                  )
+                                ) {
+                                  const [day, month, year] =
+                                    editForm.purchase_date.split("/");
                                   return new Date(`${year}-${month}-${day}`);
                                 }
                                 return new Date(editForm.purchase_date);
                               })()}
-                              onChange={date => {
+                              onChange={(date) => {
                                 if (!date) return;
-                                const day = String(date.getDate()).padStart(2, '0');
-                                const m = String(date.getMonth() + 1).padStart(2, '0');
+                                const day = String(date.getDate()).padStart(
+                                  2,
+                                  "0",
+                                );
+                                const m = String(date.getMonth() + 1).padStart(
+                                  2,
+                                  "0",
+                                );
                                 const y = date.getFullYear();
                                 const v = `${day}/${m}/${y}`;
-                                setEditForm(f => {
+                                setEditForm((f) => {
                                   const next = { ...f, purchase_date: v };
-                                  if (next.duration_mode === 'custom' && next.custom_value) {
-                                    next.expiry_date = computeExpiry(`${y}-${m}-${day}`, { unit: next.custom_unit || 'months', value: Number(next.custom_value || 0) })
+                                  if (
+                                    next.duration_mode === "custom" &&
+                                    next.custom_value
+                                  ) {
+                                    next.expiry_date = computeExpiry(
+                                      `${y}-${m}-${day}`,
+                                      {
+                                        unit: next.custom_unit || "months",
+                                        value: Number(next.custom_value || 0),
+                                      },
+                                    );
                                   } else {
-                                    next.expiry_date = computeExpiry(`${y}-${m}-${day}`, next.duration_months || 12)
+                                    next.expiry_date = computeExpiry(
+                                      `${y}-${m}-${day}`,
+                                      next.duration_months || 12,
+                                    );
                                   }
                                   return next;
                                 });
                                 try {
-                                  if (editDatePickerRef?.current && typeof editDatePickerRef.current.setOpen === 'function') {
-                                    editDatePickerRef.current.setOpen(false)
-                                  } else if (document.activeElement && document.activeElement.blur) {
-                                    document.activeElement.blur()
+                                  if (
+                                    editDatePickerRef?.current &&
+                                    typeof editDatePickerRef.current.setOpen ===
+                                      "function"
+                                  ) {
+                                    editDatePickerRef.current.setOpen(false);
+                                  } else if (
+                                    document.activeElement &&
+                                    document.activeElement.blur
+                                  ) {
+                                    document.activeElement.blur();
                                   }
-                                  // Additional fallback: blur any react-datepicker input and remove popper if it remains
                                   setTimeout(() => {
                                     try {
-                                      const dpInput = document.querySelector('.react-datepicker__input-container input');
-                                      if (dpInput && typeof dpInput.blur === 'function') dpInput.blur();
-                                      const popper = document.querySelector('.react-datepicker-popper');
-                                      if (popper && popper.parentNode) popper.parentNode.removeChild(popper);
-                                    } catch (e2) {
-                                      // ignore
-                                    }
+                                      const dpInput = document.querySelector(
+                                        ".react-datepicker__input-container input",
+                                      );
+                                      if (
+                                        dpInput &&
+                                        typeof dpInput.blur === "function"
+                                      )
+                                        dpInput.blur();
+                                      const popper = document.querySelector(
+                                        ".react-datepicker-popper",
+                                      );
+                                      if (popper && popper.parentNode)
+                                        popper.parentNode.removeChild(popper);
+                                    } catch (e2) {}
                                   }, 0);
-                                } catch (e) {
-                                  // ignore
-                                }
+                                } catch (e) {}
                               }}
                               dateFormat="dd/MM/yyyy"
                               shouldCloseOnSelect
@@ -3319,16 +3957,121 @@ export default function WarrantyDashboard() {
                               popperClassName="datepicker-center-modal"
                               popperPlacement="auto"
                               calendarClassName="w-full"
-                              renderCustomHeader={props => <>{props.children}</>}
-                              // เพิ่มไอคอนปฏิทินใน input
-                              customInput={<CustomDateInput value={editForm?.purchase_date ? formatForDisplayDate(editForm.purchase_date) : ''} placeholder="dd/mm/yyyy" />}
+                              /* ✨ โค้ดสร้างหัวปฏิทิน (เดือน/ปี) ที่เพิ่มเข้ามา ✨ */
+                              renderCustomHeader={({
+                                date,
+                                changeYear,
+                                changeMonth,
+                                decreaseMonth,
+                                increaseMonth,
+                                prevMonthButtonDisabled,
+                                nextMonthButtonDisabled,
+                              }) => {
+                                const months = [
+                                  "มกราคม",
+                                  "กุมภาพันธ์",
+                                  "มีนาคม",
+                                  "เมษายน",
+                                  "พฤษภาคม",
+                                  "มิถุนายน",
+                                  "กรกฎาคม",
+                                  "สิงหาคม",
+                                  "กันยายน",
+                                  "ตุลาคม",
+                                  "พฤศจิกายน",
+                                  "ธันวาคม",
+                                ];
+                                const years = Array.from(
+                                  { length: 21 },
+                                  (_, i) => new Date().getFullYear() - 10 + i,
+                                );
+
+                                return (
+                                  <div className="flex justify-between items-center px-3 py-2 bg-white border-b border-gray-100 mb-2">
+                                    <button
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        decreaseMonth();
+                                      }}
+                                      disabled={prevMonthButtonDisabled}
+                                      className="text-gray-500 hover:bg-gray-100 hover:text-sky-500 rounded p-1 cursor-pointer disabled:opacity-30"
+                                    >
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className="h-5 w-5"
+                                        viewBox="0 0 20 20"
+                                        fill="currentColor"
+                                      >
+                                        <path
+                                          fillRule="evenodd"
+                                          d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
+                                          clipRule="evenodd"
+                                        />
+                                      </svg>
+                                    </button>
+                                    <div className="flex gap-2">
+                                      <select
+                                        value={date.getMonth()}
+                                        onChange={({ target: { value } }) =>
+                                          changeMonth(Number(value))
+                                        }
+                                        className="border border-gray-200 rounded text-sm px-2 py-1 focus:outline-none focus:border-sky-400 bg-white cursor-pointer"
+                                      >
+                                        {months.map((m, i) => (
+                                          <option key={m} value={i}>
+                                            {m}
+                                          </option>
+                                        ))}
+                                      </select>
+                                      <select
+                                        value={date.getFullYear()}
+                                        onChange={({ target: { value } }) =>
+                                          changeYear(Number(value))
+                                        }
+                                        className="border border-gray-200 rounded text-sm px-2 py-1 focus:outline-none focus:border-sky-400 bg-white cursor-pointer"
+                                      >
+                                        {years.map((year) => (
+                                          <option key={year} value={year}>
+                                            {year}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                    <button
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        increaseMonth();
+                                      }}
+                                      disabled={nextMonthButtonDisabled}
+                                      className="text-gray-500 hover:bg-gray-100 hover:text-sky-500 rounded p-1 cursor-pointer disabled:opacity-30"
+                                    >
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className="h-5 w-5"
+                                        viewBox="0 0 20 20"
+                                        fill="currentColor"
+                                      >
+                                        <path
+                                          fillRule="evenodd"
+                                          d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                                          clipRule="evenodd"
+                                        />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                );
+                              }}
                             />
                           </div>
                         </label>
+
+                        {/* คอลัมน์ขวา: วันหมดอายุ (จับแยกออกมาเป็น label ของตัวเองแล้ว) */}
                         <label className="text-sm text-gray-600 w-full block">
                           วันหมดอายุ
                           <div className="mt-1 w-full rounded-2xl border border-gray-200 bg-gray-100 px-10 py-2 text-sm text-gray-600">
-                            {editForm?.expiry_date ? formatForDisplayDate(editForm.expiry_date) : '-'}
+                            {editForm?.expiry_date
+                              ? formatForDisplayDate(editForm.expiry_date)
+                              : "-"}
                             <div className="text-xs text-blue-600 mt-1"></div>
                           </div>
                         </label>
@@ -3337,56 +4080,114 @@ export default function WarrantyDashboard() {
                       {/* ✅ เงื่อนไขการรับประกัน - แบบ Checkbox + เลือกทั้งหมด + ปุ่มเพิ่ม */}
                       <div className="mt-3">
                         <div className="flex items-center justify-between mb-2">
-                          <div className="text-sm text-gray-600">เงื่อนไขการรับประกัน <span className="text-red-500">*</span></div>
+                          <div className="text-sm text-gray-600">
+                            เงื่อนไขการรับประกัน{" "}
+                            <span className="text-red-500">*</span>
+                          </div>
                           {(() => {
-                            const conditionsData = getConditionsForStoreType(storeProfile.storeType)
-                            const allConds = [...conditionsData.conditions, ...((editForm?.selectedConditions || []).filter(c => !conditionsData.conditions.includes(c)))]
-                            const allSelected = allConds.length > 0 && allConds.every(c => (editForm?.selectedConditions || []).includes(c))
+                            const conditionsData = getConditionsForStoreType(
+                              storeProfile.storeType,
+                            );
+                            const allConds = [
+                              ...conditionsData.conditions,
+                              ...(editForm?.selectedConditions || []).filter(
+                                (c) => !conditionsData.conditions.includes(c),
+                              ),
+                            ];
+                            const allSelected =
+                              allConds.length > 0 &&
+                              allConds.every((c) =>
+                                (editForm?.selectedConditions || []).includes(
+                                  c,
+                                ),
+                              );
                             return (
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setEditForm(f => ({ ...f, selectedConditions: allSelected ? [] : [...allConds] }))
+                                  setEditForm((f) => ({
+                                    ...f,
+                                    selectedConditions: allSelected
+                                      ? []
+                                      : [...allConds],
+                                  }));
                                 }}
                                 className="rounded-lg border border-sky-300 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700 hover:bg-sky-100 transition"
                               >
-                                {allSelected ? '☐ ยกเลิกทั้งหมด' : '☑ เลือกทั้งหมด'}
+                                {allSelected
+                                  ? "☐ ยกเลิกทั้งหมด"
+                                  : "☑ เลือกทั้งหมด"}
                               </button>
-                            )
+                            );
                           })()}
                         </div>
                         <div className="rounded-2xl border border-sky-100 bg-sky-50/60 p-3 max-h-60 overflow-y-auto">
                           {(() => {
-                            const conditionsData = getConditionsForStoreType(storeProfile.storeType)
+                            const conditionsData = getConditionsForStoreType(
+                              storeProfile.storeType,
+                            );
                             // รวมเงื่อนไขเทมเพลต + เงื่อนไขที่ user เพิ่มเอง
-                            const customAdded = (editForm?.selectedConditions || []).filter(c => !conditionsData.conditions.includes(c))
-                            const allConds = [...conditionsData.conditions, ...customAdded]
+                            const customAdded = (
+                              editForm?.selectedConditions || []
+                            ).filter(
+                              (c) => !conditionsData.conditions.includes(c),
+                            );
+                            const allConds = [
+                              ...conditionsData.conditions,
+                              ...customAdded,
+                            ];
                             return (
                               <>
-                                <div className="text-xs text-gray-500 mb-2">ประเภท: {conditionsData.label}</div>
+                                <div className="text-xs text-gray-500 mb-2">
+                                  ประเภท: {conditionsData.label}
+                                </div>
                                 {allConds.map((cond, i) => (
-                                  <label key={i} className="flex items-start gap-2 py-1.5 border-b border-sky-100 last:border-0 cursor-pointer hover:bg-sky-100/50 rounded px-1">
+                                  <label
+                                    key={i}
+                                    className="flex items-start gap-2 py-1.5 border-b border-sky-100 last:border-0 cursor-pointer hover:bg-sky-100/50 rounded px-1"
+                                  >
                                     <input
                                       type="checkbox"
-                                      checked={(editForm?.selectedConditions || []).includes(cond)}
-                                      onChange={e => {
-                                        const selected = editForm?.selectedConditions || []
+                                      checked={(
+                                        editForm?.selectedConditions || []
+                                      ).includes(cond)}
+                                      onChange={(e) => {
+                                        const selected =
+                                          editForm?.selectedConditions || [];
                                         if (e.target.checked) {
-                                          setEditForm(f => ({ ...f, selectedConditions: [...selected, cond] }))
+                                          setEditForm((f) => ({
+                                            ...f,
+                                            selectedConditions: [
+                                              ...selected,
+                                              cond,
+                                            ],
+                                          }));
                                         } else {
-                                          setEditForm(f => ({ ...f, selectedConditions: selected.filter(c => c !== cond) }))
+                                          setEditForm((f) => ({
+                                            ...f,
+                                            selectedConditions: selected.filter(
+                                              (c) => c !== cond,
+                                            ),
+                                          }));
                                         }
                                       }}
                                       className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 shrink-0"
                                     />
-                                    <span className="text-sm text-gray-700 flex-1">{cond}</span>
+                                    <span className="text-sm text-gray-700 flex-1">
+                                      {cond}
+                                    </span>
                                     {/* ปุ่มลบเฉพาะเงื่อนไขที่เพิ่มเอง */}
                                     {i >= conditionsData.conditions.length && (
                                       <button
                                         type="button"
                                         onClick={() => {
-                                          const selected = (editForm?.selectedConditions || []).filter(c => c !== cond)
-                                          setEditForm(f => ({ ...f, selectedConditions: selected }))
+                                          const selected = (
+                                            editForm?.selectedConditions || []
+                                          ).filter((c) => c !== cond);
+                                          setEditForm((f) => ({
+                                            ...f,
+                                            selectedConditions: selected,
+                                          }));
                                         }}
                                         className="text-rose-400 hover:text-rose-600 text-lg leading-none shrink-0 ml-1"
                                         title="ลบเงื่อนไขนี้"
@@ -3397,7 +4198,7 @@ export default function WarrantyDashboard() {
                                   </label>
                                 ))}
                               </>
-                            )
+                            );
                           })()}
                           {/* ปุ่ม "+" เพิ่มเงื่อนไขใหม่ */}
                           {editAddConditionOpen ? (
@@ -3405,20 +4206,34 @@ export default function WarrantyDashboard() {
                               <input
                                 type="text"
                                 value={editAddConditionText}
-                                  onChange={e => setEditAddConditionText(stripEmojisAndSpecials(e.target.value))}
+                                onChange={(e) =>
+                                  setEditAddConditionText(
+                                    stripEmojisAndSpecials(e.target.value),
+                                  )
+                                }
                                 className="flex-1 rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-sm focus:border-sky-400 focus:outline-none"
                                 placeholder="พิมพ์เงื่อนไขใหม่..."
                                 autoFocus
-                                onKeyDown={e => {
-                                  if (e.key === 'Enter' && editAddConditionText.trim()) {
-                                    e.preventDefault()
-                                    const newCond = editAddConditionText.trim()
-                                    const selected = editForm?.selectedConditions || []
+                                onKeyDown={(e) => {
+                                  if (
+                                    e.key === "Enter" &&
+                                    editAddConditionText.trim()
+                                  ) {
+                                    e.preventDefault();
+                                    const newCond = editAddConditionText.trim();
+                                    const selected =
+                                      editForm?.selectedConditions || [];
                                     if (!selected.includes(newCond)) {
-                                      setEditForm(f => ({ ...f, selectedConditions: [...selected, newCond] }))
+                                      setEditForm((f) => ({
+                                        ...f,
+                                        selectedConditions: [
+                                          ...selected,
+                                          newCond,
+                                        ],
+                                      }));
                                     }
-                                    setEditAddConditionText('')
-                                    setEditAddConditionOpen(false)
+                                    setEditAddConditionText("");
+                                    setEditAddConditionOpen(false);
                                   }
                                 }}
                               />
@@ -3426,14 +4241,21 @@ export default function WarrantyDashboard() {
                                 type="button"
                                 onClick={() => {
                                   if (editAddConditionText.trim()) {
-                                    const newCond = editAddConditionText.trim()
-                                    const selected = editForm?.selectedConditions || []
+                                    const newCond = editAddConditionText.trim();
+                                    const selected =
+                                      editForm?.selectedConditions || [];
                                     if (!selected.includes(newCond)) {
-                                      setEditForm(f => ({ ...f, selectedConditions: [...selected, newCond] }))
+                                      setEditForm((f) => ({
+                                        ...f,
+                                        selectedConditions: [
+                                          ...selected,
+                                          newCond,
+                                        ],
+                                      }));
                                     }
                                   }
-                                  setEditAddConditionText('')
-                                  setEditAddConditionOpen(false)
+                                  setEditAddConditionText("");
+                                  setEditAddConditionOpen(false);
                                 }}
                                 className="rounded-lg bg-sky-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-600"
                               >
@@ -3441,7 +4263,10 @@ export default function WarrantyDashboard() {
                               </button>
                               <button
                                 type="button"
-                                onClick={() => { setEditAddConditionText(''); setEditAddConditionOpen(false) }}
+                                onClick={() => {
+                                  setEditAddConditionText("");
+                                  setEditAddConditionOpen(false);
+                                }}
                                 className="text-gray-400 hover:text-gray-600 text-lg"
                               >
                                 ×
@@ -3453,21 +4278,24 @@ export default function WarrantyDashboard() {
                               onClick={() => setEditAddConditionOpen(true)}
                               className="mt-2 flex items-center gap-1.5 rounded-lg border border-dashed border-sky-300 bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-100 hover:border-sky-400 transition"
                             >
-                              <span className="text-base leading-none">＋</span> เพิ่มเงื่อนไขใหม่
+                              <span className="text-base leading-none">＋</span>{" "}
+                              เพิ่มเงื่อนไขใหม่
                             </button>
                           )}
                         </div>
                       </div>
 
                       <div className="mt-3 space-y-2">
-                        <label className="text-sm text-gray-600">รูปภาพประกอบ</label>
+                        <label className="text-sm text-gray-600">
+                          รูปภาพประกอบ
+                        </label>
                         <ImageUpload
                           images={editImages}
-                          onUpload={files => {
-                            setEditImages(prev => {
+                          onUpload={(files) => {
+                            setEditImages((prev) => {
                               const arr = Array.from(files || [])
                                 .slice(0, 5 - prev.length)
-                                .map(file => ({
+                                .map((file) => ({
                                   file,
                                   url: URL.createObjectURL(file),
                                   originalName: file.name,
@@ -3476,16 +4304,20 @@ export default function WarrantyDashboard() {
                               return [...prev, ...arr];
                             });
                           }}
-                          onDelete={imageId => {
-                            setEditImages(prev => {
+                          onDelete={(imageId) => {
+                            setEditImages((prev) => {
                               let imgs = prev;
                               // Try to find by index first (for new uploads)
-                              if (imgs[imageId] && imgs[imageId].url && imgs[imageId].file) {
+                              if (
+                                imgs[imageId] &&
+                                imgs[imageId].url &&
+                                imgs[imageId].file
+                              ) {
                                 URL.revokeObjectURL(imgs[imageId].url);
                                 imgs = imgs.filter((_, i) => i !== imageId);
                               } else {
                                 // fallback: by id (for backend images)
-                                imgs = imgs.filter(img => img.id !== imageId);
+                                imgs = imgs.filter((img) => img.id !== imageId);
                               }
                               return imgs;
                             });
@@ -3499,11 +4331,20 @@ export default function WarrantyDashboard() {
                     <>
                       {/* โหมดสร้างหลายรายการในใบเดียว */}
                       {createItems.map((it, idx) => (
-                        <div key={idx} className="mb-6 rounded-2xl border border-sky-100 bg-sky-50/40 p-4">
+                        <div
+                          key={idx}
+                          className="mb-6 rounded-2xl border border-sky-100 bg-sky-50/40 p-4"
+                        >
                           <div className="mb-2 flex items-center justify-between">
-                            <div className="text-sm font-semibold text-sky-700">รายการที่ {idx + 1}</div>
+                            <div className="text-sm font-semibold text-sky-700">
+                              รายการที่ {idx + 1}
+                            </div>
                             {createItems.length > 1 && (
-                              <button type="button" onClick={() => removeItem(idx)} className="text-xs text-rose-600 hover:underline">
+                              <button
+                                type="button"
+                                onClick={() => removeItem(idx)}
+                                className="text-xs text-rose-600 hover:underline"
+                              >
                                 ลบรายการ
                               </button>
                             )}
@@ -3513,13 +4354,16 @@ export default function WarrantyDashboard() {
                             อีเมลลูกค้า <span className="text-red-500">*</span>
                             <input
                               value={it.customer_email}
-                              onChange={e => {
-                                const raw = stripEmojis(e.target.value)
-                                const cleaned = raw.replace(/[^a-zA-Z0-9@._\-+]/g, '')
-                                patchItem(idx, { customer_email: cleaned })
+                              onChange={(e) => {
+                                const raw = stripEmojis(e.target.value);
+                                const cleaned = raw.replace(
+                                  /[^a-zA-Z0-9@._\-+]/g,
+                                  "",
+                                );
+                                patchItem(idx, { customer_email: cleaned });
                               }}
                               readOnly={!!it.lockedEmail}
-                              className={`mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none ${it.lockedEmail ? 'bg-slate-100' : 'bg-white'}`}
+                              className={`mt-1 w-full rounded-2xl border border-sky-100 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none ${it.lockedEmail ? "bg-slate-100" : "bg-white"}`}
                               placeholder="กรอกอีเมลลูกค้า"
                               type="email"
                               required
@@ -3528,16 +4372,25 @@ export default function WarrantyDashboard() {
 
                           {idx === 0 && (
                             <div className="mt-3">
-                              <div className="text-sm text-gray-600">ที่อยู่ลูกค้า</div>
+                              <div className="text-sm text-gray-600">
+                                ที่อยู่ลูกค้า
+                              </div>
 
                               <div className="mt-1 rounded-2xl border border-sky-100 bg-white p-4">
-                                <div className="text-xs text-gray-500">เลขที่ / ซอย / ถนน</div>
+                                <div className="text-xs text-gray-500">
+                                  เลขที่ / ซอย / ถนน
+                                </div>
                                 <textarea
                                   value={customerAddressParts.street}
-                                        onChange={(e) => {
-                                          const v = stripEmojisAndSpecials(e.target.value)
-                                          syncCustomerAddress((p) => ({ ...p, street: v }))
-                                        }}
+                                  onChange={(e) => {
+                                    const v = stripEmojisAndSpecials(
+                                      e.target.value,
+                                    );
+                                    syncCustomerAddress((p) => ({
+                                      ...p,
+                                      street: v,
+                                    }));
+                                  }}
                                   className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-10 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                                   placeholder="เช่น 123/4 ซ.สุขุมวิท 11"
                                   rows={2}
@@ -3545,45 +4398,68 @@ export default function WarrantyDashboard() {
 
                                 <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
                                   <div>
-                                    <div className="text-xs text-gray-500">จังหวัด</div>
+                                    <div className="text-xs text-gray-500">
+                                      จังหวัด
+                                    </div>
                                     <select
                                       value={customerAddressParts.province}
                                       onChange={async (e) => {
-                                        const code = e.target.value
-                                        syncCustomerAddress((p) => ({ ...p, province: code, district: '', subdistrict: '', postcode: '' }))
-                                        await loadCustomerDistrictsForProvince(code)
-                                        setCustomerSubdistrictOptions([])
+                                        const code = e.target.value;
+                                        syncCustomerAddress((p) => ({
+                                          ...p,
+                                          province: code,
+                                          district: "",
+                                          subdistrict: "",
+                                          postcode: "",
+                                        }));
+                                        await loadCustomerDistrictsForProvince(
+                                          code,
+                                        );
+                                        setCustomerSubdistrictOptions([]);
                                       }}
                                       className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                                     >
                                       <option value="">เลือกจังหวัด</option>
                                       {provincesList.length > 0
                                         ? provincesList.map((p) => (
-                                          <option key={p.code} value={p.code}>
-                                            {p.name}
-                                          </option>
-                                        ))
+                                            <option key={p.code} value={p.code}>
+                                              {p.name}
+                                            </option>
+                                          ))
                                         : TH_PROVINCES.map((pv) => (
-                                          <option key={pv} value={pv}>
-                                            {pv}
-                                          </option>
-                                        ))}
+                                            <option key={pv} value={pv}>
+                                              {pv}
+                                            </option>
+                                          ))}
                                     </select>
                                   </div>
 
                                   <div>
-                                    <div className="text-xs text-gray-500">อำเภอ/เขต</div>
+                                    <div className="text-xs text-gray-500">
+                                      อำเภอ/เขต
+                                    </div>
                                     <select
                                       value={customerAddressParts.district}
                                       onChange={async (e) => {
-                                        const code = e.target.value
-                                        syncCustomerAddress((p) => ({ ...p, district: code, subdistrict: '', postcode: '' }))
-                                        await loadCustomerSubdistrictsForDistrict(code)
+                                        const code = e.target.value;
+                                        syncCustomerAddress((p) => ({
+                                          ...p,
+                                          district: code,
+                                          subdistrict: "",
+                                          postcode: "",
+                                        }));
+                                        await loadCustomerSubdistrictsForDistrict(
+                                          code,
+                                        );
                                       }}
                                       disabled={!customerAddressParts.province}
                                       className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none disabled:opacity-60"
                                     >
-                                      <option value="">{customerAddressParts.province ? 'เลือกอำเภอ/เขต' : 'เลือกจังหวัดก่อน'}</option>
+                                      <option value="">
+                                        {customerAddressParts.province
+                                          ? "เลือกอำเภอ/เขต"
+                                          : "เลือกจังหวัดก่อน"}
+                                      </option>
                                       {customerDistrictOptions.map((d) => (
                                         <option key={d.code} value={d.code}>
                                           {d.name}
@@ -3593,18 +4469,32 @@ export default function WarrantyDashboard() {
                                   </div>
 
                                   <div>
-                                    <div className="text-xs text-gray-500">ตำบล/แขวง</div>
+                                    <div className="text-xs text-gray-500">
+                                      ตำบล/แขวง
+                                    </div>
                                     <select
                                       value={customerAddressParts.subdistrict}
                                       onChange={(e) => {
-                                        const code = e.target.value
-                                        const found = customerSubdistrictOptions.find((s) => String(s.code) === String(code))
-                                        syncCustomerAddress((p) => ({ ...p, subdistrict: code, postcode: found?.zipcode || '' }))
+                                        const code = e.target.value;
+                                        const found =
+                                          customerSubdistrictOptions.find(
+                                            (s) =>
+                                              String(s.code) === String(code),
+                                          );
+                                        syncCustomerAddress((p) => ({
+                                          ...p,
+                                          subdistrict: code,
+                                          postcode: found?.zipcode || "",
+                                        }));
                                       }}
                                       disabled={!customerAddressParts.district}
                                       className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none disabled:opacity-60"
                                     >
-                                      <option value="">{customerAddressParts.district ? 'เลือกตำบล/แขวง' : 'เลือกอำเภอก่อน'}</option>
+                                      <option value="">
+                                        {customerAddressParts.district
+                                          ? "เลือกตำบล/แขวง"
+                                          : "เลือกอำเภอก่อน"}
+                                      </option>
                                       {customerSubdistrictOptions.map((s) => (
                                         <option key={s.code} value={s.code}>
                                           {s.name}
@@ -3616,10 +4506,20 @@ export default function WarrantyDashboard() {
 
                                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                                   <div>
-                                    <div className="text-xs text-gray-500">รหัสไปรษณีย์</div>
+                                    <div className="text-xs text-gray-500">
+                                      รหัสไปรษณีย์
+                                    </div>
                                     <input
                                       value={customerAddressParts.postcode}
-                                      onChange={(e) => syncCustomerAddress((p) => ({ ...p, postcode: e.target.value.replace(/[^0-9]/g, '') }))}
+                                      onChange={(e) =>
+                                        syncCustomerAddress((p) => ({
+                                          ...p,
+                                          postcode: e.target.value.replace(
+                                            /[^0-9]/g,
+                                            "",
+                                          ),
+                                        }))
+                                      }
                                       maxLength={5}
                                       className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                                       placeholder="เช่น 10110"
@@ -3628,7 +4528,8 @@ export default function WarrantyDashboard() {
                                     />
                                   </div>
                                   <div className="flex items-end text-xs text-gray-400">
-                                    ตัวอย่าง: เลขที่/ซอย/ถนน, ตำบล, อำเภอ, จังหวัด, รหัสไปรษณีย์
+                                    ตัวอย่าง: เลขที่/ซอย/ถนน, ตำบล, อำเภอ,
+                                    จังหวัด, รหัสไปรษณีย์
                                   </div>
                                 </div>
                               </div>
@@ -3637,12 +4538,17 @@ export default function WarrantyDashboard() {
 
                           <div className="mt-3 grid gap-3 md:grid-cols-2">
                             <label className="text-sm text-gray-600 block">
-                              ชื่อสินค้าที่ทำการซ่อม <span className="text-red-500">*</span>
+                              ชื่อสินค้าที่ทำการซ่อม{" "}
+                              <span className="text-red-500">*</span>
                               <input
                                 value={it.product_name}
-                                onChange={e => patchItem(idx, {
-                                  product_name: stripEmojisAndSpecials(e.target.value),
-                                })}
+                                onChange={(e) =>
+                                  patchItem(idx, {
+                                    product_name: stripEmojisAndSpecials(
+                                      e.target.value,
+                                    ),
+                                  })
+                                }
                                 maxLength={30}
                                 className="mt-1 w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                                 placeholder="กรอกชื่อสินค้าที่ทำการซ่อม"
@@ -3656,9 +4562,13 @@ export default function WarrantyDashboard() {
                               รุ่นสินค้าที่ทำการซ่อม
                               <input
                                 value={it.model}
-                                onChange={e => patchItem(idx, {
-                                  model: stripEmojisAndSpecials(e.target.value),
-                                })}
+                                onChange={(e) =>
+                                  patchItem(idx, {
+                                    model: stripEmojisAndSpecials(
+                                      e.target.value,
+                                    ),
+                                  })
+                                }
                                 maxLength={30}
                                 className="mt-1 w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                                 placeholder="กรอกรุ่นสินค้าที่ทำการซ่อม"
@@ -3672,9 +4582,13 @@ export default function WarrantyDashboard() {
                               Serial No.
                               <input
                                 value={it.serial}
-                                onChange={e => patchItem(idx, {
-                                  serial: stripEmojisAndSpecials(e.target.value),
-                                })}
+                                onChange={(e) =>
+                                  patchItem(idx, {
+                                    serial: stripEmojisAndSpecials(
+                                      e.target.value,
+                                    ),
+                                  })
+                                }
                                 className="mt-1 w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                                 placeholder="กรอก Serial No. (ไม่บังคับ)"
                                 type="text"
@@ -3686,7 +4600,14 @@ export default function WarrantyDashboard() {
                               ราคาการซ่อม (บาท)
                               <input
                                 value={it.price}
-                                onChange={e => patchItem(idx, { price: e.target.value.replace(/[^0-9.]/g, '') })}
+                                onChange={(e) =>
+                                  patchItem(idx, {
+                                    price: e.target.value.replace(
+                                      /[^0-9.]/g,
+                                      "",
+                                    ),
+                                  })
+                                }
                                 maxLength={7}
                                 className="mt-1 w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                                 placeholder="กรอกราคาการซ่อม (ไม่บังคับ)"
@@ -3700,33 +4621,53 @@ export default function WarrantyDashboard() {
                             <label className="w-full md:w-1/2 text-sm text-gray-600 block">
                               ระยะเวลาการรับประกัน
                               <select
-                                value={it.duration_mode === 'preset' ? it.duration_months : 'other'}
-                                onChange={e => {
-                                  const v = e.target.value
-                                  if (v === 'other') {
-                                    patchItem(idx, { duration_mode: 'custom', custom_unit: 'months', custom_value: 12 })
+                                value={
+                                  it.duration_mode === "preset"
+                                    ? it.duration_months
+                                    : "other"
+                                }
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  if (v === "other") {
+                                    patchItem(idx, {
+                                      duration_mode: "custom",
+                                      custom_unit: "months",
+                                      custom_value: 12,
+                                    });
                                   } else {
-                                    patchItem(idx, { duration_mode: 'preset', duration_months: Number(v || 12) })
+                                    patchItem(idx, {
+                                      duration_mode: "preset",
+                                      duration_months: Number(v || 12),
+                                    });
                                   }
                                 }}
                                 className="mt-1 w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                               >
-                                {[1, 3, 6, 12, 18, 24].map(month => (
-                                  <option key={month} value={month}>{month} เดือน</option>
+                                {[1, 3, 6, 12, 18, 24].map((month) => (
+                                  <option key={month} value={month}>
+                                    {month} เดือน
+                                  </option>
                                 ))}
                                 <option value="other">อื่นๆ (ระบุเอง)</option>
                               </select>
                             </label>
                           </div>
 
-                          {it.duration_mode === 'custom' && (
+                          {it.duration_mode === "custom" && (
                             <div className="mt-2 grid gap-3 md:grid-cols-2">
                               <label className="text-sm text-gray-600 block">
                                 จำนวน (วัน/เดือน)
                                 <input
                                   inputMode="numeric"
                                   value={it.custom_value}
-                                  onChange={e => patchItem(idx, { custom_value: e.target.value.replace(/[^0-9]/g, '') })}
+                                  onChange={(e) =>
+                                    patchItem(idx, {
+                                      custom_value: e.target.value.replace(
+                                        /[^0-9]/g,
+                                        "",
+                                      ),
+                                    })
+                                  }
                                   className="mt-1 w-full rounded-2xl border border-sky-100 bg-white px-4 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                                   placeholder="เช่น 45"
                                   type="text"
@@ -3740,8 +4681,10 @@ export default function WarrantyDashboard() {
                                     <input
                                       type="radio"
                                       name={`unit-${idx}`}
-                                      checked={it.custom_unit === 'days'}
-                                      onChange={() => patchItem(idx, { custom_unit: 'days' })}
+                                      checked={it.custom_unit === "days"}
+                                      onChange={() =>
+                                        patchItem(idx, { custom_unit: "days" })
+                                      }
                                     />
                                     วัน
                                   </label>
@@ -3749,8 +4692,12 @@ export default function WarrantyDashboard() {
                                     <input
                                       type="radio"
                                       name={`unit-${idx}`}
-                                      checked={it.custom_unit === 'months'}
-                                      onChange={() => patchItem(idx, { custom_unit: 'months' })}
+                                      checked={it.custom_unit === "months"}
+                                      onChange={() =>
+                                        patchItem(idx, {
+                                          custom_unit: "months",
+                                        })
+                                      }
                                     />
                                     เดือน
                                   </label>
@@ -3761,55 +4708,179 @@ export default function WarrantyDashboard() {
 
                           <div className="mt-3 grid gap-3 md:grid-cols-2">
                             <label className="text-sm text-gray-600 block">
-                              วันที่เริ่มรับประกัน <span className="text-red-500">*</span>
+                              วันที่เริ่มรับประกัน{" "}
+                              <span className="text-red-500">*</span>
                               <div className="relative mt-1 w-full">
                                 <DatePicker
                                   selected={(() => {
                                     if (!it.purchase_date) return null;
-                                    if (/^\d{2}\/\d{2}\/\d{4}$/.test(it.purchase_date)) {
-                                      const [day, month, year] = it.purchase_date.split('/');
-                                      return new Date(`${year}-${month}-${day}`);
+                                    if (
+                                      /^\d{2}\/\d{2}\/\d{4}$/.test(
+                                        it.purchase_date,
+                                      )
+                                    ) {
+                                      const [day, month, year] =
+                                        it.purchase_date.split("/");
+                                      return new Date(
+                                        `${year}-${month}-${day}`,
+                                      );
                                     }
                                     return new Date(it.purchase_date);
                                   })()}
                                   onChange={(date, e) => {
                                     if (!date) return;
-                                    const day = String(date.getDate()).padStart(2, '0');
-                                    const m = String(date.getMonth() + 1).padStart(2, '0');
+                                    const day = String(date.getDate()).padStart(
+                                      2,
+                                      "0",
+                                    );
+                                    const m = String(
+                                      date.getMonth() + 1,
+                                    ).padStart(2, "0");
                                     const y = date.getFullYear();
                                     const v = `${day}/${m}/${y}`;
                                     patchItem(idx, { purchase_date: v });
                                     if (e && e.target) {
-                                      // Defensive: try to close calendar
                                       setTimeout(() => {
                                         if (e.target.blur) e.target.blur();
                                       }, 0);
                                     }
-                                    if (typeof e === 'object' && e !== null && e.preventDefault) {
+                                    if (
+                                      typeof e === "object" &&
+                                      e !== null &&
+                                      e.preventDefault
+                                    ) {
                                       e.preventDefault();
                                     }
                                   }}
                                   dateFormat="dd/MM/yyyy"
                                   shouldCloseOnSelect
-                                  openToDate={(() => {
-                                    if (!it.purchase_date) return undefined;
-                                    if (/^\d{2}\/\d{2}\/\d{4}$/.test(it.purchase_date)) {
-                                      const [day, month, year] = it.purchase_date.split('/');
-                                      return new Date(`${year}-${month}-${day}`);
-                                    }
-                                    return new Date(it.purchase_date);
-                                  })()}
                                   className="mt-1 w-full rounded-2xl border border-sky-100 bg-sky-50/60 px-10 py-2 text-sm text-gray-900 focus:border-sky-300 focus:outline-none"
                                   placeholderText="dd/mm/yyyy"
                                   required
                                   popperClassName="datepicker-center-modal"
                                   popperPlacement="auto"
                                   calendarClassName="w-full"
-                                  renderCustomHeader={props => <>{props.children}</>}
-                                  customInput={<CustomDateInput value={it.purchase_date ? formatForDisplayDate(it.purchase_date) : ''} placeholder="dd/mm/yyyy" />}
+                                  customInput={
+                                    <CustomDateInput
+                                      value={
+                                        it.purchase_date
+                                          ? formatForDisplayDate(
+                                              it.purchase_date,
+                                            )
+                                          : ""
+                                      }
+                                      placeholder="dd/mm/yyyy"
+                                    />
+                                  }
+                                  /* ✨ เอาบรรทัดเจ้าปัญหาออก แล้วใส่ Custom Header เดือน/ปี เข้าไปแทน ✨ */
+                                  renderCustomHeader={({
+                                    date,
+                                    changeYear,
+                                    changeMonth,
+                                    decreaseMonth,
+                                    increaseMonth,
+                                    prevMonthButtonDisabled,
+                                    nextMonthButtonDisabled,
+                                  }) => {
+                                    const months = [
+                                      "มกราคม",
+                                      "กุมภาพันธ์",
+                                      "มีนาคม",
+                                      "เมษายน",
+                                      "พฤษภาคม",
+                                      "มิถุนายน",
+                                      "กรกฎาคม",
+                                      "สิงหาคม",
+                                      "กันยายน",
+                                      "ตุลาคม",
+                                      "พฤศจิกายน",
+                                      "ธันวาคม",
+                                    ];
+                                    const years = Array.from(
+                                      { length: 21 },
+                                      (_, i) =>
+                                        new Date().getFullYear() - 10 + i,
+                                    );
+
+                                    return (
+                                      <div className="flex justify-between items-center px-3 py-2 bg-white border-b border-gray-100 mb-2">
+                                        <button
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            decreaseMonth();
+                                          }}
+                                          disabled={prevMonthButtonDisabled}
+                                          className="text-gray-500 hover:bg-gray-100 hover:text-sky-500 rounded p-1 cursor-pointer disabled:opacity-30"
+                                        >
+                                          <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            className="h-5 w-5"
+                                            viewBox="0 0 20 20"
+                                            fill="currentColor"
+                                          >
+                                            <path
+                                              fillRule="evenodd"
+                                              d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
+                                              clipRule="evenodd"
+                                            />
+                                          </svg>
+                                        </button>
+                                        <div className="flex gap-2">
+                                          <select
+                                            value={date.getMonth()}
+                                            onChange={({ target: { value } }) =>
+                                              changeMonth(Number(value))
+                                            }
+                                            className="border border-gray-200 rounded text-sm px-2 py-1 focus:outline-none focus:border-sky-400 bg-white cursor-pointer"
+                                          >
+                                            {months.map((m, i) => (
+                                              <option key={m} value={i}>
+                                                {m}
+                                              </option>
+                                            ))}
+                                          </select>
+                                          <select
+                                            value={date.getFullYear()}
+                                            onChange={({ target: { value } }) =>
+                                              changeYear(Number(value))
+                                            }
+                                            className="border border-gray-200 rounded text-sm px-2 py-1 focus:outline-none focus:border-sky-400 bg-white cursor-pointer"
+                                          >
+                                            {years.map((year) => (
+                                              <option key={year} value={year}>
+                                                {year}
+                                              </option>
+                                            ))}
+                                          </select>
+                                        </div>
+                                        <button
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            increaseMonth();
+                                          }}
+                                          disabled={nextMonthButtonDisabled}
+                                          className="text-gray-500 hover:bg-gray-100 hover:text-sky-500 rounded p-1 cursor-pointer disabled:opacity-30"
+                                        >
+                                          <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            className="h-5 w-5"
+                                            viewBox="0 0 20 20"
+                                            fill="currentColor"
+                                          >
+                                            <path
+                                              fillRule="evenodd"
+                                              d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                                              clipRule="evenodd"
+                                            />
+                                          </svg>
+                                        </button>
+                                      </div>
+                                    );
+                                  }}
                                 />
                               </div>
                             </label>
+
                             <label className="text-sm text-gray-600 block">
                               วันหมดอายุ
                               <input
@@ -3824,55 +4895,113 @@ export default function WarrantyDashboard() {
                           {/* ✅ เงื่อนไขการรับประกัน - แบบ Checkbox + เลือกทั้งหมด + ปุ่มเพิ่ม */}
                           <div className="mt-3">
                             <div className="flex items-center justify-between mb-2">
-                              <div className="text-sm text-gray-600">เงื่อนไขการรับประกัน <span className="text-red-500">*</span></div>
+                              <div className="text-sm text-gray-600">
+                                เงื่อนไขการรับประกัน{" "}
+                                <span className="text-red-500">*</span>
+                              </div>
                               {(() => {
-                                const conditionsData = getConditionsForStoreType(storeProfile.storeType)
-                                const customAdded = (it.selectedConditions || []).filter(c => !conditionsData.conditions.includes(c))
-                                const allConds = [...conditionsData.conditions, ...customAdded]
-                                const allSelected = allConds.length > 0 && allConds.every(c => (it.selectedConditions || []).includes(c))
+                                const conditionsData =
+                                  getConditionsForStoreType(
+                                    storeProfile.storeType,
+                                  );
+                                const customAdded = (
+                                  it.selectedConditions || []
+                                ).filter(
+                                  (c) => !conditionsData.conditions.includes(c),
+                                );
+                                const allConds = [
+                                  ...conditionsData.conditions,
+                                  ...customAdded,
+                                ];
+                                const allSelected =
+                                  allConds.length > 0 &&
+                                  allConds.every((c) =>
+                                    (it.selectedConditions || []).includes(c),
+                                  );
                                 return (
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      patchItem(idx, { selectedConditions: allSelected ? [] : [...allConds] })
+                                      patchItem(idx, {
+                                        selectedConditions: allSelected
+                                          ? []
+                                          : [...allConds],
+                                      });
                                     }}
                                     className="rounded-lg border border-sky-300 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700 hover:bg-sky-100 transition"
                                   >
-                                    {allSelected ? '☐ ยกเลิกทั้งหมด' : '☑ เลือกทั้งหมด'}
+                                    {allSelected
+                                      ? "☐ ยกเลิกทั้งหมด"
+                                      : "☑ เลือกทั้งหมด"}
                                   </button>
-                                )
+                                );
                               })()}
                             </div>
                             <div className="rounded-2xl border border-sky-100 bg-white p-3 max-h-60 overflow-y-auto">
                               {(() => {
-                                const conditionsData = getConditionsForStoreType(storeProfile.storeType)
-                                const customAdded = (it.selectedConditions || []).filter(c => !conditionsData.conditions.includes(c))
-                                const allConds = [...conditionsData.conditions, ...customAdded]
+                                const conditionsData =
+                                  getConditionsForStoreType(
+                                    storeProfile.storeType,
+                                  );
+                                const customAdded = (
+                                  it.selectedConditions || []
+                                ).filter(
+                                  (c) => !conditionsData.conditions.includes(c),
+                                );
+                                const allConds = [
+                                  ...conditionsData.conditions,
+                                  ...customAdded,
+                                ];
                                 return (
                                   <>
-                                    <div className="text-xs text-gray-500 mb-2">ประเภท: {conditionsData.label}</div>
+                                    <div className="text-xs text-gray-500 mb-2">
+                                      ประเภท: {conditionsData.label}
+                                    </div>
                                     {allConds.map((cond, i) => (
-                                      <label key={i} className="flex items-start gap-2 py-1.5 border-b border-sky-100 last:border-0 cursor-pointer hover:bg-sky-100/50 rounded px-1">
+                                      <label
+                                        key={i}
+                                        className="flex items-start gap-2 py-1.5 border-b border-sky-100 last:border-0 cursor-pointer hover:bg-sky-100/50 rounded px-1"
+                                      >
                                         <input
                                           type="checkbox"
-                                          checked={(it.selectedConditions || []).includes(cond)}
-                                          onChange={e => {
-                                            const selected = it.selectedConditions || []
+                                          checked={(
+                                            it.selectedConditions || []
+                                          ).includes(cond)}
+                                          onChange={(e) => {
+                                            const selected =
+                                              it.selectedConditions || [];
                                             if (e.target.checked) {
-                                              patchItem(idx, { selectedConditions: [...selected, cond] })
+                                              patchItem(idx, {
+                                                selectedConditions: [
+                                                  ...selected,
+                                                  cond,
+                                                ],
+                                              });
                                             } else {
-                                              patchItem(idx, { selectedConditions: selected.filter(c => c !== cond) })
+                                              patchItem(idx, {
+                                                selectedConditions:
+                                                  selected.filter(
+                                                    (c) => c !== cond,
+                                                  ),
+                                              });
                                             }
                                           }}
                                           className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 shrink-0"
                                         />
-                                        <span className="text-sm text-gray-700 flex-1">{cond}</span>
-                                        {i >= conditionsData.conditions.length && (
+                                        <span className="text-sm text-gray-700 flex-1">
+                                          {cond}
+                                        </span>
+                                        {i >=
+                                          conditionsData.conditions.length && (
                                           <button
                                             type="button"
                                             onClick={() => {
-                                              const selected = (it.selectedConditions || []).filter(c => c !== cond)
-                                              patchItem(idx, { selectedConditions: selected })
+                                              const selected = (
+                                                it.selectedConditions || []
+                                              ).filter((c) => c !== cond);
+                                              patchItem(idx, {
+                                                selectedConditions: selected,
+                                              });
                                             }}
                                             className="text-rose-400 hover:text-rose-600 text-lg leading-none shrink-0 ml-1"
                                             title="ลบเงื่อนไขนี้"
@@ -3883,43 +5012,82 @@ export default function WarrantyDashboard() {
                                       </label>
                                     ))}
                                   </>
-                                )
+                                );
                               })()}
                               {/* ปุ่ม "+" เพิ่มเงื่อนไขใหม่ */}
                               {createAddConditionOpen[idx] ? (
                                 <div className="mt-2 flex items-center gap-2">
                                   <input
                                     type="text"
-                                    value={createAddConditionText[idx] || ''}
-                                    onChange={e => setCreateAddConditionText(prev => ({ ...prev, [idx]: stripEmojisAndSpecials(e.target.value) }))}
+                                    value={createAddConditionText[idx] || ""}
+                                    onChange={(e) =>
+                                      setCreateAddConditionText((prev) => ({
+                                        ...prev,
+                                        [idx]: stripEmojisAndSpecials(
+                                          e.target.value,
+                                        ),
+                                      }))
+                                    }
                                     className="flex-1 rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-sm focus:border-sky-400 focus:outline-none"
                                     placeholder="พิมพ์เงื่อนไขใหม่..."
                                     autoFocus
-                                    onKeyDown={e => {
-                                      if (e.key === 'Enter' && (createAddConditionText[idx] || '').trim()) {
-                                        e.preventDefault()
-                                        const newCond = createAddConditionText[idx].trim()
-                                        const selected = it.selectedConditions || []
+                                    onKeyDown={(e) => {
+                                      if (
+                                        e.key === "Enter" &&
+                                        (
+                                          createAddConditionText[idx] || ""
+                                        ).trim()
+                                      ) {
+                                        e.preventDefault();
+                                        const newCond =
+                                          createAddConditionText[idx].trim();
+                                        const selected =
+                                          it.selectedConditions || [];
                                         if (!selected.includes(newCond)) {
-                                          patchItem(idx, { selectedConditions: [...selected, newCond] })
+                                          patchItem(idx, {
+                                            selectedConditions: [
+                                              ...selected,
+                                              newCond,
+                                            ],
+                                          });
                                         }
-                                        setCreateAddConditionText(prev => ({ ...prev, [idx]: '' }))
-                                        setCreateAddConditionOpen(prev => ({ ...prev, [idx]: false }))
+                                        setCreateAddConditionText((prev) => ({
+                                          ...prev,
+                                          [idx]: "",
+                                        }));
+                                        setCreateAddConditionOpen((prev) => ({
+                                          ...prev,
+                                          [idx]: false,
+                                        }));
                                       }
                                     }}
                                   />
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      const text = (createAddConditionText[idx] || '').trim()
+                                      const text = (
+                                        createAddConditionText[idx] || ""
+                                      ).trim();
                                       if (text) {
-                                        const selected = it.selectedConditions || []
+                                        const selected =
+                                          it.selectedConditions || [];
                                         if (!selected.includes(text)) {
-                                          patchItem(idx, { selectedConditions: [...selected, text] })
+                                          patchItem(idx, {
+                                            selectedConditions: [
+                                              ...selected,
+                                              text,
+                                            ],
+                                          });
                                         }
                                       }
-                                      setCreateAddConditionText(prev => ({ ...prev, [idx]: '' }))
-                                      setCreateAddConditionOpen(prev => ({ ...prev, [idx]: false }))
+                                      setCreateAddConditionText((prev) => ({
+                                        ...prev,
+                                        [idx]: "",
+                                      }));
+                                      setCreateAddConditionOpen((prev) => ({
+                                        ...prev,
+                                        [idx]: false,
+                                      }));
                                     }}
                                     className="rounded-lg bg-sky-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-600"
                                   >
@@ -3928,8 +5096,14 @@ export default function WarrantyDashboard() {
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      setCreateAddConditionText(prev => ({ ...prev, [idx]: '' }))
-                                      setCreateAddConditionOpen(prev => ({ ...prev, [idx]: false }))
+                                      setCreateAddConditionText((prev) => ({
+                                        ...prev,
+                                        [idx]: "",
+                                      }));
+                                      setCreateAddConditionOpen((prev) => ({
+                                        ...prev,
+                                        [idx]: false,
+                                      }));
                                     }}
                                     className="text-gray-400 hover:text-gray-600 text-lg"
                                   >
@@ -3939,10 +5113,18 @@ export default function WarrantyDashboard() {
                               ) : (
                                 <button
                                   type="button"
-                                  onClick={() => setCreateAddConditionOpen(prev => ({ ...prev, [idx]: true }))}
+                                  onClick={() =>
+                                    setCreateAddConditionOpen((prev) => ({
+                                      ...prev,
+                                      [idx]: true,
+                                    }))
+                                  }
                                   className="mt-2 flex items-center gap-1.5 rounded-lg border border-dashed border-sky-300 bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-100 hover:border-sky-400 transition"
                                 >
-                                  <span className="text-base leading-none">＋</span> เพิ่มเงื่อนไขใหม่
+                                  <span className="text-base leading-none">
+                                    ＋
+                                  </span>{" "}
+                                  เพิ่มเงื่อนไขใหม่
                                 </button>
                               )}
                             </div>
@@ -3950,7 +5132,9 @@ export default function WarrantyDashboard() {
 
                           {/* แนบรูปตอนสร้างเลย (ใช้ ImageUpload แบบเดียวกับโหมดแก้ไข) */}
                           <div className="mt-3">
-                            <label className="text-sm text-gray-600">รูปภาพประกอบ</label>
+                            <label className="text-sm text-gray-600">
+                              รูปภาพประกอบ
+                            </label>
                             <ImageUpload
                               images={(it.images || []).map((img, i) => {
                                 if (img && img.previewUrl) {
@@ -3965,7 +5149,7 @@ export default function WarrantyDashboard() {
                                   // Fallback (should not happen after fix)
                                   return {
                                     id: i,
-                                    url: '',
+                                    url: "",
                                     originalName: img.name,
                                     size: img.size,
                                   };
@@ -3976,13 +5160,17 @@ export default function WarrantyDashboard() {
                               })}
                               onUpload={async (files) => {
                                 const current = it.images || [];
-                                const newFiles = Array.from(files).slice(0, 5 - current.length).map(file => ({
-                                  file,
-                                  previewUrl: URL.createObjectURL(file),
-                                  name: file.name,
-                                  size: file.size,
-                                }));
-                                patchItem(idx, { images: [...current, ...newFiles] });
+                                const newFiles = Array.from(files)
+                                  .slice(0, 5 - current.length)
+                                  .map((file) => ({
+                                    file,
+                                    previewUrl: URL.createObjectURL(file),
+                                    name: file.name,
+                                    size: file.size,
+                                  }));
+                                patchItem(idx, {
+                                  images: [...current, ...newFiles],
+                                });
                               }}
                               onDelete={async (imageId) => {
                                 let imgs = it.images || [];
@@ -3992,7 +5180,9 @@ export default function WarrantyDashboard() {
                                   URL.revokeObjectURL(img.previewUrl);
                                   imgs = imgs.filter((_, i) => i !== imageId);
                                 } else {
-                                  imgs = imgs.filter((img) => img.id !== imageId);
+                                  imgs = imgs.filter(
+                                    (img) => img.id !== imageId,
+                                  );
                                 }
                                 patchItem(idx, { images: imgs });
                               }}
@@ -4022,9 +5212,13 @@ export default function WarrantyDashboard() {
                     <button
                       type="submit"
                       disabled={warrantySubmitting}
-                      className={`rounded-full bg-sky-600 px-6 py-2 text-sm font-semibold text-white shadow transition ${warrantySubmitting ? 'cursor-not-allowed opacity-70' : 'hover:bg-sky-500'}`}
+                      className={`rounded-full bg-sky-600 px-6 py-2 text-sm font-semibold text-white shadow transition ${warrantySubmitting ? "cursor-not-allowed opacity-70" : "hover:bg-sky-500"}`}
                     >
-                      {warrantySubmitting ? 'กำลังบันทึก...' : modalMode === 'create' ? 'บันทึก' : 'ยืนยัน'}
+                      {warrantySubmitting
+                        ? "กำลังบันทึก..."
+                        : modalMode === "create"
+                          ? "บันทึก"
+                          : "ยืนยัน"}
                     </button>
                   </div>
                 </div>
@@ -4038,10 +5232,23 @@ export default function WarrantyDashboard() {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
             <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden">
               <div className="flex items-center justify-between bg-sky-600 px-5 py-4">
-                <div className="text-base font-semibold text-white"><img src="/home-assets/condition.png" alt="เงื่อนไขการรับประกัน" className="inline h-5 w-5 object-cover align-text-bottom mr-1" />เงื่อนไขการรับประกัน</div>
+                <div className="text-base font-semibold text-white">
+                  <img
+                    src="/home-assets/condition.png"
+                    alt="เงื่อนไขการรับประกัน"
+                    className="inline h-5 w-5 object-cover align-text-bottom mr-1"
+                  />
+                  เงื่อนไขการรับประกัน
+                </div>
                 <button
                   type="button"
-                  onClick={() => setConditionsModal({ open: false, conditions: [], custom: '' })}
+                  onClick={() =>
+                    setConditionsModal({
+                      open: false,
+                      conditions: [],
+                      custom: "",
+                    })
+                  }
                   className="text-2xl text-white/80 hover:text-white"
                 >
                   ×
@@ -4051,7 +5258,10 @@ export default function WarrantyDashboard() {
                 {conditionsModal.conditions.length > 0 ? (
                   <ul className="space-y-2">
                     {conditionsModal.conditions.map((cond, idx) => (
-                      <li key={idx} className="flex items-start gap-2 text-sm text-gray-700">
+                      <li
+                        key={idx}
+                        className="flex items-start gap-2 text-sm text-gray-700"
+                      >
                         <span className="text-sky-600">•</span>
                         <span>{cond}</span>
                       </li>
@@ -4063,15 +5273,25 @@ export default function WarrantyDashboard() {
 
                 {conditionsModal.custom && (
                   <div className="mt-4 border-t border-gray-100 pt-4">
-                    <div className="text-xs font-medium text-gray-500 mb-2">เงื่อนไขเพิ่มเติม:</div>
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{conditionsModal.custom}</p>
+                    <div className="text-xs font-medium text-gray-500 mb-2">
+                      เงื่อนไขเพิ่มเติม:
+                    </div>
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                      {conditionsModal.custom}
+                    </p>
                   </div>
                 )}
               </div>
               <div className="border-t border-gray-100 px-5 py-3 bg-gray-50">
                 <button
                   type="button"
-                  onClick={() => setConditionsModal({ open: false, conditions: [], custom: '' })}
+                  onClick={() =>
+                    setConditionsModal({
+                      open: false,
+                      conditions: [],
+                      custom: "",
+                    })
+                  }
                   className="w-full rounded-xl bg-sky-600 py-2.5 text-sm font-medium text-white hover:bg-sky-500 transition"
                 >
                   ปิด
@@ -4085,10 +5305,11 @@ export default function WarrantyDashboard() {
           <ImagePreview
             images={imagePreview.images}
             initialIndex={imagePreview.index}
-            onClose={() => setImagePreview({ open: false, images: [], index: 0 })}
+            onClose={() =>
+              setImagePreview({ open: false, images: [], index: 0 })
+            }
           />
         )}
-
       </div>
 
       {/* ✅ วาง Footer นอก div ที่มี pb-12 เพื่อไม่ให้ลอย/มีช่องว่างด้านล่าง */}
@@ -4101,5 +5322,5 @@ export default function WarrantyDashboard() {
         context="store"
       />
     </>
-  )
+  );
 }
