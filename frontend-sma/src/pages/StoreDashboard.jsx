@@ -871,7 +871,10 @@ export default function StoreDashboard() {
             data={(() => {
               const now = new Date()
               return [...Array(6)].map((_, i) => {
-                const date = new Date(now.getFullYear(), now.getMonth() - (5 - i))
+                // สำหรับใบรับประกันที่สร้าง ใช้ย้อนหลัง 6 เดือน
+                // สำหรับใกล้หมดอายุ ใช้เดือนปัจจุบันและล่วงหน้า 5 เดือน
+                const monthOffset = chartMode === 'created' ? -(5 - i) : i
+                const date = new Date(now.getFullYear(), now.getMonth() + monthOffset)
                 const monthLabel = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'][date.getMonth()]
                 let count = 0
                 if (chartMode === 'created') {
@@ -880,13 +883,18 @@ export default function StoreDashboard() {
                     return wDate.getMonth() === date.getMonth() && wDate.getFullYear() === date.getFullYear()
                   }).length
                 } else {
-                  // expiring: นับจำนวนรายการ (items) ที่ใกล้หมดอายุในเดือนนั้น
+                  // expiring: นับจำนวนรายการ (items) ที่กำลังจะหมดอายุในเดือนขอบเขต
+                  // และนับเฉพาะรายการที่สถานะเป็น nearing หรือ nearing_expiration
+                  const notifyDays = profile?.notifyDaysInAdvance ?? 14
                   for (const w of (filteredWarranties || [])) {
                     for (const item of (w.items || [])) {
                       if (!item.expiryDate) continue
                       const exp = new Date(item.expiryDate)
                       if (exp.getMonth() === date.getMonth() && exp.getFullYear() === date.getFullYear()) {
-                        count++
+                        const code = item.statusCode || item._status || deriveItemStatusCode(item, notifyDays)
+                        if (code === 'nearing_expiration' || code === 'nearing') {
+                          count++
+                        }
                       }
                     }
                   }
@@ -895,7 +903,7 @@ export default function StoreDashboard() {
               })
             })()}
             height={300}
-            title={chartMode === 'created' ? 'ใบรับประกันรายเดือน (ย้อนหลัง 6 เดือน)' : 'สินค้าที่ใกล้หมดอายุรายเดือน (ย้อนหลัง 6 เดือน)'}
+            title={chartMode === 'created' ? 'ใบรับประกันรายเดือน (ย้อนหลัง 6 เดือน)' : 'สินค้าที่ใกล้หมดอายุรายเดือน (ล่วงหน้า 6 เดือน)'}
             subtitle={chartMode === 'created' ? 'แกนซ้าย: จำนวนใบรับประกัน' : 'แกนซ้าย: จำนวนสินค้าที่ใกล้หมดอายุ'}
             showLine={false}
             yAxisMax={50}
