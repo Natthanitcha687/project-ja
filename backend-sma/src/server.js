@@ -326,12 +326,10 @@ app.listen(port, () => {
   // start expiry notification job: run once at startup and then every TH midnight
   try {
     runExpiryScanJob();
-    // run hard-delete sweep at startup (safeguard) and schedule daily
-    try {
-      runHardDeleteSweep();
-    } catch (e) {
-      console.warn('Unable to run hardDeleteSweep at startup', e?.message || e)
-    }
+    // run hard-delete sweep safely at startup (safeguard)
+    runHardDeleteSweep().catch(e => {
+      console.warn('⚠️ Initial hardDeleteSweep failed (might be due to pending migrations):', e.message);
+    });
 
     const firstDelay = msUntilNextMidnightTH();
     setTimeout(() => {
