@@ -21,7 +21,6 @@ import Security from "./pages/Security.jsx";
 import Logs from "./pages/Logs.jsx";
 import Complaints from "./pages/Complaints.jsx";
 import Feedback from "./pages/Feedback.jsx";
-import Feedback from "./pages/Feedback.jsx";
 
 // ✅ Sentry init (ใช้ DSN จาก ENV: VITE_SENTRY_DSN)
 Sentry.init({
