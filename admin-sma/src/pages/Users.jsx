@@ -495,8 +495,11 @@ export default function Users() {
               <th scope="col" className="p-3 text-left w-[180px]">
                 สถานะ
               </th>
-              <th scope="col" className="p-3 text-left w-[220px]">
+              <th scope="col" className="p-3 text-left w-[200px]">
                 ระงับถึงวันที่
+              </th>
+              <th scope="col" className="p-3 text-left w-[200px]">
+                วันที่จะลบถาวร
               </th>
               <th scope="col" className="p-3 text-left w-[240px]">
                 จัดการ
@@ -520,6 +523,16 @@ export default function Users() {
                 </td>
 
                 <td className="p-3 text-slate-700">{u.suspendedUntil ? fmtDT(u.suspendedUntil) : "—"}</td>
+
+                <td className="p-3">
+                  {u.isDeleted && u.scheduledDeletionDate ? (
+                    <div className="text-rose-600 font-semibold" title="บัญชีนี้จะถูกลบถาวรโดยระบบอัตโนมัติ">
+                      {fmtDT(u.scheduledDeletionDate)}
+                    </div>
+                  ) : (
+                    <span className="text-slate-400">—</span>
+                  )}
+                </td>
 
                 <td className="p-3">
                   <div className="flex flex-wrap gap-2">

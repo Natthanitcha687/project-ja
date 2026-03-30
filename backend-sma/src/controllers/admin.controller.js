@@ -267,11 +267,23 @@ export async function listStores(req, res) {
     else if (r.customerEmail) set.add(`e:${String(r.customerEmail).toLowerCase()}`);
   }
 
-  const enriched = stores.map((s) => ({
-    ...s,
-    warrantiesCount: warrantyCountMap.get(s.id) || 0,
-    customersCount: custSetByStore.get(s.id)?.size || 0,
-  }));
+  const settings = await prisma.systemSetting.findMany({ where: { key: "user_retention_days" } });
+  const retentionDays = Number(settings[0]?.value || 30);
+
+  const enriched = stores.map((s) => {
+    let scheduledDeletionDate = null;
+    if (s.isDeleted && s.deletedAt) {
+      const d = new Date(s.deletedAt);
+      d.setDate(d.getDate() + retentionDays);
+      scheduledDeletionDate = d.toISOString();
+    }
+    return {
+      ...s,
+      warrantiesCount: warrantyCountMap.get(s.id) || 0,
+      customersCount: custSetByStore.get(s.id)?.size || 0,
+      scheduledDeletionDate,
+    };
+  });
 
   res.json({ stores: enriched });
 }
@@ -945,7 +957,20 @@ export async function listUsers(req, res) {
     orderBy: { id: "desc" },
   });
 
-  res.json({ users });
+  const settings = await prisma.systemSetting.findMany({ where: { key: "user_retention_days" } });
+  const retentionDays = Number(settings[0]?.value || 30);
+
+  const enriched = users.map(u => {
+    let scheduledDeletionDate = null;
+    if (u.isDeleted && u.deletedAt) {
+      const d = new Date(u.deletedAt);
+      d.setDate(d.getDate() + retentionDays);
+      scheduledDeletionDate = d.toISOString();
+    }
+    return { ...u, scheduledDeletionDate };
+  });
+
+  res.json({ users: enriched });
 }
 
 // ✅ ระงับ / ปลด / ระงับชั่วคราว (days) + เมล “ปลดระงับแบบละเอียด” ให้ทั้ง STORE/CUSTOMER

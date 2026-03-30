@@ -465,6 +465,13 @@ export default function Stores() {
                   <div className="mt-2 text-xs text-slate-700">
                     วันที่เข้าร่วม: <span className="font-semibold text-slate-900">{fmtDate(s.createdAt)}</span>
                   </div>
+
+                  {s.isDeleted && s.scheduledDeletionDate && (
+                    <div className="mt-3 p-2 rounded-lg bg-rose-50 border border-rose-100 text-xs text-rose-700">
+                      <div className="font-bold">⚠️ จะถูกลบถาวรในวันที่:</div>
+                      <div className="font-semibold">{new Date(s.scheduledDeletionDate).toLocaleString("th-TH")}</div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="border-t border-slate-200 bg-slate-50/60 p-3">
