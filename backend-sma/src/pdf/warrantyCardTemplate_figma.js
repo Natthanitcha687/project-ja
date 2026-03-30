@@ -108,7 +108,10 @@ function safeDateTH(v) {
   if (!v) return "-";
   const d = v instanceof Date ? v : new Date(v);
   if (isNaN(d)) return "-";
-  return d.toLocaleDateString("th-TH");
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear() + 543; // แสดงปี พ.ศ.
+  return `${day}/${month}/${year}`;
 }
 
 function loadThaiFonts(doc) {

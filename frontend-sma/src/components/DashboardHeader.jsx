@@ -353,7 +353,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
                             <div className="mt-1 flex items-center justify-between text-[10px] text-slate-400">
                               <span>
                                 {(n.createdAt || n.time || n.created_at)
-                                  ? new Date(n.createdAt || n.time || n.created_at).toLocaleString()
+                                  ? new Date(n.createdAt || n.time || n.created_at).toLocaleString('th-TH')
                                   : ''}
                               </span>
                               {n.id != null && (
@@ -588,7 +588,7 @@ export default function DashboardHeader({ title, subtitle, notifications = [], o
 
             {selectedNotification.createdAt && (
               <div className="mt-3 text-xs text-slate-500">
-                ได้รับเมื่อ {new Date(selectedNotification.createdAt).toLocaleString()}
+                ได้รับเมื่อ {new Date(selectedNotification.createdAt).toLocaleString('th-TH')}
               </div>
             )}
           </div>

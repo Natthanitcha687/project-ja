@@ -193,12 +193,17 @@ function toISODate(d) {
 }
 function formatForDisplayDate(raw) {
   if (!raw) return ''
-  // if already in dd/mm/yyyy return as-is
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) return raw
+  // if already in dd/mm/yyyy — แปลงปี ค.ศ. เป็น พ.ศ. ถ้ายังไม่ได้แปลง
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) {
+    const parts = raw.split('/')
+    const yr = Number(parts[2])
+    if (yr > 0 && yr < 2400) return `${parts[0]}/${parts[1]}/${yr + 543}`
+    return raw
+  }
   // if ISO yyyy-mm-dd -> convert
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
     const [y, m, d] = raw.split('-')
-    return `${d.padStart(2,'0')}/${m.padStart(2,'0')}/${y}`
+    return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${Number(y) + 543}`
   }
   // try Date parse fallback
   try {
@@ -206,10 +211,10 @@ function formatForDisplayDate(raw) {
     if (!isNaN(dt.getTime())) {
       const dd = String(dt.getDate()).padStart(2, '0')
       const mm = String(dt.getMonth() + 1).padStart(2, '0')
-      const yy = dt.getFullYear()
+      const yy = dt.getFullYear() + 543 // แสดงปี พ.ศ.
       return `${dd}/${mm}/${yy}`
     }
-  } catch (e) {}
+  } catch (e) { }
   return String(raw)
 }
 // Custom input for react-datepicker that correctly forwards ref and click
@@ -672,14 +677,14 @@ export default function WarrantyDashboard() {
     newPassword: '',
     confirmPassword: '',
   })
-    const [pwStrength, setPwStrength] = useState(0)
-    const [pwChecks, setPwChecks] = useState({
-      length: false,
-      lower: false,
-      upper: false,
-      digit: false,
-      symbol: false,
-    })
+  const [pwStrength, setPwStrength] = useState(0)
+  const [pwChecks, setPwChecks] = useState({
+    length: false,
+    lower: false,
+    upper: false,
+    digit: false,
+    symbol: false,
+  })
   const [modalError, setModalError] = useState('')
   const [profileSubmitting, setProfileSubmitting] = useState(false)
   const [passwordSubmitting, setPasswordSubmitting] = useState(false)
@@ -694,23 +699,23 @@ export default function WarrantyDashboard() {
   const [expandedByHeader, setExpandedByHeader] = useState({})
 
   // Notifications and header are handled by the shared DashboardLayout
-  
-    useEffect(() => {
-      const pw = profilePasswords.newPassword || ''
-      const checks = {
-        length: pw.length >= 8,
-        lower: /[a-z]/.test(pw),
-        upper: /[A-Z]/.test(pw),
-        digit: /[0-9]/.test(pw),
-        symbol: /[^A-Za-z0-9]/.test(pw),
-      }
-      setPwChecks(checks)
-      const count = [checks.length, checks.lower, checks.upper, checks.digit, checks.symbol].filter(Boolean).length
-      if (!pw) setPwStrength(0)
-      else if (count <= 2) setPwStrength(1)
-      else if (count <= 4) setPwStrength(2)
-      else setPwStrength(3)
-    }, [profilePasswords.newPassword])
+
+  useEffect(() => {
+    const pw = profilePasswords.newPassword || ''
+    const checks = {
+      length: pw.length >= 8,
+      lower: /[a-z]/.test(pw),
+      upper: /[A-Z]/.test(pw),
+      digit: /[0-9]/.test(pw),
+      symbol: /[^A-Za-z0-9]/.test(pw),
+    }
+    setPwChecks(checks)
+    const count = [checks.length, checks.lower, checks.upper, checks.digit, checks.symbol].filter(Boolean).length
+    if (!pw) setPwStrength(0)
+    else if (count <= 2) setPwStrength(1)
+    else if (count <= 4) setPwStrength(2)
+    else setPwStrength(3)
+  }, [profilePasswords.newPassword])
 
   const [warrantySubmitting, setWarrantySubmitting] = useState(false)
   const [warrantyModalError, setWarrantyModalError] = useState('')
@@ -738,7 +743,7 @@ export default function WarrantyDashboard() {
   const profileAvatarSrc = profileImage.preview || storeProfile.avatarUrl || ''
 
   const location = useLocation()
-  
+
   // รับ focusWarrantyId จาก state ตอนนำทางมาจากแจ้งเตือน
   useEffect(() => {
     const idFromNav = location.state && location.state.focusWarrantyId
@@ -1372,37 +1377,37 @@ export default function WarrantyDashboard() {
 
         setEditCustomerAddressParts(baseParts)
 
-        // โหลดตัวเลือกอำเภอ/ตำบลตาม province/district ที่มีอยู่
-        ;(async () => {
-          try {
-            if (baseParts.province) {
-              if (districtsMap) {
-                const list = (districtsMap[String(baseParts.province)] || []).map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code }))
-                setEditCustomerDistrictOptions(list.sort((a, b) => a.name.localeCompare(b.name, 'th')))
+          // โหลดตัวเลือกอำเภอ/ตำบลตาม province/district ที่มีอยู่
+          ; (async () => {
+            try {
+              if (baseParts.province) {
+                if (districtsMap) {
+                  const list = (districtsMap[String(baseParts.province)] || []).map((d) => ({ name: d.name_th || d.name, code: d.id ?? d.code }))
+                  setEditCustomerDistrictOptions(list.sort((a, b) => a.name.localeCompare(b.name, 'th')))
+                } else {
+                  await loadCustomerDistrictsForProvince(baseParts.province)
+                  setEditCustomerDistrictOptions(customerDistrictOptions)
+                }
               } else {
-                await loadCustomerDistrictsForProvince(baseParts.province)
-                setEditCustomerDistrictOptions(customerDistrictOptions)
+                setEditCustomerDistrictOptions([])
               }
-            } else {
-              setEditCustomerDistrictOptions([])
-            }
 
-            if (baseParts.district) {
-              if (subdistrictsMap) {
-                const list = (subdistrictsMap[String(baseParts.district)] || []).map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip }))
-                setEditCustomerSubdistrictOptions(list.sort((a, b) => a.name.localeCompare(b.name, 'th')))
+              if (baseParts.district) {
+                if (subdistrictsMap) {
+                  const list = (subdistrictsMap[String(baseParts.district)] || []).map((s) => ({ name: s.name_th || s.name, code: s.id ?? s.code, zipcode: s.zip_code || s.zipcode || s.zip }))
+                  setEditCustomerSubdistrictOptions(list.sort((a, b) => a.name.localeCompare(b.name, 'th')))
+                } else {
+                  await loadCustomerSubdistrictsForDistrict(baseParts.district)
+                  setEditCustomerSubdistrictOptions(customerSubdistrictOptions)
+                }
               } else {
-                await loadCustomerSubdistrictsForDistrict(baseParts.district)
-                setEditCustomerSubdistrictOptions(customerSubdistrictOptions)
+                setEditCustomerSubdistrictOptions([])
               }
-            } else {
+            } catch {
+              setEditCustomerDistrictOptions([])
               setEditCustomerSubdistrictOptions([])
             }
-          } catch {
-            setEditCustomerDistrictOptions([])
-            setEditCustomerSubdistrictOptions([])
-          }
-        })()
+          })()
       } catch {
         setEditCustomerAddressParts({ street: '', province: '', district: '', subdistrict: '', postcode: '' })
         setEditCustomerDistrictOptions([])
@@ -1688,7 +1693,7 @@ export default function WarrantyDashboard() {
                   originalAddressParts = { street: String(originalAddress), province: '', district: '', subdistrict: '', postcode: '' };
                 }
               }
-            } catch {}
+            } catch { }
             const currentAddressParts = editCustomerAddressParts || { street: '', province: '', district: '', subdistrict: '', postcode: '' };
             return (
               (originalAddressParts.street || '') === (currentAddressParts.street || '') &&
@@ -2207,10 +2212,10 @@ export default function WarrantyDashboard() {
                         : null;
                       const createdLabel = createdAtDate
                         ? createdAtDate.toLocaleDateString("th-TH", {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          })
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                        })
                         : "-";
                       return (
                         // 🟦 การ์ดใบรับประกัน: โทนสเลทแบบโค้ด1
@@ -2264,11 +2269,10 @@ export default function WarrantyDashboard() {
                                 disabled={
                                   !header || downloadingPdfId === header.id
                                 }
-                                className={`h-9 w-full rounded-full border border-sky-300 px-3 py-1.5 text-xs font-semibold text-sky-700 bg-white transition md:h-10 md:w-auto md:min-w-[96px] md:px-4 md:py-2 md:text-sm ${
-                                  !header || downloadingPdfId === header.id
+                                className={`h-9 w-full rounded-full border border-sky-300 px-3 py-1.5 text-xs font-semibold text-sky-700 bg-white transition md:h-10 md:w-auto md:min-w-[96px] md:px-4 md:py-2 md:text-sm ${!header || downloadingPdfId === header.id
                                     ? "cursor-not-allowed opacity-70"
                                     : "hover:-translate-y-0.5 hover:bg-sky-50"
-                                }`}
+                                  }`}
                               >
                                 {downloadingPdfId === header.id
                                   ? "กำลังดาวน์โหลด…"
@@ -2293,11 +2297,10 @@ export default function WarrantyDashboard() {
                                   type="button"
                                   onClick={() => handleDeleteWarranty(header)}
                                   disabled={deletingWarrantyId === header.id}
-                                  className={`p-2 rounded-full transition-colors ${
-                                    deletingWarrantyId === header.id
+                                  className={`p-2 rounded-full transition-colors ${deletingWarrantyId === header.id
                                       ? "cursor-not-allowed text-rose-300"
                                       : "text-rose-500 hover:bg-rose-50 hover:text-rose-600"
-                                  }`}
+                                    }`}
                                   aria-label="ลบใบรับประกัน"
                                 >
                                   <FiTrash2 className="h-5 w-5" />
@@ -2338,8 +2341,8 @@ export default function WarrantyDashboard() {
                                         Serial No.:{" "}
                                         <span className="font-medium text-slate-900">
                                           {!it.serial ||
-                                          it.serial.trim() === "" ||
-                                          it.serial === "SN001"
+                                            it.serial.trim() === "" ||
+                                            it.serial === "SN001"
                                             ? "-"
                                             : it.serial}
                                         </span>
@@ -2349,19 +2352,19 @@ export default function WarrantyDashboard() {
                                         <span className="font-medium text-slate-900">
                                           {it.purchaseDate
                                             ? (() => {
-                                                const d = new Date(
-                                                  it.purchaseDate,
-                                                );
-                                                if (isNaN(d)) return "-";
-                                                const day = String(
-                                                  d.getDate(),
-                                                ).padStart(2, "0");
-                                                const m = String(
-                                                  d.getMonth() + 1,
-                                                ).padStart(2, "0");
-                                                const y = d.getFullYear();
-                                                return `${day}/${m}/${y}`;
-                                              })()
+                                              const d = new Date(
+                                                it.purchaseDate,
+                                              );
+                                              if (isNaN(d)) return "-";
+                                              const day = String(
+                                                d.getDate(),
+                                              ).padStart(2, "0");
+                                              const m = String(
+                                                d.getMonth() + 1,
+                                              ).padStart(2, "0");
+                                              const y = d.getFullYear() + 543;
+                                              return `${day}/${m}/${y}`;
+                                            })()
                                             : "-"}
                                         </span>
                                       </div>
@@ -2370,19 +2373,19 @@ export default function WarrantyDashboard() {
                                         <span className="font-medium text-slate-900">
                                           {it.expiryDate
                                             ? (() => {
-                                                const d = new Date(
-                                                  it.expiryDate,
-                                                );
-                                                if (isNaN(d)) return "-";
-                                                const day = String(
-                                                  d.getDate(),
-                                                ).padStart(2, "0");
-                                                const m = String(
-                                                  d.getMonth() + 1,
-                                                ).padStart(2, "0");
-                                                const y = d.getFullYear();
-                                                return `${day}/${m}/${y}`;
-                                              })()
+                                              const d = new Date(
+                                                it.expiryDate,
+                                              );
+                                              if (isNaN(d)) return "-";
+                                              const day = String(
+                                                d.getDate(),
+                                              ).padStart(2, "0");
+                                              const m = String(
+                                                d.getMonth() + 1,
+                                              ).padStart(2, "0");
+                                              const y = d.getFullYear() + 543;
+                                              return `${day}/${m}/${y}`;
+                                            })()
                                             : "-"}
                                         </span>
                                       </div>
@@ -2402,7 +2405,7 @@ export default function WarrantyDashboard() {
                                     {/* ✅ ปุ่มดูเงื่อนไขการรับประกัน */}
                                     {(Array.isArray(it.selectedConditions) &&
                                       it.selectedConditions.length > 0) ||
-                                    it.customCondition ? (
+                                      it.customCondition ? (
                                       <button
                                         type="button"
                                         onClick={() =>
@@ -2578,11 +2581,10 @@ export default function WarrantyDashboard() {
                       <button
                         onClick={() => setPage((p) => Math.max(1, p - 1))}
                         disabled={currentPage === 1}
-                        className={`rounded-full px-3 py-2 text-xs font-medium shadow-sm ${
-                          currentPage === 1
+                        className={`rounded-full px-3 py-2 text-xs font-medium shadow-sm ${currentPage === 1
                             ? "cursor-not-allowed bg-white text-slate-300 ring-1 ring-black/10"
                             : "bg-white text-slate-700 ring-1 ring-black/10 hover:-translate-y-0.5 hover:bg-slate-50 transition"
-                        }`}
+                          }`}
                       >
                         ก่อนหน้า
                       </button>
@@ -2590,11 +2592,10 @@ export default function WarrantyDashboard() {
                         <button
                           key={n}
                           onClick={() => setPage(n)}
-                          className={`rounded-full px-3 py-2 text-xs font-medium shadow-sm ${
-                            n === currentPage
+                          className={`rounded-full px-3 py-2 text-xs font-medium shadow-sm ${n === currentPage
                               ? "bg-slate-900 text-white"
                               : "bg-white text-slate-700 ring-1 ring-black/10 hover:-translate-y-0.5 hover:bg-slate-50 transition"
-                          }`}
+                            }`}
                         >
                           {n}
                         </button>
@@ -2604,11 +2605,10 @@ export default function WarrantyDashboard() {
                           setPage((p) => Math.min(totalPages, p + 1))
                         }
                         disabled={currentPage === totalPages}
-                        className={`rounded-full px-3 py-2 text-xs font-medium shadow-sm ${
-                          currentPage === totalPages
+                        className={`rounded-full px-3 py-2 text-xs font-medium shadow-sm ${currentPage === totalPages
                             ? "cursor-not-allowed bg-white text-slate-300 ring-1 ring-black/10"
                             : "bg-white text-slate-700 ring-1 ring-black/10 hover:-translate-y-0.5 hover:bg-slate-50 transition"
-                        }`}
+                          }`}
                       >
                         ถัดไป
                       </button>
@@ -2870,15 +2870,15 @@ export default function WarrantyDashboard() {
                                     <option value="">เลือกจังหวัด</option>
                                     {provincesList.length > 0
                                       ? provincesList.map((p) => (
-                                          <option key={p.code} value={p.code}>
-                                            {p.name}
-                                          </option>
-                                        ))
+                                        <option key={p.code} value={p.code}>
+                                          {p.name}
+                                        </option>
+                                      ))
                                       : TH_PROVINCES.map((pv) => (
-                                          <option key={pv} value={pv}>
-                                            {pv}
-                                          </option>
-                                        ))}
+                                        <option key={pv} value={pv}>
+                                          {pv}
+                                        </option>
+                                      ))}
                                   </select>
                                 </div>
 
@@ -3193,7 +3193,7 @@ export default function WarrantyDashboard() {
                             type="password"
                           />
                           {key === "newPassword" &&
-                          profilePasswords.newPassword ? (
+                            profilePasswords.newPassword ? (
                             <div
                               className={
                                 "mt-2 rounded-lg border px-3 py-2 " +
@@ -3498,15 +3498,15 @@ export default function WarrantyDashboard() {
                                 <option value="">เลือกจังหวัด</option>
                                 {provincesList.length > 0
                                   ? provincesList.map((p) => (
-                                      <option key={p.code} value={p.code}>
-                                        {p.name}
-                                      </option>
-                                    ))
+                                    <option key={p.code} value={p.code}>
+                                      {p.name}
+                                    </option>
+                                  ))
                                   : TH_PROVINCES.map((pv) => (
-                                      <option key={pv} value={pv}>
-                                        {pv}
-                                      </option>
-                                    ))}
+                                    <option key={pv} value={pv}>
+                                      {pv}
+                                    </option>
+                                  ))}
                               </select>
                             </div>
 
@@ -3921,7 +3921,7 @@ export default function WarrantyDashboard() {
                                   if (
                                     editDatePickerRef?.current &&
                                     typeof editDatePickerRef.current.setOpen ===
-                                      "function"
+                                    "function"
                                   ) {
                                     editDatePickerRef.current.setOpen(false);
                                   } else if (
@@ -3945,9 +3945,9 @@ export default function WarrantyDashboard() {
                                       );
                                       if (popper && popper.parentNode)
                                         popper.parentNode.removeChild(popper);
-                                    } catch (e2) {}
+                                    } catch (e2) { }
                                   }, 0);
-                                } catch (e) {}
+                                } catch (e) { }
                               }}
                               dateFormat="dd/MM/yyyy"
                               shouldCloseOnSelect
@@ -4032,7 +4032,7 @@ export default function WarrantyDashboard() {
                                       >
                                         {years.map((year) => (
                                           <option key={year} value={year}>
-                                            {year}
+                                            {year + 543}
                                           </option>
                                         ))}
                                       </select>
@@ -4422,15 +4422,15 @@ export default function WarrantyDashboard() {
                                       <option value="">เลือกจังหวัด</option>
                                       {provincesList.length > 0
                                         ? provincesList.map((p) => (
-                                            <option key={p.code} value={p.code}>
-                                              {p.name}
-                                            </option>
-                                          ))
+                                          <option key={p.code} value={p.code}>
+                                            {p.name}
+                                          </option>
+                                        ))
                                         : TH_PROVINCES.map((pv) => (
-                                            <option key={pv} value={pv}>
-                                              {pv}
-                                            </option>
-                                          ))}
+                                          <option key={pv} value={pv}>
+                                            {pv}
+                                          </option>
+                                        ))}
                                     </select>
                                   </div>
 
@@ -4765,8 +4765,8 @@ export default function WarrantyDashboard() {
                                       value={
                                         it.purchase_date
                                           ? formatForDisplayDate(
-                                              it.purchase_date,
-                                            )
+                                            it.purchase_date,
+                                          )
                                           : ""
                                       }
                                       placeholder="dd/mm/yyyy"
@@ -4848,7 +4848,7 @@ export default function WarrantyDashboard() {
                                           >
                                             {years.map((year) => (
                                               <option key={year} value={year}>
-                                                {year}
+                                                {year + 543}
                                               </option>
                                             ))}
                                           </select>
@@ -4993,22 +4993,22 @@ export default function WarrantyDashboard() {
                                         </span>
                                         {i >=
                                           conditionsData.conditions.length && (
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              const selected = (
-                                                it.selectedConditions || []
-                                              ).filter((c) => c !== cond);
-                                              patchItem(idx, {
-                                                selectedConditions: selected,
-                                              });
-                                            }}
-                                            className="text-rose-400 hover:text-rose-600 text-lg leading-none shrink-0 ml-1"
-                                            title="ลบเงื่อนไขนี้"
-                                          >
-                                            ×
-                                          </button>
-                                        )}
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                const selected = (
+                                                  it.selectedConditions || []
+                                                ).filter((c) => c !== cond);
+                                                patchItem(idx, {
+                                                  selectedConditions: selected,
+                                                });
+                                              }}
+                                              className="text-rose-400 hover:text-rose-600 text-lg leading-none shrink-0 ml-1"
+                                              title="ลบเงื่อนไขนี้"
+                                            >
+                                              ×
+                                            </button>
+                                          )}
                                       </label>
                                     ))}
                                   </>

@@ -625,7 +625,7 @@ export default function CustomerNavbar() {
                             </div>
                             <div className="mt-1 flex items-center justify-between text-[10px] text-slate-400">
                               <span>
-                                {n.createdAt ? new Date(n.createdAt).toLocaleString() : ""}
+                                {n.createdAt ? new Date(n.createdAt).toLocaleString('th-TH') : ""}
                               </span>
                               {id != null && (
                                 <button
@@ -840,7 +840,7 @@ export default function CustomerNavbar() {
                 )}
               {selectedNotification.createdAt && (
                 <div className="mt-3 text-xs text-slate-500">
-                  ได้รับเมื่อ {new Date(selectedNotification.createdAt).toLocaleString()}
+                  ได้รับเมื่อ {new Date(selectedNotification.createdAt).toLocaleString('th-TH')}
                 </div>
               )}
             </div>

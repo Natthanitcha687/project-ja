@@ -370,7 +370,14 @@ export function drawWarrantyPage(doc, base, item) {
   y += rowH4;
 
   const purchaseDate = item.purchaseDate || base.purchaseDate;
-  const purchaseTxt = purchaseDate ? new Date(purchaseDate).toLocaleDateString("th-TH") : "-";
+  const purchaseTxt = purchaseDate ? (() => {
+    const _d = new Date(purchaseDate);
+    if (isNaN(_d)) return "-";
+    const dd = String(_d.getDate()).padStart(2, "0");
+    const mm = String(_d.getMonth() + 1).padStart(2, "0");
+    const yy = _d.getFullYear() + 543;
+    return `${dd}/${mm}/${yy}`;
+  })() : "-";
 
   drawLabeledCell(doc, left, y, colL, rowH5, "ชื่อจากบริษัทฯ/ตัวแทนจำหน่าย", "Dealer' Name", base.dealerName, fonts);
   drawLabeledCell(doc, left + colL, y, colR, rowH5, "วันที่ซื้อ", "Purchase Date", purchaseTxt, fonts);

@@ -39,7 +39,7 @@ const dateOnlyUTC = (v) => {
 const fmtDate = (d) => {
   const u = dateOnlyUTC(d);
   if (!u) return "-";
-  const y = u.getUTCFullYear();
+  const y = u.getUTCFullYear() + 543; // แสดงปี พ.ศ.
   const m = String(u.getUTCMonth() + 1).padStart(2, "0");
   const day = String(u.getUTCDate()).padStart(2, "0");
   return `${day}/${m}/${y}`;

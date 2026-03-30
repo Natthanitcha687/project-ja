@@ -501,7 +501,11 @@ export async function updateItem(req, res) {
       const formatDate = (d) => {
         if (!d) return '-'
         const dt = new Date(d)
-        return dt.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })
+        if (isNaN(dt)) return '-'
+        const dd = String(dt.getDate()).padStart(2, '0')
+        const mm = String(dt.getMonth() + 1).padStart(2, '0')
+        const yy = dt.getFullYear() + 543 // แสดงปี พ.ศ.
+        return `${dd}/${mm}/${yy}`
       }
 
       // HTML helper for styling
