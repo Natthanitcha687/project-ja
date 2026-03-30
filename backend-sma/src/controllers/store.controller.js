@@ -10,6 +10,16 @@ const DEFAULT_NOTIFY_DAYS = 14;
 /* ==================== Helpers ==================== */
 const normalizeEmail = (e) => (e ? String(e).trim().toLowerCase() : null);
 
+function getStoreTypePrefix(storeType) {
+  const type = (storeType || "").toLowerCase();
+  if (type.includes("electronics")) return "EL";
+  if (type.includes("appliance")) return "AP";
+  if (type.includes("furniture")) return "FN";
+  if (type.includes("automotive")) return "AM";
+  if (type.includes("machine")) return "MC";
+  return "WR";
+}
+
 // ✅ เพิ่ม (ยึดรูปแบบเดียวกับ customer.controller.js)
 function trimOrNull(s) {
   if (typeof s !== "string") return null;
@@ -176,11 +186,25 @@ async function auditCreateWarrantyBestEffort(req, storeId, createdHeader) {
 }
 
 /* ==================== Allocate WR (per store) ==================== */
-// สร้างรหัสใบรับประกันแบบสุ่มรูปแบบ WR-XXXXXX (per store)
-// prefix สามารถส่งมาเป็น "WR" หรือ "WR-" ได้ จะถูก normalize ให้มีขีดกลางเสมอ
-async function nextWarrantyCodeForStore(_tx, _storeId, { prefix = "WR" } = {}) {
+// สร้างรหัสใบรับประกันรูปแบบใหม่: [ประเภท]-[ระยะเวลา][ปีพ.ศ.ที่หมดอายุ]-[สุ่ม]
+// เช่น EL-12M69-A8K2
+async function nextWarrantyCodeForStore(_tx, _storeId, { typePrefix = "WR", durationMonths = 0, expiryDate = null } = {}) {
+  let midPart = "";
+  if (durationMonths > 0) midPart += `${durationMonths}M`;
+  
+  if (expiryDate) {
+    const exp = new Date(expiryDate);
+    if (!isNaN(exp.getTime())) {
+      const beYear = exp.getFullYear() + 543;
+      midPart += String(beYear).slice(-2);
+    }
+  }
+
+  const prefix = midPart ? `${typePrefix}-${midPart}` : typePrefix;
   const normPrefix = prefix.endsWith("-") ? prefix : `${prefix}-`;
-  const body = randomAlnum(7); // 6-7 ตัวอักษร: ใช้ 7 เป็นค่ากลาง
+  
+  // ลดความยาวสุ่มเหลือ 4 ตัว เพราะรหัสส่วนหน้ายาวขึ้นแล้ว
+  const body = randomAlnum(4); 
   return `${normPrefix}${body}`;
 }
 async function allocateWarrantyCode(tx, storeId, opts) {
@@ -441,7 +465,28 @@ export async function createWarranty(req, res) {
     const notifyDays = 15;
 
     const createdHeader = await prisma.$transaction(async (tx) => {
-      let code = await allocateWarrantyCode(tx, storeId, { prefix: "WR" });
+      // ดึงประเภทสินค้าและข้อมูลวันหมดอายุจากรายการแรกมาใช้สร้างรหัส
+      const typePrefix = getStoreTypePrefix(storeProfile?.storeType);
+      let durationMonths = 0;
+      let firstExpiry = null;
+
+      if (Array.isArray(body.items) && body.items.length > 0) {
+        durationMonths = Number(body.items[0].duration_months ?? body.items[0].durationMonths ?? 0);
+        const purchase = parseDateMaybe(body.items[0].purchase_date) || new Date();
+        firstExpiry = parseDateMaybe(body.items[0].expiry_date);
+        if (!firstExpiry && durationMonths > 0) firstExpiry = addMonths(purchase, durationMonths);
+      } else {
+        durationMonths = Number(body.duration_months ?? body.durationMonths ?? 0);
+        const purchase = parseDateMaybe(body.purchase_date) || new Date();
+        firstExpiry = parseDateMaybe(body.expiry_date);
+        if (!firstExpiry && durationMonths > 0) firstExpiry = addMonths(purchase, durationMonths);
+      }
+
+      let code = await allocateWarrantyCode(tx, storeId, { 
+        typePrefix, 
+        durationMonths, 
+        expiryDate: firstExpiry 
+      });
 
       // helper ระบุ email/user/name/phone จากอีเมล
       async function resolveCustomer(rawEmail, nameFromPayload, phoneFromPayload) {
@@ -560,7 +605,11 @@ export async function createWarranty(req, res) {
               (e.meta?.target?.includes?.("storeId_code") ||
                 e.meta?.target?.includes?.("code"))
             ) {
-              code = await allocateWarrantyCode(tx, storeId, { prefix: "WR" });
+              code = await allocateWarrantyCode(tx, storeId, { 
+                typePrefix, 
+                durationMonths, 
+                expiryDate: firstExpiry 
+              });
               continue;
             }
             if (e?.code === "P2002" && e.meta?.target?.includes?.("warrantyId_serial")) {
@@ -634,7 +683,11 @@ export async function createWarranty(req, res) {
             (e.meta?.target?.includes?.("storeId_code") ||
               e.meta?.target?.includes?.("code"))
           ) {
-            code = await allocateWarrantyCode(tx, storeId, { prefix: "WR" });
+            code = await allocateWarrantyCode(tx, storeId, { 
+              typePrefix, 
+              durationMonths, 
+              expiryDate: firstExpiry 
+            });
             continue;
           }
           if (e?.code === "P2002" && e.meta?.target?.includes?.("warrantyId_serial")) {
