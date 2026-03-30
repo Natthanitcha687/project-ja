@@ -2204,8 +2204,8 @@ export default function WarrantyDashboard() {
                         null;
 
                       const titleText = header.code
-                        ? `ใบรับประกัน #${header.code}`
-                        : "ใบรับประกัน";
+                        ? `รหัสใบรับประกัน #${header.code}`
+                        : "รหัสใบรับประกัน";
 
                       const createdAtDate = header.createdAt
                         ? new Date(header.createdAt)

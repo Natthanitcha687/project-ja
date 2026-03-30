@@ -186,26 +186,12 @@ async function auditCreateWarrantyBestEffort(req, storeId, createdHeader) {
 }
 
 /* ==================== Allocate WR (per store) ==================== */
-// สร้างรหัสใบรับประกันรูปแบบใหม่: [ประเภท]-[ระยะเวลา][ปีพ.ศ.ที่หมดอายุ]-[สุ่ม]
-// เช่น EL-12M69-A8K2
-async function nextWarrantyCodeForStore(_tx, _storeId, { typePrefix = "WR", durationMonths = 0, expiryDate = null } = {}) {
-  let midPart = "";
-  if (durationMonths > 0) midPart += `${durationMonths}M`;
-  
-  if (expiryDate) {
-    const exp = new Date(expiryDate);
-    if (!isNaN(exp.getTime())) {
-      const beYear = exp.getFullYear() + 543;
-      midPart += String(beYear).slice(-2);
-    }
-  }
-
-  const prefix = midPart ? `${typePrefix}-${midPart}` : typePrefix;
-  const normPrefix = prefix.endsWith("-") ? prefix : `${prefix}-`;
-  
-  // ลดความยาวสุ่มเหลือ 4 ตัว เพราะรหัสส่วนหน้ายาวขึ้นแล้ว
+// สร้างรหัสใบรับประกันรูปแบบใหม่: [ประเภท][ID ร้าน]-[สุ่ม 4 หลัก]
+// เช่น EL6-A8K2
+async function nextWarrantyCodeForStore(_tx, _storeId, { typePrefix = "WR" } = {}) {
+  const prefix = `${typePrefix}${_storeId}`;
   const body = randomAlnum(4); 
-  return `${normPrefix}${body}`;
+  return `${prefix}-${body}`;
 }
 async function allocateWarrantyCode(tx, storeId, opts) {
   for (let i = 0; i < 5; i++) {
