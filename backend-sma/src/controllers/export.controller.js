@@ -138,7 +138,7 @@ export async function exportStoreWarranties(req, res) {
             })
         })
 
-        // Enable Auto Filter
+        // Enable Auto Filter for the first sheet
         sheet.autoFilter = {
             from: 'A1',
             to: {
@@ -146,6 +146,93 @@ export async function exportStoreWarranties(req, res) {
                 column: sheet.columns.length
             }
         }
+
+        // ---------------------------------------------------------
+        // Add Annual Summary Sheet
+        // ---------------------------------------------------------
+        const summarySheet = workbook.addWorksheet('Annual Summary')
+        const currentYear = new Date().getFullYear()
+
+        summarySheet.mergeCells('A1', 'C1')
+        summarySheet.getCell('A1').value = `สรุปข้อมูลรายปี (แบ่งตามปีปฏิทิน)`
+        summarySheet.getCell('A1').font = { bold: true, size: 14 }
+        summarySheet.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' }
+        summarySheet.getRow(1).height = 30
+
+        summarySheet.columns = [
+            { header: 'ปี (พ.ศ.)', key: 'yearLabel', width: 20 },
+            { header: 'ใบรับประกันที่สร้าง (รายการ)', key: 'created', width: 25 },
+            { header: 'สินค้าที่จะหมดอายุ (รายการ)', key: 'expiring', width: 25 }
+        ]
+
+        // Style the header row (Row 2, since Row 1 is the merged title)
+        const summaryHeader = summarySheet.getRow(2)
+        summaryHeader.font = { bold: true, color: { argb: 'FFFFFF' } }
+        summaryHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1E40AF' } }
+        summaryHeader.alignment = { horizontal: 'center', vertical: 'middle' }
+        summaryHeader.height = 24
+
+        // หาช่วงปีจากอดีต (ปีที่สร้างแรกสุด) จนถึงอนาคต (ปีที่หมดอายุหลังสุด)
+        let minYear = currentYear
+        let maxYear = currentYear
+
+        warranties.forEach(w => {
+            if (w.createdAt) {
+                const cYear = new Date(w.createdAt).getFullYear()
+                if (cYear < minYear) minYear = cYear
+            }
+            w.items.forEach(it => {
+                if (it.expiryDate) {
+                    const eYear = new Date(it.expiryDate).getFullYear()
+                    if (eYear > maxYear) maxYear = eYear
+                }
+            })
+        })
+
+        // ให้แสดงเผื่อล่วงหน้าอย่างน้อย 4 ปีถ้ายังไม่มีข้อมูลถึง
+        if (maxYear < currentYear + 4) maxYear = currentYear + 4
+
+        let totalCreated = 0
+        let totalExpiring = 0
+
+        for (let y = minYear; y <= maxYear; y++) {
+            let createdCount = 0
+            let expiringCount = 0
+
+            warranties.forEach(w => {
+                if (w.createdAt && new Date(w.createdAt).getFullYear() === y) {
+                    createdCount++
+                }
+                w.items.forEach(it => {
+                    if (it.expiryDate && new Date(it.expiryDate).getFullYear() === y) {
+                        expiringCount++
+                    }
+                })
+            })
+
+            totalCreated += createdCount
+            totalExpiring += expiringCount
+
+            summarySheet.addRow({
+                yearLabel: `ปี ${y + 543}`,
+                created: createdCount,
+                expiring: expiringCount
+            })
+        }
+
+        // Add Total Row
+        const totalRow = summarySheet.addRow({
+            yearLabel: 'รวมทั้งหมด',
+            created: totalCreated,
+            expiring: totalExpiring
+        })
+        totalRow.font = { bold: true }
+        totalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F3F4F6' } }
+
+        // Align columns center
+        summarySheet.getColumn('yearLabel').alignment = { horizontal: 'center' }
+        summarySheet.getColumn('created').alignment = { horizontal: 'center' }
+        summarySheet.getColumn('expiring').alignment = { horizontal: 'center' }
 
         // Set Response Headers
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')

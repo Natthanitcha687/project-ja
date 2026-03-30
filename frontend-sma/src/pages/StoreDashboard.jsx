@@ -854,40 +854,79 @@ export default function StoreDashboard() {
           </div>
         </div>
 
-        {/* Monthly Warranty Chart - Responsive (12 Months / Yearly) */}
-        {(() => {
-          const chartDataArray = (() => {
-            const now = new Date()
-            return [...Array(12)].map((_, i) => {
-              // สำหรับใบรับประกันที่สร้าง ใช้ย้อนหลัง 12 เดือน
-              // สำหรับใกล้หมดอายุ ใช้เดือนปัจจุบันและล่วงหน้า 11 เดือน
-              const monthOffset = chartMode === 'created' ? -(11 - i) : i
-              const date = new Date(now.getFullYear(), now.getMonth() + monthOffset)
-              const monthLabel = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'][date.getMonth()]
-              let count = 0
-              if (chartMode === 'created') {
-                count = (filteredWarranties || []).filter((w) => {
-                  const wDate = new Date(w.createdAt || w.created_at)
-                  return wDate.getMonth() === date.getMonth() && wDate.getFullYear() === date.getFullYear()
-                }).length
-              } else {
-                // expiring: นับจำนวนรายการ (items) ที่กำลังจะหมดอายุในเดือนขอบเขต
-                // และนับเฉพาะรายการที่สถานะเป็น nearing หรือ nearing_expiration
-                const notifyDays = profile?.notifyDaysInAdvance ?? 14
-                for (const w of (filteredWarranties || [])) {
-                  for (const item of (w.items || [])) {
-                    if (!item.expiryDate) continue
-                    const exp = new Date(item.expiryDate)
-                    if (exp.getMonth() === date.getMonth() && exp.getFullYear() === date.getFullYear()) {
-                      const code = item.statusCode || item._status || deriveItemStatusCode(item, notifyDays)
-                      if (code === 'nearing_expiration' || code === 'nearing') {
+        {/* === Chart 1: Monthly Warranty Chart (Original 6 Months Rolling) === */}
+        <div className="mb-6">
+          <div className="flex flex-wrap items-center gap-3 mb-2">
+            <select
+              value={chartMode}
+              onChange={e => setChartMode(e.target.value)}
+              className="rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-sm text-slate-700 focus:border-sky-400 focus:outline-none shadow-sm"
+            >
+              <option value="created">ใบรับประกันที่สร้าง</option>
+              <option value="expiring">ใบรับประกันที่ใกล้หมดอายุ</option>
+            </select>
+          </div>
+          <BarChart
+            data={(() => {
+              const now = new Date()
+              return [...Array(6)].map((_, i) => {
+                // สำหรับใบรับประกันที่สร้าง ใช้ย้อนหลัง 6 เดือน
+                // สำหรับใกล้หมดอายุ ใช้เดือนปัจจุบันและล่วงหน้า 5 เดือน
+                const monthOffset = chartMode === 'created' ? -(5 - i) : i
+                const date = new Date(now.getFullYear(), now.getMonth() + monthOffset)
+                const monthLabel = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'][date.getMonth()]
+                let count = 0
+                if (chartMode === 'created') {
+                  count = (filteredWarranties || []).filter((w) => {
+                    const wDate = new Date(w.createdAt || w.created_at)
+                    return wDate.getMonth() === date.getMonth() && wDate.getFullYear() === date.getFullYear()
+                  }).length
+                } else {
+                  // หมดอายุรายเดือน: เปลี่ยนมานับทุกรายการที่จะหมดอายุในเดือนนั้นตามปฏิทิน
+                  for (const w of (filteredWarranties || [])) {
+                    for (const item of (w.items || [])) {
+                      if (!item.expiryDate) continue
+                      const exp = new Date(item.expiryDate)
+                      if (exp.getMonth() === date.getMonth() && exp.getFullYear() === date.getFullYear()) {
                         count++
                       }
                     }
                   }
                 }
+                return { label: monthLabel, value: count }
+              })
+            })()}
+            height={300}
+            title={chartMode === 'created' ? 'ใบรับประกันรายเดือน (ย้อนหลัง 6 เดือน)' : 'สินค้าที่หมดอายุรายเดือน (ล่วงหน้า 6 เดือน)'}
+            subtitle={chartMode === 'created' ? 'แกนซ้าย: จำนวนใบรับประกัน' : 'แกนซ้าย: จำนวนสินค้าที่หมดอายุ'}
+            showLine={false}
+          />
+        </div>
+
+        {/* === Chart 2: Yearly Expiring Chart (By Year) === */}
+        {(() => {
+          const now = new Date()
+          const currentYear = now.getFullYear()
+
+          const chartDataArray = (() => {
+            // ดึงปีปัจจุบัน + ล่วงหน้า 4 ปี (รวมเป็น 5 ปี)
+            return [...Array(5)].map((_, i) => {
+              const targetYear = currentYear + i
+              const thaiYear = targetYear + 543
+              const yearLabel = `ปี ${thaiYear}`
+              let count = 0
+              
+              // นับใบที่จะหมดอายุใน targetYear
+              for (const w of (filteredWarranties || [])) {
+                for (const item of (w.items || [])) {
+                  if (!item.expiryDate) continue
+                  const exp = new Date(item.expiryDate)
+                  if (exp.getFullYear() === targetYear) {
+                    count++
+                  }
+                }
               }
-              return { label: monthLabel, value: count }
+              return { label: yearLabel, value: count }
             })
           })()
 
@@ -896,19 +935,9 @@ export default function StoreDashboard() {
 
           return (
             <div className="mb-6">
-              {/* ✅ Dropdown เลือกโหมดกราฟ & สรุปตัวเลข */}
-              <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
-                <select
-                  value={chartMode}
-                  onChange={e => setChartMode(e.target.value)}
-                  className="rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-sm text-slate-700 focus:border-sky-400 focus:outline-none shadow-sm"
-                >
-                  <option value="created">ใบรับประกันที่สร้าง</option>
-                  <option value="expiring">ใบรับประกันที่ใกล้หมดอายุ</option>
-                </select>
-
-                <div className="flex items-center gap-2 bg-white px-4 py-1.5 rounded-xl border border-black/10 shadow-sm border-l-4 border-l-sky-500">
-                  <span className="text-sm font-medium text-slate-500">รวม 12 เดือน:</span>
+              <div className="flex flex-wrap items-center justify-end gap-3 mb-2">
+                <div className="flex items-center gap-2 bg-white px-4 py-1.5 rounded-xl border border-black/10 shadow-sm border-l-4 border-l-rose-500">
+                  <span className="text-sm font-medium text-slate-500">รวม 5 ปีล่วงหน้า:</span>
                   <span className="text-lg font-bold text-black" style={{ fontFamily: 'Inter, sans-serif' }}>
                     {totalCount} <span className="text-sm font-normal text-slate-500">รายการ</span>
                   </span>
@@ -917,8 +946,9 @@ export default function StoreDashboard() {
               <BarChart
                 data={chartDataArray}
                 height={300}
-                title={chartMode === 'created' ? 'ใบรับประกันรายปี (ย้อนหลัง 12 เดือน)' : 'สินค้าที่ใกล้หมดอายุรายปี (ล่วงหน้า 12 เดือน)'}
-                subtitle={chartMode === 'created' ? 'แกนซ้าย: จำนวนใบรับประกัน' : 'แกนซ้าย: จำนวนสินค้าที่ใกล้หมดอายุ'}
+                title="สรุปสินค้าที่จะหมดอายุ (แยกตามปี)"
+                subtitle="แกนซ้าย: จำนวนสินค้าที่จะหมดอายุในปีนั้นๆ (อิงตามปีปฏิทินแบบเหมาปี)"
+                barColor="#F43F5E" 
                 showLine={false}
                 yAxisMax={computedMax}
               />
