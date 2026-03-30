@@ -1540,11 +1540,22 @@ export async function restoreWarrantyFromComplaint(req, res) {
       );
     }
 
+    await logAudit(req, "RESTORE_WARRANTY_FROM_COMPLAINT", "Warranty", String(warranty.id), {
+      result: "SUCCESS",
+      code: warranty.code,
+      complaintId: id,
+    });
+
     return res.json({
       message: "กู้คืนใบรับประกันเรียบร้อยแล้ว",
       warranty,
     });
   } catch (e) {
+    await logAudit(req, "RESTORE_WARRANTY_FROM_COMPLAINT", "Complaint", id, {
+      result: "FAIL",
+      error: e?.message || String(e),
+    });
+
     console.error("restoreWarrantyFromComplaint error", e);
     return res.status(500).json({ message: "ไม่สามารถกู้คืนใบรับประกันได้" });
   }
