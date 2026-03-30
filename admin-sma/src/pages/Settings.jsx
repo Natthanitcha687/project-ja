@@ -133,21 +133,6 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className="mt-6 rounded-2xl bg-sky-50 border border-sky-100 p-5">
-        <div className="flex gap-4">
-          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-sky-600">
-            <svg viewBox="0 0 24 24" className="h-5 w-5 text-white" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 16v-4m0-4h.01" />
-            </svg>
-          </div>
-          <div className="text-sm text-sky-900 leading-relaxed">
-            <strong className="block mb-1">ℹ️ คำแนะนำจากอาจารย์:</strong>
-            การตั้งค่าพารามิเตอร์นี้ช่วยให้ระบบมีความยืดหยุ่นในการจัดการวงจรชีวิตข้อมูล (Data Lifecycle) 
-            ช่วยตอบโจทย์เรื่องความปลอดภัยและความเป็นส่วนตัวของข้อมูลตามมาตรฐานสากล
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
