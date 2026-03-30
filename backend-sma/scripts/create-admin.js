@@ -2,22 +2,46 @@ import 'dotenv/config'
 import bcrypt from 'bcryptjs'
 import { prisma } from '../src/db/prisma.js'
 
-const email = (process.env.ADMIN_EMAIL || '').trim()
-const password = process.env.ADMIN_PASSWORD || ''
+// Debug เพื่อดูว่าค่าที่พิมพ์เข้ามาคืออะไร
+const args = process.argv.slice(2);
+
+let email = (args[0] || '').trim();
+if (!email) {
+  // ถ้าไม่พิมพ์ต่อท้าย ให้ไปใช้ค่าใน env
+  email = (process.env.ADMIN_EMAIL || '').trim();
+}
+
+let password = args[1] || '';
+if (!password) {
+  // ถ้าไม่พิมพ์ต่อท้าย ให้ไปใช้ค่าใน env
+  password = process.env.ADMIN_PASSWORD || '';
+}
+
+console.log(`🔍 ข้อมูลที่จะใช้สร้าง Admin: Email="${email}"`);
 
 if (!email || !password) {
-  console.error('Missing ADMIN_EMAIL or ADMIN_PASSWORD in env')
-  process.exit(1)
+  console.error('❌ กรุณาระบุ email และ password (เช่น: npm run create:admin -- user@test.com 123456)');
+  process.exit(1);
 }
 
 const run = async () => {
   const exists = await prisma.user.findUnique({ where: { email } })
+  const hash = await bcrypt.hash(password, 10)
+
   if (exists) {
-    console.log('Admin already exists:', email)
+    // อัปเดตรหัสผ่านกรณีมีอยู่แล้ว
+    await prisma.user.update({
+      where: { email },
+      data: {
+        passwordHash: hash,
+        role: 'ADMIN', // กันเหนียว บังคับให้เป็น ADMIN
+        status: 'ACTIVE'
+      }
+    })
+    console.log(`✅ Updated password for existing admin: ${email}`)
     return
   }
 
-  const hash = await bcrypt.hash(password, 10)
   const user = await prisma.user.create({
     data: {
       email,
