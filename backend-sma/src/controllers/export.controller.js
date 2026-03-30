@@ -153,20 +153,19 @@ export async function exportStoreWarranties(req, res) {
         const summarySheet = workbook.addWorksheet('Annual Summary')
         const currentYear = new Date().getFullYear()
 
+        summarySheet.columns = [
+            { key: 'yearLabel', width: 20 },
+            { key: 'created', width: 25 },
+            { key: 'expiring', width: 25 }
+        ]
+
+        summarySheet.addRow(['สรุปข้อมูลรายปี (แบ่งตามปีปฏิทิน)'])
         summarySheet.mergeCells('A1', 'C1')
-        summarySheet.getCell('A1').value = `สรุปข้อมูลรายปี (แบ่งตามปีปฏิทิน)`
         summarySheet.getCell('A1').font = { bold: true, size: 14 }
         summarySheet.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' }
         summarySheet.getRow(1).height = 30
 
-        summarySheet.columns = [
-            { header: 'ปี (พ.ศ.)', key: 'yearLabel', width: 20 },
-            { header: 'ใบรับประกันที่สร้าง (รายการ)', key: 'created', width: 25 },
-            { header: 'สินค้าที่จะหมดอายุ (รายการ)', key: 'expiring', width: 25 }
-        ]
-
-        // Style the header row (Row 2, since Row 1 is the merged title)
-        const summaryHeader = summarySheet.getRow(2)
+        const summaryHeader = summarySheet.addRow(['ปี (พ.ศ.)', 'ใบรับประกันที่สร้าง (รายการ)', 'สินค้าที่จะหมดอายุ (รายการ)'])
         summaryHeader.font = { bold: true, color: { argb: 'FFFFFF' } }
         summaryHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1E40AF' } }
         summaryHeader.alignment = { horizontal: 'center', vertical: 'middle' }

@@ -866,8 +866,8 @@ export default function StoreDashboard() {
               <option value="expiring">ใบรับประกันที่ใกล้หมดอายุ</option>
             </select>
           </div>
-          <BarChart
-            data={(() => {
+          {(() => {
+            const chartDataArray = (() => {
               const now = new Date()
               return [...Array(6)].map((_, i) => {
                 // สำหรับใบรับประกันที่สร้าง ใช้ย้อนหลัง 6 เดือน
@@ -895,12 +895,20 @@ export default function StoreDashboard() {
                 }
                 return { label: monthLabel, value: count }
               })
-            })()}
-            height={300}
-            title={chartMode === 'created' ? 'ใบรับประกันรายเดือน (ย้อนหลัง 6 เดือน)' : 'สินค้าที่หมดอายุรายเดือน (ล่วงหน้า 6 เดือน)'}
-            subtitle={chartMode === 'created' ? 'แกนซ้าย: จำนวนใบรับประกัน' : 'แกนซ้าย: จำนวนสินค้าที่หมดอายุ'}
-            showLine={false}
-          />
+            })()
+            const computedMax = Math.max(50, ...chartDataArray.map(d => d.value))
+
+            return (
+              <BarChart
+                data={chartDataArray}
+                height={300}
+                title={chartMode === 'created' ? 'ใบรับประกันรายเดือน (ย้อนหลัง 6 เดือน)' : 'สินค้าที่หมดอายุรายเดือน (ล่วงหน้า 6 เดือน)'}
+                subtitle={chartMode === 'created' ? 'แกนซ้าย: จำนวนใบรับประกัน' : 'แกนซ้าย: จำนวนสินค้าที่หมดอายุ'}
+                showLine={false}
+                yAxisMax={computedMax}
+              />
+            )
+          })()}
         </div>
 
         {/* === Chart 2: Yearly Expiring Chart (By Year) === */}
@@ -915,7 +923,7 @@ export default function StoreDashboard() {
               const thaiYear = targetYear + 543
               const yearLabel = `ปี ${thaiYear}`
               let count = 0
-              
+
               // นับใบที่จะหมดอายุใน targetYear
               for (const w of (filteredWarranties || [])) {
                 for (const item of (w.items || [])) {
@@ -947,8 +955,8 @@ export default function StoreDashboard() {
                 data={chartDataArray}
                 height={300}
                 title="สรุปสินค้าที่จะหมดอายุ (แยกตามปี)"
-                subtitle="แกนซ้าย: จำนวนสินค้าที่จะหมดอายุในปีนั้นๆ (อิงตามปีปฏิทินแบบเหมาปี)"
-                barColor="#F43F5E" 
+                subtitle="แกนซ้าย: จำนวนสินค้าที่จะหมดอายุในปีนั้นๆ"
+                barColor="#F43F5E"
                 showLine={false}
                 yAxisMax={computedMax}
               />
@@ -1259,7 +1267,7 @@ export default function StoreDashboard() {
                     <img
                       src={
                         profileImage.preview &&
-                        (/^data:image\//.test(profileImage.preview) || /\.(jpg|jpeg|png|gif|webp)$/i.test(profileImage.preview))
+                          (/^data:image\//.test(profileImage.preview) || /\.(jpg|jpeg|png|gif|webp)$/i.test(profileImage.preview))
                           ? profileImage.preview
                           : '/home-assets/store.png'
                       }
@@ -1544,8 +1552,8 @@ export default function StoreDashboard() {
                               (pwStrength <= 1
                                 ? 'border-red-100 bg-red-50/70'
                                 : pwStrength === 2
-                                ? 'border-amber-100 bg-amber-50/70'
-                                : 'border-emerald-100 bg-emerald-50/70')
+                                  ? 'border-amber-100 bg-amber-50/70'
+                                  : 'border-emerald-100 bg-emerald-50/70')
                             }
                           >
                             <div className="flex items-center justify-between text-[11px] font-medium">
@@ -1558,15 +1566,15 @@ export default function StoreDashboard() {
                                   pwStrength <= 1
                                     ? 'text-red-600'
                                     : pwStrength === 2
-                                    ? 'text-yellow-600'
-                                    : 'text-emerald-600'
+                                      ? 'text-yellow-600'
+                                      : 'text-emerald-600'
                                 }
                               >
                                 {pwStrength <= 1
                                   ? 'ความปลอดภัยต่ำ'
                                   : pwStrength === 2
-                                  ? 'ความปลอดภัยปานกลาง'
-                                  : 'ความปลอดภัยสูง'}
+                                    ? 'ความปลอดภัยปานกลาง'
+                                    : 'ความปลอดภัยสูง'}
                               </span>
                             </div>
                             <div className="mt-1 h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
@@ -1576,8 +1584,8 @@ export default function StoreDashboard() {
                                   (pwStrength <= 1
                                     ? 'bg-red-500'
                                     : pwStrength === 2
-                                    ? 'bg-yellow-500'
-                                    : 'bg-emerald-500')
+                                      ? 'bg-yellow-500'
+                                      : 'bg-emerald-500')
                                 }
                                 style={{ width: `${pwStrength <= 1 ? 33 : pwStrength === 2 ? 66 : 100}%` }}
                               />
