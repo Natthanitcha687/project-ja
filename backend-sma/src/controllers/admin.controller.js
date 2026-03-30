@@ -273,8 +273,9 @@ export async function listStores(req, res) {
   const enriched = stores.map((s) => {
     let scheduledDeletionDate = null;
     if (s.isDeleted && s.deletedAt) {
+      const daysToUse = s.retentionDays != null ? s.retentionDays : retentionDays;
       const d = new Date(s.deletedAt);
-      d.setDate(d.getDate() + retentionDays);
+      d.setDate(d.getDate() + daysToUse);
       scheduledDeletionDate = d.toISOString();
     }
     return {
@@ -977,8 +978,9 @@ export async function listUsers(req, res) {
   const enriched = users.map(u => {
     let scheduledDeletionDate = null;
     if (u.isDeleted && u.deletedAt) {
+      const daysToUse = u.retentionDays != null ? u.retentionDays : retentionDays;
       const d = new Date(u.deletedAt);
-      d.setDate(d.getDate() + retentionDays);
+      d.setDate(d.getDate() + daysToUse);
       scheduledDeletionDate = d.toISOString();
     }
     return { ...u, scheduledDeletionDate };
