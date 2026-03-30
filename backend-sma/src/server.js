@@ -7,6 +7,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
 import * as Sentry from '@sentry/node';
+import swaggerUi from 'swagger-ui-express';
+import swaggerJsDoc from 'swagger-jsdoc';
 
 import authRoutes from './routes/auth.routes.js';
 import storeRoutes from './routes/store.routes.js';
@@ -272,6 +274,37 @@ const port = Number(process.env.PORT || 4000);
 const baseUrl =
   (process.env.APP_URL && process.env.APP_URL.replace(/\/+$/, '')) ||
   `http://localhost:${port}`;
+
+/* =========================================================
+ * ✅ Swagger API Documentation
+ * ========================================================= */
+const swaggerOptions = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'SME Warranty Management API',
+      version: '1.0.0',
+      description: 'เอกสารอธิบายการเรียกใช้งาน API ทั้งหมดของระบบ',
+    },
+    servers: [
+      {
+        url: baseUrl,
+      },
+    ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+        },
+      },
+    },
+  },
+  apis: ['./src/routes/*.js', './src/controllers/*.js'],
+};
+const swaggerDocs = swaggerJsDoc(swaggerOptions);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
 // ✅ เพิ่ม helper เพื่อให้ job รัน "ทุกเที่ยงคืนเวลาไทย" (UTC+7)
 const TH_TZ_OFFSET_MIN = 420;
