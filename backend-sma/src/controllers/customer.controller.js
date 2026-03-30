@@ -240,7 +240,8 @@ export async function getMyWarranties(req, res, next) {
     const totalsCounter = { all: 0, active: 0, nearing_expiration: 0, expired: 0 }
     const filtered = list
       .map((w) => {
-        const notifyDays = w.store?.storeProfile?.notifyDaysInAdvance ?? 30
+        // บังคับให้หน้าลูกค้าแสดง 15 วันเป็นใกล้หมดอายุเสมอ เพื่อความคงเส้นคงวาของฝั่งลูกค้า
+        const notifyDays = 15;
         const items = (w.items || []).map((it) => {
           const s = statusFromDate(it.expiryDate, notifyDays)
           totalsCounter.all += 1
