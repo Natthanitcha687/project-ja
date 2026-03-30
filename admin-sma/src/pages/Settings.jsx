@@ -57,82 +57,23 @@ export default function Settings() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div className="border-b border-slate-100 bg-slate-50/50 px-6 py-4">
-          <h2 className="text-lg font-bold text-slate-900">การตั้งค่าระบบ</h2>
-          <p className="text-sm text-slate-500">จัดการนโยบายการเก็บรักษาข้อมูลและการทำงานของระบบ</p>
-        </div>
-
-        <div className="p-6 space-y-8">
-          {/* Account Retention Section */}
-          <section className="space-y-4">
-            <div className="flex items-start gap-4">
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-rose-50 ring-1 ring-rose-100">
-                <svg viewBox="0 0 24 24" className="h-5 w-5 text-rose-600" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="font-bold text-slate-900">ระยะเวลาเก็บรักษาข้อมูลที่ลบ (Retention Period)</h3>
-                <p className="mt-1 text-sm text-slate-500">
-                  กำหนดระยะเวลาที่ระบบจะเก็บข้อมูลบัญชีที่ถูกลบ (Soft Delete) ไว้ก่อนที่จะทำลายทิ้งถาวรจากฐานข้อมูล
-                </p>
-              </div>
-            </div>
-
-            <div className="ml-14 flex flex-col gap-4 sm:flex-row sm:items-center">
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  min="0"
-                  value={inputValue}
-                  onChange={(e) => setInputValue(Number(e.target.value))}
-                  className="w-24 rounded-xl border border-slate-200 px-4 py-2 text-center font-bold text-slate-900 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
-                />
-                <select
-                  value={unit}
-                  onChange={(e) => setUnit(e.target.value)}
-                  className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-sky-500"
-                >
-                  <option value="days">วัน</option>
-                  <option value="months">เดือน (30 วัน)</option>
-                </select>
-              </div>
-
-              <div className="flex-1 rounded-xl bg-orange-50 border border-orange-100 p-3">
-                <p className="text-xs text-orange-800 leading-relaxed font-medium">
-                  บัญชีจะถูกลบถาวรหลังจากถูกลบไปแล้วและครบกำหนด{" "}
-                  <span className="font-bold text-orange-950 underline decoration-orange-300">
-                    {unit === "months" ? inputValue * 30 : inputValue} วัน
-                  </span>
-                </p>
-              </div>
-            </div>
-          </section>
-
-          <hr className="border-slate-100" />
-
-          {/* Action Footer */}
-          <div className="flex items-center justify-end">
-            <button
-              onClick={onSave}
-              disabled={saving}
-              className="inline-flex items-center gap-2 rounded-xl bg-sky-700 px-6 py-2.5 text-sm font-bold text-white shadow-md transition hover:bg-sky-800 disabled:opacity-50"
-            >
-              {saving ? (
-                <>
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
-                  กำลังบันทึก...
-                </>
-              ) : (
-                "💾 บันทึกการตั้งค่า"
-              )}
-            </button>
+    <div className="mx-auto max-w-2xl text-center py-12">
+      <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/50 p-12">
+        <div className="flex flex-col items-center gap-4">
+          <div className="grid h-16 w-16 place-items-center rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+            <svg viewBox="0 0 24 24" className="h-8 w-8 text-slate-400" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path d="M9 12a3 3 0 106 0 3 3 0 00-6 0z" />
+            </svg>
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-slate-900">การตั้งค่าระบบ</h2>
+            <p className="mt-2 text-slate-500 max-w-sm">
+              ปัจจุบันระบบใช้การตั้งค่ารายบุคคลในขณะลบเป็นหลัก จึงไม่ต้องการการตั้งค่าส่วนกลางในส่วนนี้แล้ว
+            </p>
           </div>
         </div>
       </div>
-
     </div>
   );
 }

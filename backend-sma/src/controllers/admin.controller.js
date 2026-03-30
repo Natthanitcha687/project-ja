@@ -267,8 +267,8 @@ export async function listStores(req, res) {
     else if (r.customerEmail) set.add(`e:${String(r.customerEmail).toLowerCase()}`);
   }
 
-  const settings = await prisma.systemSetting.findMany({ where: { key: "user_retention_days" } });
-  const retentionDays = Number(settings[0]?.value || 30);
+  const retentionDays = 30;
+
 
   const enriched = stores.map((s) => {
     let scheduledDeletionDate = null;
@@ -972,8 +972,7 @@ export async function listUsers(req, res) {
     orderBy: { id: "desc" },
   });
 
-  const settings = await prisma.systemSetting.findMany({ where: { key: "user_retention_days" } });
-  const retentionDays = Number(settings[0]?.value || 30);
+  const retentionDays = 30;
 
   const enriched = users.map(u => {
     let scheduledDeletionDate = null;

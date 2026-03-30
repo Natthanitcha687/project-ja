@@ -880,9 +880,9 @@ export default function Stores() {
                   <option value="months">เดือน (30 วัน)</option>
                 </select>
               </div>
-              <p className="text-xs text-rose-600 italic">
-                * หากไม่ตั้งค่า ระบบจะใช้ค่าส่วนกลาง 150 วัน (ตามที่ตั้งไว้ในระบบ)
-              </p>
+                <p className="text-xs text-rose-600 font-medium italic">
+                  * บัญชีร้านนี้จะถูกเก็บข้อมูลไว้ตามระยะเวลาที่กำหนดด้านบนก่อนถูกทำลายทิ้งถาวร
+                </p>
             </div>
 
             <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">

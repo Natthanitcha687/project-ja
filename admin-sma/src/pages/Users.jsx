@@ -946,8 +946,8 @@ export default function Users() {
                     <option value="months">เดือน (30 วัน)</option>
                   </select>
                 </div>
-                <p className="text-xs text-rose-600 italic">
-                  * หากไม่ตั้งค่า ระบบจะใช้ค่าส่วนกลาง 150 วัน (ตามที่ตั้งไว้ในระบบ)
+                <p className="text-xs text-rose-600 font-medium italic">
+                  * บัญชีนี้จะถูกเก็บข้อมูลไว้ตามระยะเวลาที่กำหนดด้านบนก่อนถูกทำลายทิ้งถาวร
                 </p>
               </div>
 

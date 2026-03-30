@@ -3,18 +3,7 @@ import { prisma } from '../db/prisma.js'
 // Hard-delete users and related data that were soft-deleted longer than grace period
 export default async function runHardDeleteSweep() {
   try {
-    // 1. ดึงค่าตั้งค่าจาก DB (ถ้าไม่มีให้ใช้ 30 วันเป็น default)
-    let graceDays = 30;
-    try {
-      const dbSetting = await prisma.systemSetting.findUnique({
-        where: { key: 'user_retention_days' }
-      });
-      if (dbSetting && dbSetting.value) {
-        graceDays = Number(dbSetting.value);
-      }
-    } catch (err) {
-      console.warn('Unable to fetch user_retention_days, using default 30', err.message);
-    }
+    const graceDays = 30;
 
     // find all soft-deleted users
     const users = await prisma.user.findMany({ where: { isDeleted: true, deletedAt: { not: null } } })
