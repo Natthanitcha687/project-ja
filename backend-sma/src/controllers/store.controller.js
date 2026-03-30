@@ -265,7 +265,8 @@ export async function getStoreDashboard(req, res) {
     if (!store || store.role !== "STORE") {
       return sendError(res, 404, "ไม่พบบัญชีร้านค้า");
     }
-    const notifyDays = store.storeProfile?.notifyDaysInAdvance ?? DEFAULT_NOTIFY_DAYS;
+    // บังคับให้เป็น 15 วัน เพื่อให้ตรงกับฝั่งลูกค้า
+    const notifyDays = 15;
 
     const headers = await prisma.warranty.findMany({
       where: { storeId },
@@ -436,7 +437,8 @@ export async function createWarranty(req, res) {
     const storeProfile = await prisma.storeProfile.findUnique({
       where: { userId: storeId },
     });
-    const notifyDays = storeProfile?.notifyDaysInAdvance ?? DEFAULT_NOTIFY_DAYS;
+    // บังคับ 15 วัน เพื่อให้ตรงกับลูกค้า
+    const notifyDays = 15;
 
     const createdHeader = await prisma.$transaction(async (tx) => {
       let code = await allocateWarrantyCode(tx, storeId, { prefix: "WR" });
