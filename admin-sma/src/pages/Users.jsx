@@ -129,6 +129,10 @@ export default function Users() {
     { value: "other", label: "อื่นๆ (โปรดระบุ)" },
   ];
 
+  // ✅ New: Retention for specific deletion
+  const [dRetentionValue, setDRetentionValue] = useState(30);
+  const [dRetentionUnit, setDRetentionUnit] = useState("days");
+
   // ✅ บังคับเหตุผลก่อนกดได้ (เฉพาะส่วนที่เกี่ยวกับเหตุผล)
   const sReasonTrim = sReason === "other" ? sReasonOther.trim() : (sReason || "").trim();
   const dReasonTrim = dReason === "other" ? dReasonOther.trim() : (dReason || "").trim();
@@ -176,6 +180,8 @@ export default function Users() {
     setDTarget(u);
     setOpenDelete(true);
     setDReason("");
+    setDRetentionValue(30);
+    setDRetentionUnit("days");
   }
 
   function openRestoreModal(u) {
@@ -242,8 +248,12 @@ export default function Users() {
 
     setLoading(true);
     try {
+      const retentionDays = dRetentionUnit === "months" ? dRetentionValue * 30 : dRetentionValue;
       await api.delete(`/admin/customers/${dTarget.id}`, {
-        data: { reason: dReason === "other" ? dReasonOther.trim() : dReason },
+        data: { 
+          reason: dReason === "other" ? dReasonOther.trim() : dReason,
+          retentionDays
+        },
       });
       setOpenDelete(false);
       setDTarget(null);
@@ -911,6 +921,36 @@ export default function Users() {
                 )}
               </div>
 
+              {/* ✅ New: Custom Retention Period Selection */}
+              <div className="rounded-xl border border-rose-100 bg-rose-50/50 p-4 space-y-3">
+                <div className="text-sm font-bold text-rose-900 flex items-center gap-2">
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  ระยะเวลาเก็บรักษาข้อมูลก่อนลบถาวร (เฉพาะบัญชีนี้)
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    value={dRetentionValue}
+                    onChange={(e) => setDRetentionValue(Number(e.target.value))}
+                    className="w-20 rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-center font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-200"
+                  />
+                  <select
+                    value={dRetentionUnit}
+                    onChange={(e) => setDRetentionUnit(e.target.value)}
+                    className="rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-rose-200"
+                  >
+                    <option value="days">วัน</option>
+                    <option value="months">เดือน (30 วัน)</option>
+                  </select>
+                </div>
+                <p className="text-xs text-rose-600 italic">
+                  * หากไม่ตั้งค่า ระบบจะใช้ค่าส่วนกลาง 150 วัน (ตามที่ตั้งไว้ในระบบ)
+                </p>
+              </div>
+
               <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700 text-sm">
                 <div className="font-semibold mb-1">คำเตือน</div>
                 <ul className="list-disc pl-5 space-y-1">
@@ -918,7 +958,7 @@ export default function Users() {
                   <li>
                     ระบบจะส่งอีเมลแจ้งเตือนไปยัง <b>{dTarget.email}</b>
                   </li>
-                  <li>ไม่สามารถกู้คืนข้อมูลได้หลังลบ</li>
+                  <li>ข้อมูลจะถูกลบถาวรโดยอัตโนมัติเมื่อครบกำหนดตามที่ระบุด้านบน</li>
                 </ul>
               </div>
             </div>

@@ -728,7 +728,7 @@ export async function createStoreWarranty(req, res) {
 // ✅ Delete store
 export async function deleteStoreAccount(req, res) {
   const storeId = Number(req.params.id);
-  const { reason } = req.body || {};
+  const { reason, retentionDays } = req.body || {};
   if (!storeId) return res.status(400).json({ message: "store id ไม่ถูกต้อง" });
 
   const store = await prisma.user.findUnique({ where: { id: storeId } });
@@ -785,7 +785,14 @@ export async function deleteStoreAccount(req, res) {
 
   // Soft-delete: mark only the user as deleted (keep warranty records intact and visible to customers)
   try {
-    await prisma.user.update({ where: { id: storeId }, data: { isDeleted: true, deletedAt: new Date() } });
+    await prisma.user.update({
+      where: { id: storeId },
+      data: {
+        isDeleted: true,
+        deletedAt: new Date(),
+        retentionDays: Number.isFinite(Number(retentionDays)) ? Number(retentionDays) : null,
+      },
+    });
   } catch (e) {
     console.warn('soft-delete store failed:', e?.message || e);
   }
@@ -843,7 +850,7 @@ export async function restoreUserAccount(req, res) {
 // ✅ Delete customer (ส่งเมล + AuditLog แบบเดียวฝั่งร้าน)
 export async function deleteCustomerAccount(req, res) {
   const customerId = Number(req.params.id);
-  const { reason } = req.body || {};
+  const { reason, retentionDays } = req.body || {};
   if (!customerId) return res.status(400).json({ message: "customer id ไม่ถูกต้อง" });
 
   const user = await prisma.user.findUnique({ where: { id: customerId } });
@@ -933,7 +940,14 @@ export async function deleteCustomerAccount(req, res) {
 
   // Soft-delete: mark only the user as deleted (keep warranty records intact and visible)
   try {
-    await prisma.user.update({ where: { id: customerId }, data: { isDeleted: true, deletedAt: new Date() } });
+    await prisma.user.update({
+      where: { id: customerId },
+      data: {
+        isDeleted: true,
+        deletedAt: new Date(),
+        retentionDays: Number.isFinite(Number(retentionDays)) ? Number(retentionDays) : null,
+      },
+    });
   } catch (e) {
     console.warn('soft-delete customer failed:', e?.message || e);
   }

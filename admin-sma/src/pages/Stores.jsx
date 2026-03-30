@@ -153,6 +153,10 @@ export default function Stores() {
   ];
   const [dSubmitting, setDSubmitting] = useState(false);
 
+  // ✅ New: Retention for specific deletion
+  const [dRetentionValue, setDRetentionValue] = useState(30);
+  const [dRetentionUnit, setDRetentionUnit] = useState("days");
+
   // Restore modal
   const [openRestore, setOpenRestore] = useState(false);
   const [restoreTarget, setRestoreTarget] = useState(null);
@@ -241,6 +245,8 @@ export default function Stores() {
   function openDeleteModal(store) {
     setDeleteTarget(store);
     setDReason("");
+    setDRetentionValue(30);
+    setDRetentionUnit("days");
     setOpenDelete(true);
   }
 
@@ -292,8 +298,12 @@ export default function Stores() {
 
     setDSubmitting(true);
     try {
+      const retentionDays = dRetentionUnit === "months" ? dRetentionValue * 30 : dRetentionValue;
       await api.delete(`/admin/stores/${deleteTarget.id}`, {
-        data: { reason: dReason === "other" ? dReasonOther.trim() : dReason },
+        data: { 
+          reason: dReason === "other" ? dReasonOther.trim() : dReason,
+          retentionDays
+        },
       });
       setOpenDelete(false);
       await load();
@@ -845,12 +855,42 @@ export default function Stores() {
             </div>
             {!dReasonTrim && <div className="mt-2 text-xs font-semibold text-rose-600">กรุณาระบุเหตุผลในการลบ</div>}
 
+            {/* ✅ New: Custom Retention Period Selection */}
+            <div className="mt-4 rounded-xl border border-rose-100 bg-rose-50/50 p-4 space-y-3">
+              <div className="text-sm font-bold text-rose-900 flex items-center gap-2">
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                ระยะเวลาเก็บรักษาข้อมูลก่อนลบถาวร (เฉพาะบัญชีนี้)
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="1"
+                  value={dRetentionValue}
+                  onChange={(e) => setDRetentionValue(Number(e.target.value))}
+                  className="w-20 rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-center font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-rose-200"
+                />
+                <select
+                  value={dRetentionUnit}
+                  onChange={(e) => setDRetentionUnit(e.target.value)}
+                  className="rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-rose-200"
+                >
+                  <option value="days">วัน</option>
+                  <option value="months">เดือน (30 วัน)</option>
+                </select>
+              </div>
+              <p className="text-xs text-rose-600 italic">
+                * หากไม่ตั้งค่า ระบบจะใช้ค่าส่วนกลาง 150 วัน (ตามที่ตั้งไว้ในระบบ)
+              </p>
+            </div>
+
             <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-              คำเตือน
-              <ul className="mt-2 list-disc pl-5">
+              <div className="font-semibold mb-1">คำเตือน</div>
+              <ul className="list-disc pl-5 space-y-1">
                 <li>ข้อมูลร้านค้าจะถูกลบออกจากระบบ</li>
                 <li>ระบบจะส่งอีเมลแจ้งเตือนไปยัง {deleteTarget?.email || "-"}</li>
-                <li>ไม่สามารถกู้คืนข้อมูลได้หลังลบ</li>
+                <li>ข้อมูลจะถูกลบถาวรโดยอัตโนมัติเมื่อครบกำหนดตามที่ระบุด้านบน</li>
               </ul>
             </div>
 
