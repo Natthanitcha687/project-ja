@@ -1719,3 +1719,33 @@ export async function deleteOrphanComplaints(req, res) {
     return res.status(500).json({ message: "ลบรายการไม่สำเร็จ" });
   }
 }
+
+// ✅ NEW: ดึง/ปรับปรุงค่าตั้งค่าระบบ (เช่น ระยะเวลาเก็บข้อมูลก่อนลบถาวร)
+export async function getSystemSettings(req, res) {
+  try {
+    const settings = await prisma.systemSetting.findMany();
+    const config = {};
+    settings.forEach(s => { config[s.key] = s.value; });
+    if (!config.user_retention_days) config.user_retention_days = "30";
+    res.json({ settings: config });
+  } catch (e) {
+    res.status(500).json({ message: e.message || "Internal server error" });
+  }
+}
+
+export async function updateSystemSetting(req, res) {
+  const { key } = req.params;
+  const { value } = req.body;
+  if (!key) return res.status(400).json({ message: "key ไม่ถูกต้อง" });
+  try {
+    const updated = await prisma.systemSetting.upsert({
+      where: { key },
+      update: { value: String(value) },
+      create: { key, value: String(value) }
+    });
+    await logAudit(req, 'UPDATE_SETTING', 'SystemSetting', String(updated.id), { key, value }, null);
+    res.json({ message: "อัปเดตการตั้งค่าเรียบร้อย", setting: updated });
+  } catch (e) {
+    res.status(500).json({ message: e.message || "Internal server error" });
+  }
+}

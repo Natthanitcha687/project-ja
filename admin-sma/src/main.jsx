@@ -21,6 +21,7 @@ import Security from "./pages/Security.jsx";
 import Logs from "./pages/Logs.jsx";
 import Complaints from "./pages/Complaints.jsx";
 import Feedback from "./pages/Feedback.jsx";
+import Settings from "./pages/Settings.jsx";
 
 // ✅ Sentry init (ใช้ DSN จาก ENV: VITE_SENTRY_DSN)
 Sentry.init({
@@ -49,6 +50,7 @@ const router = createBrowserRouter([
       { path: "logs", element: <Logs /> },
       { path: "complaints", element: <Complaints /> },
       { path: "feedback", element: <Feedback /> },
+      { path: "settings", element: <Settings /> },
     ],
   },
 ]);

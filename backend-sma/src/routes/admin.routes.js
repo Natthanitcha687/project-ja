@@ -29,6 +29,10 @@ import {
   
   // Bulk delete orphan complaints
   deleteOrphanComplaints,
+
+  // ✅ NEW: ค่าตั้งค่าระบบ
+  getSystemSettings,
+  updateSystemSetting,
 } from "../controllers/admin.controller.js";
 
 const router = Router();
@@ -404,4 +408,9 @@ router.post(
 // ✅ NEW: ลบรายการร้องเรียนที่เกิดจากบัญชีที่ถูกลบไปแล้ว (ไม่มีผู้ส่ง)
 router.delete("/complaints/orphans", requireAuth, requireAdmin, deleteOrphanComplaints);
 
+// ✅ NEW: ค่าตั้งค่าระบบ
+router.get("/settings", requireAuth, requireAdmin, getSystemSettings);
+router.patch("/settings/:key", requireAuth, requireAdmin, updateSystemSetting);
+
 export default router;
+

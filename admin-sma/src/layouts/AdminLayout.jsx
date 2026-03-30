@@ -176,6 +176,7 @@ export default function AdminLayout() {
 
           <NavLink to="/security" className={clsTab}>ตรวจสอบความปลอดภัย</NavLink>
           <NavLink to="/logs" className={clsTab}>Activity Logs</NavLink>
+          <NavLink to="/settings" className={clsTab}>ตั้งค่าระบบ</NavLink>
         </div>
 
         {/* Page */}
