@@ -169,6 +169,7 @@ export default function Complaints() {
   const [selected, setSelected] = useState(null); // modal
   const [page, setPage] = useState(1);
   const [restoring, setRestoring] = useState(false);
+  const [deletingOrphans, setDeletingOrphans] = useState(false);
 
   // a11y: focus management
   const lastActiveElRef = useRef(null);
@@ -201,6 +202,21 @@ export default function Complaints() {
       setErr(e?.response?.data?.message || "โหลดรายการแจ้งปัญหาไม่สำเร็จ");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleDeleteOrphans() {
+    if (!window.confirm("คุณต้องการลบรายการแจ้งปัญหา 'ที่ไม่มีผู้ส่ง' ทิ้งทั้งหมดใช่หรือไม่?\n(การกระทำนี้จะลบทิ้งถาวรและไม่สามารถกู้คืนได้)")) return;
+    setDeletingOrphans(true);
+    setErr("");
+    try {
+      const { data } = await api.delete("/admin/complaints/orphans");
+      alert(data.message || `ลบสำเร็จจำนวน ${data.count} รายการ`);
+      await load();
+    } catch (e) {
+      setErr(e?.response?.data?.message || "ลบรายการไม่สำเร็จ");
+    } finally {
+      setDeletingOrphans(false);
     }
   }
 
@@ -318,7 +334,7 @@ export default function Complaints() {
       </p>
 
       {/* Controls: 3 sizes */}
-      <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[220px_1fr_110px] items-center">
+      <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[220px_1fr_auto_auto] items-center">
         <div>
           <label htmlFor={STATUS_SELECT_ID} className="sr-only">
             กรองตามสถานะ
@@ -360,9 +376,19 @@ export default function Complaints() {
           onClick={load}
           aria-describedby={HELP_ID}
           className="w-full rounded-xl bg-white border border-slate-200 text-slate-700 px-6 py-2.5 font-semibold shadow-sm hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-200"
-          disabled={loading}
+          disabled={loading || deletingOrphans}
         >
           รีเฟรช
+        </button>
+
+        <button
+          type="button"
+          onClick={handleDeleteOrphans}
+          className="w-full rounded-xl bg-rose-50 border border-rose-200 text-rose-700 px-4 py-2.5 text-sm font-semibold shadow-sm hover:bg-rose-100 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-rose-300"
+          disabled={loading || deletingOrphans}
+          title="ลบรายการแจ้งปัญหาที่ไม่มีผู้ส่ง"
+        >
+          {deletingOrphans ? "กำลังลบ..." : "🗑️ ลบที่ไม่มีผู้ส่ง"}
         </button>
       </div>
 

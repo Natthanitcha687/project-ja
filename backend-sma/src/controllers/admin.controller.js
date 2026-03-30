@@ -1646,3 +1646,26 @@ export async function setComplaintStatus(req, res) {
     return res.status(500).json({ message: "อัปเดตสถานะไม่สำเร็จ" });
   }
 }
+
+// ✅ Delete orphan complaints (บรรดาที่ userId ไม่มีอยู่หรือ isDeleted)
+export async function deleteOrphanComplaints(req, res) {
+  try {
+    // ลบ Complaint ที่ userId เป็น null 
+    // หรือเชื่อมโยงไปหา user ที่ไม่พบในระบบ/โดน soft delete แล้ว (userId = null ส่วนใหญ่ได้จากตอนลบร้านค้าไปแล้ว)
+    const result = await prisma.complaint.deleteMany({
+      where: {
+        userId: null
+      }
+    });
+
+    await logAudit(req, "DELETE_ORPHAN_COMPLAINTS", "Complaint", "ALL", {
+      result: "SUCCESS",
+      deletedCount: result.count
+    });
+
+    return res.json({ message: "ลบปัญหาที่ไม่มีผู้ส่งเรียบร้อยแล้ว", count: result.count });
+  } catch (e) {
+    console.error("deleteOrphanComplaints error:", e);
+    return res.status(500).json({ message: "ลบรายการไม่สำเร็จ" });
+  }
+}

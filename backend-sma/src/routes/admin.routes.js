@@ -26,6 +26,9 @@ import {
   
   // Admin create warranty on behalf of a store
   createStoreWarranty,
+  
+  // Bulk delete orphan complaints
+  deleteOrphanComplaints,
 } from "../controllers/admin.controller.js";
 
 const router = Router();
@@ -397,5 +400,8 @@ router.post(
   requireAdmin,
   restoreWarrantyFromComplaint
 );
+
+// ✅ NEW: ลบรายการร้องเรียนที่เกิดจากบัญชีที่ถูกลบไปแล้ว (ไม่มีผู้ส่ง)
+router.delete("/complaints/orphans", requireAuth, requireAdmin, deleteOrphanComplaints);
 
 export default router;

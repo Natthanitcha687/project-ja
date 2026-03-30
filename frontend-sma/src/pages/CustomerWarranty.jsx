@@ -83,7 +83,7 @@ function calcDaysLeft(expiryDate) {
   );
 }
 
-function deriveItemStatusCode(item, notifyDays = 14) {
+function deriveItemStatusCode(item, notifyDays = 15) {
   const dl = Number.isFinite(item?._daysLeft)
     ? item._daysLeft
     : calcDaysLeft(item?.expiryDate);
@@ -702,7 +702,7 @@ export default function CustomerWarranty() {
                       <div className="mt-4 grid gap-4">
                         {(w.items || []).map((it) => {
                           const code =
-                            it._status || deriveItemStatusCode(it, 14);
+                            it._status || deriveItemStatusCode(it, 15);
                           const img = firstImageSrc(it.images);
                           const daysLeft = Number.isFinite(it?._daysLeft)
                             ? it._daysLeft
