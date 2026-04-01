@@ -7,11 +7,13 @@ export default function BarChart({
     height = 300,
     title = '',
     subtitle = '',
+    headerAction = null,
     barColor = '#0071EB',
     lineColor = '#E53E3E',
     showLine = true,
     lineLabel = '',
     yAxisMax = null, // New prop for fixed Y-axis max
+    className = '',
 }) {
     const chartData = useMemo(() => {
         if (!data?.length) return { max: yAxisMax || 0, bars: [], linePoints: '' }
@@ -61,15 +63,18 @@ export default function BarChart({
     }, [chartData.max, yAxisMax])
 
     return (
-        <div className="rounded-xl bg-white border border-black/10 p-6 shadow-sm">
-            {title && (
-                <div className="mb-4">
-                    <h3 className="text-xl font-bold text-black">{title}</h3>
-                    {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
+        <div className={`rounded-xl bg-white border border-black/10 p-6 shadow-sm flex flex-col ${className}`}>
+            {(title || headerAction) && (
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
+                <div>
+                  {title && <h3 className="text-xl font-bold text-black leading-tight">{title}</h3>}
+                  {subtitle && <p className="text-sm text-slate-500 mt-1">{subtitle}</p>}
                 </div>
+                {headerAction && <div className="flex-shrink-0">{headerAction}</div>}
+              </div>
             )}
 
-            <div className="relative" style={{ height }}>
+            <div className="relative flex-1" style={{ minHeight: height }}>
                 {/* Y-axis labels */}
                 <div className="absolute left-0 top-0 bottom-8 w-8 flex flex-col justify-between text-xs text-slate-400">
                     {yAxisLabels.map((val, idx) => (

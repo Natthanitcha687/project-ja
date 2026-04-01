@@ -27,7 +27,7 @@ export default function StoreDashboard() {
   const [error, setError] = useState('')
   const [profile, setProfile] = useState(null)
   const [warranties, setWarranties] = useState([])
-  const [chartMode, setChartMode] = useState('created') // 'created' | 'expiring'
+  const [chartMode, setChartMode] = useState('expiring6m') // 'expiring6m' or 'expiring'
   // Profile modal states (copied from WarrantyDashboard to allow inline editing)
   const [isProfileModalOpen, setProfileModalOpen] = useState(false)
   const [profileTab, setProfileTab] = useState('info')
@@ -744,17 +744,30 @@ export default function StoreDashboard() {
             </h1>
             <p className="text-lg text-black/70">จัดการการรับประกันสินค้าและลูกค้าของคุณ</p>
           </div>
-          <button
-            type="button"
-            onClick={exportOverviewToExcel}
-            className="flex items-center gap-2 rounded-xl px-6 py-3 text-base font-bold text-white shadow-md hover:opacity-90 transition"
-            style={{ background: 'rgb(40, 167, 69)' }}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            ส่งออกข้อมูล Excel
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => navigate('/dashboard/warranty', { state: { openCreateModal: true } })}
+              className="flex items-center gap-2 rounded-xl px-6 py-3 text-base font-bold text-white shadow-md hover:opacity-90 transition"
+              style={{ background: 'rgb(0, 113, 235)' }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              สร้างใบรับประกัน
+            </button>
+            <button
+              type="button"
+              onClick={exportOverviewToExcel}
+              className="flex items-center gap-2 rounded-xl px-6 py-3 text-base font-bold text-white shadow-md hover:opacity-90 transition"
+              style={{ background: 'rgb(40, 167, 69)' }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              ส่งออกข้อมูล Excel
+            </button>
+          </div>
         </div>
         {/* If no warranties show Empty State card */}
         {!loading && (!warranties || warranties.length === 0) ? (
@@ -817,7 +830,6 @@ export default function StoreDashboard() {
             </div>
           </div>
 
-          {/* Card: Status Donut (Compact) */}
           <div
             id="step-overview-chart"
             className="flex items-center gap-4 rounded-xl bg-white border border-black/10 p-4 shadow-sm relative overflow-hidden"
@@ -828,61 +840,56 @@ export default function StoreDashboard() {
             <div className="flex-1 min-w-0 relative z-10">
               <div className="text-base font-medium text-black/70 mb-2">สถานะการรับประกัน</div>
               <div className="space-y-1.5 text-sm">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm" />
-                    <span className="text-black/80">ปกติ</span>
-                  </div>
-                  <span className="font-bold text-black">{totals.active}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-sm" />
-                    <span className="text-black/80">ใกล้หมด</span>
-                  </div>
-                  <span className="font-bold text-black">{totals.nearing}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-sm" />
-                    <span className="text-black/80">หมดอายุ</span>
-                  </div>
-                  <span className="font-bold text-black">{totals.expired}</span>
-                </div>
+                {(() => {
+                  const t = totals.active + totals.nearing + totals.expired || 1;
+                  const pct = (val) => Math.round((val / t) * 100);
+                  return (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm" />
+                          <span className="text-black/80">ปกติ ({pct(totals.active)}%)</span>
+                        </div>
+                        <span className="font-bold text-black">{totals.active}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-sm" />
+                          <span className="text-black/80">ใกล้หมด ({pct(totals.nearing)}%)</span>
+                        </div>
+                        <span className="font-bold text-black">{totals.nearing}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-sm" />
+                          <span className="text-black/80">หมดอายุ ({pct(totals.expired)}%)</span>
+                        </div>
+                        <span className="font-bold text-black">{totals.expired}</span>
+                      </div>
+                    </>
+                  )
+                })()}
               </div>
             </div>
           </div>
         </div>
 
-        {/* === Chart 1: Monthly Warranty Chart (Original 6 Months Rolling) === */}
-        <div className="mb-6">
-          <div className="flex flex-wrap items-center gap-3 mb-2">
-            <select
-              value={chartMode}
-              onChange={e => setChartMode(e.target.value)}
-              className="rounded-xl border border-sky-200 bg-white px-3 py-1.5 text-sm text-slate-700 focus:border-sky-400 focus:outline-none shadow-sm"
-            >
-              <option value="created">ใบรับประกันที่สร้าง</option>
-              <option value="expiring">ใบรับประกันที่ใกล้หมดอายุ</option>
-            </select>
-          </div>
+        {/* === Side-by-Side Grid for Charts & Expirations === */}
+        <div className="grid grid-cols-1 lg:grid-cols-[55%_45%] gap-6 mb-6">
+          
+          {/* === Chart 1: Combined Monthly/Yearly Chart === */}
+          <div className="flex flex-col h-full"> {/* Wrapper for Flex-grow to match height */}
           {(() => {
             const chartDataArray = (() => {
               const now = new Date()
-              return [...Array(6)].map((_, i) => {
-                // สำหรับใบรับประกันที่สร้าง ใช้ย้อนหลัง 6 เดือน
-                // สำหรับใกล้หมดอายุ ใช้เดือนปัจจุบันและล่วงหน้า 5 เดือน
-                const monthOffset = chartMode === 'created' ? -(5 - i) : i
-                const date = new Date(now.getFullYear(), now.getMonth() + monthOffset)
-                const monthLabel = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'][date.getMonth()]
-                let count = 0
-                if (chartMode === 'created') {
-                  count = (filteredWarranties || []).filter((w) => {
-                    const wDate = new Date(w.createdAt || w.created_at)
-                    return wDate.getMonth() === date.getMonth() && wDate.getFullYear() === date.getFullYear()
-                  }).length
-                } else {
-                  // หมดอายุรายเดือน: เปลี่ยนมานับทุกรายการที่จะหมดอายุในเดือนนั้นตามปฏิทิน
+              
+              if (chartMode === 'expiring6m') {
+                // Next 6 months (Monthly Expiration)
+                return [...Array(6)].map((_, i) => {
+                  const date = new Date(now.getFullYear(), now.getMonth() + i)
+                  const monthLabel = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'][date.getMonth()]
+                  const yearLabel = (date.getFullYear() + 543).toString().slice(-2)
+                  let count = 0
                   for (const w of (filteredWarranties || [])) {
                     for (const item of (w.items || [])) {
                       if (!item.expiryDate) continue
@@ -892,9 +899,26 @@ export default function StoreDashboard() {
                       }
                     }
                   }
-                }
-                return { label: monthLabel, value: count }
-              })
+                  return { label: `${monthLabel} ${yearLabel}`, value: count }
+                })
+              } else {
+                // Next 5 years (Yearly Expiration)
+                const currentYear = now.getFullYear()
+                return [...Array(5)].map((_, i) => {
+                  const year = currentYear + i
+                  let count = 0
+                  for (const w of (filteredWarranties || [])) {
+                    for (const item of (w.items || [])) {
+                      if (!item.expiryDate) continue
+                      if (new Date(item.expiryDate).getFullYear() === year) {
+                        count++
+                      }
+                    }
+                  }
+                  // convert to Buddhist Era (พ.ศ.)
+                  return { label: `ปี ${year + 543}`, value: count }
+                })
+              }
             })()
             const computedMax = Math.max(50, ...chartDataArray.map(d => d.value))
 
@@ -902,276 +926,294 @@ export default function StoreDashboard() {
               <BarChart
                 data={chartDataArray}
                 height={300}
-                title={chartMode === 'created' ? 'ใบรับประกันรายเดือน (ย้อนหลัง 6 เดือน)' : 'สินค้าที่หมดอายุรายเดือน (ล่วงหน้า 6 เดือน)'}
-                subtitle={chartMode === 'created' ? 'แกนซ้าย: จำนวนใบรับประกัน' : 'แกนซ้าย: จำนวนสินค้าที่หมดอายุ'}
+                className="h-full"
+                title={
+                  chartMode === 'expiring6m' ? 'สรุปสินค้าเตรียมหมดอายุ (6 เดือนข้างหน้า)' : 
+                  'สรุปสินค้าเตรียมหมดอายุ (5 ปีล่วงหน้า)'
+                }
+                subtitle={
+                  chartMode === 'expiring6m' ? 'ข้อมูลรายเดือน' : 'ข้อมูลรายปี'
+                }
+                headerAction={
+                  <div className="grid grid-cols-2 gap-1 bg-slate-100/60 p-1 rounded-2xl w-full sm:w-max shadow-inner border border-slate-200/40">
+                    <button
+                      type="button"
+                      onClick={() => setChartMode('expiring6m')}
+                      className={`px-3 py-2 rounded-xl text-[10px] sm:text-xs font-bold transition-all duration-200 whitespace-nowrap active:scale-95 ${
+                        chartMode === 'expiring6m' 
+                          ? 'bg-white text-rose-600 shadow-sm border border-rose-100/50 text-[11px]' 
+                          : 'text-slate-500 hover:text-slate-700 hover:bg-white/40'
+                      }`}
+                    >
+                      6 เดือน
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setChartMode('expiring')}
+                      className={`px-3 py-2 rounded-xl text-[10px] sm:text-xs font-bold transition-all duration-200 whitespace-nowrap active:scale-95 ${
+                        chartMode === 'expiring' 
+                          ? 'bg-white text-amber-600 shadow-sm border border-amber-100/50 text-[11px]' 
+                          : 'text-slate-500 hover:text-slate-700 hover:bg-white/40'
+                      }`}
+                    >
+                      รายปี
+                    </button>
+                  </div>
+                }
+                barColor={
+                  chartMode === 'expiring6m' ? '#F43F5E' : '#F59E0B'
+                }
                 showLine={false}
                 yAxisMax={computedMax}
               />
             )
           })()}
-        </div>
+          </div>
 
-        {/* === Chart 2: Yearly Expiring Chart (By Year) === */}
-        {(() => {
-          const now = new Date()
-          const currentYear = now.getFullYear()
+          {/* Expiring Soon Widget (Moved next to Chart 1) */}
+          {(() => {
+            // Get ALL warranty items
+            const today = new Date()
 
-          const chartDataArray = (() => {
-            // ดึงปีปัจจุบัน + ล่วงหน้า 4 ปี (รวมเป็น 5 ปี)
-            return [...Array(5)].map((_, i) => {
-              const targetYear = currentYear + i
-              const thaiYear = targetYear + 543
-              const yearLabel = `ปี ${thaiYear}`
-              let count = 0
+            const allItems = []
+            for (const w of (filteredWarranties || [])) {
+              for (const item of (w.items || [])) {
+                if (!item.expiryDate) continue;
+                const exp = new Date(item.expiryDate)
+                const daysLeft = Math.ceil((exp - today) / (1000 * 60 * 60 * 24))
+                
+                // โชว์เฉพาะหมดอายุและใกล้หมดอายุ (อิงเกณฑ์ 15 วัน)
+                if (daysLeft > 15) continue;
 
-              // นับใบที่จะหมดอายุใน targetYear
-              for (const w of (filteredWarranties || [])) {
-                for (const item of (w.items || [])) {
-                  if (!item.expiryDate) continue
-                  const exp = new Date(item.expiryDate)
-                  if (exp.getFullYear() === targetYear) {
-                    count++
-                  }
-                }
+                allItems.push({
+                  ...item,
+                  warrantyCode: w.code,
+                  customerName: w.customerName || w.customer_name || '-',
+                  customerEmail: w.customerEmail || w.customer_email || '-',
+                  customerPhone: w.customerPhone || w.customer_phone || '-',
+                  daysLeft,
+                  isExpiringSoon: daysLeft > 0 && daysLeft <= 15,
+                  isExpired: daysLeft <= 0,
+                })
               }
-              return { label: yearLabel, value: count }
-            })
-          })()
-
-          const totalCount = chartDataArray.reduce((sum, curr) => sum + curr.value, 0)
-          const computedMax = Math.max(50, ...chartDataArray.map(d => d.value))
-
-          return (
-            <div className="mb-6">
-              <div className="flex flex-wrap items-center justify-end gap-3 mb-2">
-                <div className="flex items-center gap-2 bg-white px-4 py-1.5 rounded-xl border border-black/10 shadow-sm border-l-4 border-l-rose-500">
-                  <span className="text-sm font-medium text-slate-500">รวม 5 ปีล่วงหน้า:</span>
-                  <span className="text-lg font-bold text-black" style={{ fontFamily: 'Inter, sans-serif' }}>
-                    {totalCount} <span className="text-sm font-normal text-slate-500">รายการ</span>
-                  </span>
-                </div>
-              </div>
-              <BarChart
-                data={chartDataArray}
-                height={300}
-                title="สรุปสินค้าที่จะหมดอายุ (แยกตามปี)"
-                subtitle="แกนซ้าย: จำนวนสินค้าที่จะหมดอายุในปีนั้นๆ"
-                barColor="#F43F5E"
-                showLine={false}
-                yAxisMax={computedMax}
-              />
-            </div>
-          )
-        })()}
-
-        {/* Expiring Soon Widget */}
-        {(() => {
-          // Get ALL warranty items
-          const today = new Date()
-
-          const allItems = []
-          for (const w of (filteredWarranties || [])) {
-            for (const item of (w.items || [])) {
-              const exp = item.expiryDate ? new Date(item.expiryDate) : null
-              const daysLeft = exp ? Math.ceil((exp - today) / (1000 * 60 * 60 * 24)) : null
-              allItems.push({
-                ...item,
-                warrantyCode: w.code,
-                customerName: w.customerName || w.customer_name || '-',
-                customerEmail: w.customerEmail || w.customer_email || '-',
-                daysLeft,
-                isExpiringSoon: daysLeft !== null && daysLeft > 0 && daysLeft <= 15,
-                isExpired: daysLeft !== null && daysLeft <= 0,
-              })
             }
-          }
 
-          // Sort: expiring soon first, then by days left
-          allItems.sort((a, b) => {
-            if (a.isExpiringSoon && !b.isExpiringSoon) return -1
-            if (!a.isExpiringSoon && b.isExpiringSoon) return 1
-            if (a.daysLeft === null) return 1
-            if (b.daysLeft === null) return -1
-            return a.daysLeft - b.daysLeft
-          })
+            // Sort: expiring soon first, then by days left
+            allItems.sort((a, b) => {
+              if (a.isExpiringSoon && !b.isExpiringSoon) return -1
+              if (!a.isExpiringSoon && b.isExpiringSoon) return 1
+              if (a.daysLeft === null) return 1
+              if (b.daysLeft === null) return -1
+              return a.daysLeft - b.daysLeft
+            })
 
-          const totalPages = Math.ceil(allItems.length / ITEMS_PER_PAGE)
-          const currentPage = Math.min(extendListPage, totalPages || 1)
-          const startIdx = (currentPage - 1) * ITEMS_PER_PAGE
-          const pageItems = allItems.slice(startIdx, startIdx + ITEMS_PER_PAGE)
+            const totalPages = Math.ceil(allItems.length / ITEMS_PER_PAGE)
+            const currentPage = Math.min(extendListPage, totalPages || 1)
+            const startIdx = (currentPage - 1) * ITEMS_PER_PAGE
+            const pageItems = allItems.slice(startIdx, startIdx + ITEMS_PER_PAGE)
 
-          if (allItems.length === 0) {
-            // ไม่มีรายการที่ใกล้หมดอายุ/หมดอายุ แสดงหน้าเปล่าเฉยๆ (ไม่ต้องซ้ำ EmptyState ด้านบน)
-            return null
-          }
-
-          return (
-            <div className="mt-6 rounded-xl bg-white border border-blue-200 p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <img src="/home-assets/calender.png" alt="calendar" className="h-8 w-8 object-cover mr-1" />
-                  <div>
-                    <h3 className="text-xl font-bold text-blue-700">ต่ออายุใบรับประกัน</h3>
-                    <p className="text-sm text-blue-600">รายการทั้งหมด {allItems.length} รายการ</p>
+            if (allItems.length === 0) {
+              return (
+                <div className="rounded-xl bg-white border border-blue-100 p-8 shadow-sm flex flex-col items-center justify-center h-full text-center min-h-[300px]">
+                  <div className="h-16 w-16 mb-4 rounded-full bg-blue-50 flex items-center justify-center">
+                    <img src="/home-assets/calender.png" alt="calendar" className="h-8 w-8 opacity-40 text-blue-300" />
+                  </div>
+                  <h3 className="text-lg font-bold text-blue-700">ต่ออายุใบรับประกัน</h3>
+                  <p className="text-sm text-gray-500 mt-2 max-w-[240px]">
+                    ขณะนี้ยังไม่มีใบรับประกันที่ใกล้หมดอายุ (ภายใน 15 วัน)
+                  </p>
+                  <div className="mt-6 p-4 bg-sky-50/50 rounded-2xl border border-sky-100 text-[11px] text-sky-700 leading-relaxed max-w-[280px]">
+                    <p>💡 <b>เคล็ดลับ:</b> เมื่อใบรับประกันของลูกค้าใกล้ถึงวันสิ้นสุด ระบบจะแสดงรายการที่นี่โดยอัตโนมัติ เพื่อให้ท่านสามารถติดต่อแนะนำการต่ออายุได้ทันที</p>
                   </div>
                 </div>
-              </div>
+              )
+            }
 
-              <div className="overflow-x-auto">
-                {/* Desktop Table */}
-                <table className="w-full text-sm hidden md:table">
-                  <thead>
-                    <tr className="text-left text-blue-700 border-b border-blue-100">
-                      <th className="pb-2 font-medium">ลูกค้า</th>
-                      <th className="pb-2 font-medium">สินค้า</th>
-                      <th className="pb-2 font-medium">หมดอายุ</th>
-                      <th className="pb-2 font-medium text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+            return (
+              <div className="rounded-xl bg-white border border-blue-200 p-6 shadow-sm flex flex-col h-full overflow-hidden">
+                <div className="flex items-center justify-between mb-4 flex-shrink-0">
+                  <div className="flex items-center gap-3">
+                    <img src="/home-assets/calender.png" alt="calendar" className="h-8 w-8 object-cover mr-1" />
+                    <div>
+                      <h3 className="text-xl font-bold text-blue-700">ต่ออายุใบรับประกัน</h3>
+                      <p className="text-sm text-blue-600">รายการทั้งหมด {allItems.length} รายการ</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto flex-1">
+                  {/* Desktop Table */}
+                  <table className="w-full text-sm hidden md:table">
+                    <thead>
+                      <tr className="text-left text-blue-700 border-b border-blue-100">
+                        <th className="pb-2 font-medium">สินค้า/ลูกค้า</th>
+                        <th className="pb-2 font-medium">หมดอายุ</th>
+                        <th className="pb-2 font-medium text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pageItems.map((item, idx) => (
+                        <tr
+                          key={item.id || idx}
+                          className={`border-b hover:bg-blue-50/50 ${item.isExpired ? 'bg-rose-50' : item.isExpiringSoon ? 'bg-amber-50' : 'border-blue-50'
+                            }`}
+                        >
+                          <td className="py-2 pl-1">
+                            <div className="font-medium text-gray-900 leading-tight">{item.productName || '-'}</div>
+                            <div className="text-[10px] text-gray-400 mt-0.5 truncate max-w-[150px]">{item.customerEmail}</div>
+                            {item.customerPhone && item.customerPhone !== '-' ? (
+                              <a 
+                                href={`tel:${item.customerPhone}`}
+                                className="text-[11px] text-blue-600 font-medium flex items-center gap-1 mt-0.5 hover:underline active:text-blue-800 transition-colors"
+                                title="กดเพื่อโทรออก"
+                              >
+                                <span className="text-[10px] opacity-70">📞</span> {item.customerPhone}
+                              </a>
+                            ) : (
+                              <div className="text-[11px] text-gray-400 flex items-center gap-1 mt-0.5">
+                                <span className="text-[10px] opacity-70">📞</span> -
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-2">
+                            <div className={`font-medium text-xs ${item.isExpired ? 'text-rose-600' : item.isExpiringSoon ? 'text-amber-600' : 'text-gray-700'
+                              }`}>
+                              {item.expiryDate
+                                ? new Date(item.expiryDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })
+                                : '-'
+                              }
+                            </div>
+                            {item.daysLeft !== null && (
+                              <div className={`text-[10px] ${item.isExpired ? 'text-rose-500' : item.isExpiringSoon ? 'text-amber-500' : 'text-gray-500'
+                                }`}>
+                                {item.isExpired ? `หมดแล้ว ${Math.abs(item.daysLeft)} วัน` : `อีก ${item.daysLeft} วัน`}
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-2 text-right">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedItemForExtend(item)
+                                setExtendModalOpen(true)
+                              }}
+                              className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-500 transition"
+                            >
+                              <img src="/home-assets/calender.png" alt="calendar" className="h-3 w-3 object-cover mr-1" /> ต่ออายุ
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  {/* Mobile Card View */}
+                  <div className="md:hidden space-y-3">
                     {pageItems.map((item, idx) => (
-                      <tr
+                      <div
                         key={item.id || idx}
-                        className={`border-b hover:bg-blue-50/50 ${item.isExpired ? 'bg-rose-50' : item.isExpiringSoon ? 'bg-amber-50' : 'border-blue-50'
+                        className={`p-3 rounded-xl border shadow-sm ${item.isExpired
+                          ? 'bg-rose-50 border-rose-100'
+                          : item.isExpiringSoon
+                            ? 'bg-amber-50 border-amber-100'
+                            : 'bg-white border-blue-100'
                           }`}
                       >
-                        <td className="py-3">
-                          <div className="font-medium text-gray-900">{item.customerName}</div>
-                          <div className="text-xs text-gray-500">{item.customerEmail}</div>
-                        </td>
-                        <td className="py-3">
-                          <div className="font-medium text-gray-900">{item.productName || '-'}</div>
-                          <div className="text-xs text-gray-500">S/N: {(!item.serial || item.serial.trim() === '' || item.serial === 'SN001') ? '-' : item.serial}</div>
-                        </td>
-                        <td className="py-3">
-                          <div className={`font-medium ${item.isExpired ? 'text-rose-600' : item.isExpiringSoon ? 'text-amber-600' : 'text-gray-700'
-                            }`}>
-                            {item.expiryDate
-                              ? new Date(item.expiryDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })
-                              : '-'
-                            }
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <div className="font-medium text-gray-900 text-sm">{item.productName || '-'}</div>
+                            <div className="text-[10px] text-gray-500">{item.customerEmail}</div>
+                            {item.customerPhone && item.customerPhone !== '-' ? (
+                              <a 
+                                href={`tel:${item.customerPhone}`}
+                                className="text-[11px] text-blue-600 font-medium mt-0.5 block hover:underline active:text-blue-800"
+                              >
+                                📞 {item.customerPhone}
+                              </a>
+                            ) : (
+                              <div className="text-[11px] text-gray-400 mt-0.5">
+                                📞 -
+                              </div>
+                            )}
                           </div>
-                          {item.daysLeft !== null && (
-                            <div className={`text-xs ${item.isExpired ? 'text-rose-500' : item.isExpiringSoon ? 'text-amber-500' : 'text-gray-500'
-                              }`}>
-                              {item.isExpired ? `หมดแล้ว ${Math.abs(item.daysLeft)} วัน` : `อีก ${item.daysLeft} วัน`}
+                          <div className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${item.isExpired
+                            ? 'bg-rose-100 text-rose-700'
+                            : item.isExpiringSoon
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-blue-100 text-blue-700'
+                            }`}>
+                            {item.isExpired
+                              ? 'หมดอายุ'
+                              : item.isExpiringSoon
+                                ? 'ใกล้หมด'
+                                : 'ปกติ'}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 border-t border-black/5 mt-2">
+                          <div>
+                            <div className="text-[10px] text-gray-500">วันหมดอายุ</div>
+                            <div className={`text-xs font-medium ${item.isExpired ? 'text-rose-600' : 'text-gray-700'}`}>
+                              {item.expiryDate
+                                ? new Date(item.expiryDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })
+                                : '-'
+                              }
                             </div>
-                          )}
-                        </td>
-                        <td className="py-3 text-right">
+                          </div>
                           <button
                             type="button"
                             onClick={() => {
                               setSelectedItemForExtend(item)
                               setExtendModalOpen(true)
                             }}
-                            className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500 transition"
+                            className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500 transition shadow-sm"
                           >
-                            <img src="/home-assets/calender.png" alt="calendar" className="h-4 w-4 object-cover mr-1" /> ต่ออายุ
+                            ต่ออายุ
                           </button>
-                        </td>
-                      </tr>
+                        </div>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
+                  </div>
+                </div>
 
-                {/* Mobile Card View */}
-                <div className="md:hidden space-y-3">
-                  {pageItems.map((item, idx) => (
-                    <div
-                      key={item.id || idx}
-                      className={`p-4 rounded-xl border shadow-sm ${item.isExpired
-                        ? 'bg-rose-50 border-rose-100'
-                        : item.isExpiringSoon
-                          ? 'bg-amber-50 border-amber-100'
-                          : 'bg-white border-blue-100'
-                        }`}
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <div className="font-medium text-gray-900">{item.customerName}</div>
-                          <div className="text-xs text-gray-500">{item.customerEmail}</div>
-                        </div>
-                        <div className={`text-xs px-2 py-1 rounded-full font-medium ${item.isExpired
-                          ? 'bg-rose-100 text-rose-700'
-                          : item.isExpiringSoon
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-blue-100 text-blue-700'
-                          }`}>
-                          {item.isExpired
-                            ? 'หมดอายุ'
-                            : item.isExpiringSoon
-                              ? 'ใกล้หมด'
-                              : 'ปกติ'}
-                        </div>
-                      </div>
-
-                      <div className="mb-3 pl-2 border-l-2 border-black/10">
-                        <div className="text-sm font-medium text-gray-800">{item.productName || '-'}</div>
-                        <div className="text-xs text-gray-500">S/N: {(!item.serial || item.serial.trim() === '' || item.serial === 'SN001') ? '-' : item.serial}</div>
-                      </div>
-
-                      <div className="flex items-center justify-between pt-3 border-t border-black/5 mt-2">
-                        <div>
-                          <div className="text-xs text-gray-500">วันหมดอายุ</div>
-                          <div className={`text-sm font-medium ${item.isExpired ? 'text-rose-600' : 'text-gray-700'}`}>
-                            {item.expiryDate
-                              ? new Date(item.expiryDate).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })
-                              : '-'
-                            }
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedItemForExtend(item)
-                            setExtendModalOpen(true)
-                          }}
-                          className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 transition shadow-sm"
-                        >
-                          <img src="/home-assets/calender.png" alt="calendar" className="h-4 w-4 object-cover mr-1" /> ต่ออายุ
-                        </button>
-                      </div>
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between mt-4 pt-3 border-t border-blue-100 flex-shrink-0">
+                    <div className="text-xs text-gray-500">
+                      หน้า {currentPage} / {totalPages}
                     </div>
-                  ))}
-                </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setExtendListPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage <= 1}
+                        className={`px-2 py-1.5 rounded-lg text-xs font-medium transition ${currentPage <= 1
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                          }`}
+                      >
+                        ← ก่อนหน้า
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setExtendListPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage >= totalPages}
+                        className={`px-2 py-1.5 rounded-lg text-xs font-medium transition ${currentPage >= totalPages
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                          }`}
+                      >
+                        ถัดไป →
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
+            )
+          })()}
+        </div>
 
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-blue-100">
-                  <div className="text-sm text-gray-500">
-                    หน้า {currentPage} / {totalPages}
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setExtendListPage(p => Math.max(1, p - 1))}
-                      disabled={currentPage <= 1}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${currentPage <= 1
-                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                        }`}
-                    >
-                      ← ก่อนหน้า
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setExtendListPage(p => Math.min(totalPages, p + 1))}
-                      disabled={currentPage >= totalPages}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${currentPage >= totalPages
-                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                        }`}
-                    >
-                      ถัดไป →
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )
-        })()}
+
       </main>
 
       {/* Extend Warranty Modal */}

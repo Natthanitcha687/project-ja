@@ -219,6 +219,9 @@ function formatForDisplayDate(raw) {
 }
 // Custom input for react-datepicker that correctly forwards ref and click
 const CustomDateInput = forwardRef(({ value, onClick, placeholder }, ref) => {
+  // ✅ แปลงค่าที่ได้รับจาก DatePicker (dd/mm/yyyy ค.ศ.) เป็น พ.ศ. ก่อนแสดงผล
+  const displayValue = formatForDisplayDate(value)
+
   return (
     <div
       ref={ref}
@@ -229,7 +232,7 @@ const CustomDateInput = forwardRef(({ value, onClick, placeholder }, ref) => {
     >
       <input
         className="w-full bg-transparent px-0 py-0 text-sm text-gray-900 focus:outline-none"
-        value={value || ''}
+        value={displayValue || ''}
         placeholder={placeholder || 'dd/mm/yyyy'}
         readOnly
       />
@@ -751,6 +754,20 @@ export default function WarrantyDashboard() {
       setFocusWarrantyId(String(idFromNav))
     }
   }, [location])
+
+  // เปิด Modal สร้างใบรับประกันอัตโนมัติ ถ้านำทางมาจากปุ่มหน้าภาพรวม
+  useEffect(() => {
+    if (location.state?.openCreateModal) {
+      // เอา openCreateModal ออกจาก state เพื่อไม่ให้ตอนกด refresh แล้วเด้งซ้ำ
+      navigate(location.pathname, { replace: true, state: { ...location.state, openCreateModal: undefined } })
+      // เรียกฟังก์ชันเปิด Modal (อาจจะต้องหน่วงเวลาให้ render เสร็จนิดนึง)
+      setTimeout(() => {
+        if (typeof openWarrantyModal === 'function') {
+          openWarrantyModal('create')
+        }
+      }, 50)
+    }
+  }, [location, navigate])
 
   /* ---------- สร้างหลายสินค้าในใบเดียว + auto expiry ---------- */
   const makeItem = (seedSN = null, lockEmail = false) => ({
@@ -2113,11 +2130,12 @@ export default function WarrantyDashboard() {
                   <SectionTitle>จัดการการรับประกัน</SectionTitle>
                   <div className="flex items-center gap-3">
                     <div className="flex gap-2 rounded-full bg-white p-1"></div>
+                    {/* ซ่อนปุ่มนี้ตามความต้องการ แต่คง DOM ไว้กันระบบ Tour พัง */}
                     <button
                       id="step-create-warranty"
                       type="button"
                       onClick={() => openWarrantyModal("create")}
-                      className="rounded-full bg-sky-600 px-4 py-2 text-sm font-medium text-white shadow hover:-translate-y-0.5 hover:bg-sky-500 transition wp-tour-create-button"
+                      className="hidden"
                     >
                       สร้างใบรับประกัน
                     </button>
@@ -3957,6 +3975,11 @@ export default function WarrantyDashboard() {
                               popperClassName="datepicker-center-modal"
                               popperPlacement="auto"
                               calendarClassName="w-full"
+                              customInput={
+                                <CustomDateInput
+                                  placeholder="dd/mm/yyyy"
+                                />
+                              }
                               /* ✨ โค้ดสร้างหัวปฏิทิน (เดือน/ปี) ที่เพิ่มเข้ามา ✨ */
                               renderCustomHeader={({
                                 date,
@@ -4762,13 +4785,6 @@ export default function WarrantyDashboard() {
                                   calendarClassName="w-full"
                                   customInput={
                                     <CustomDateInput
-                                      value={
-                                        it.purchase_date
-                                          ? formatForDisplayDate(
-                                            it.purchase_date,
-                                          )
-                                          : ""
-                                      }
                                       placeholder="dd/mm/yyyy"
                                     />
                                   }
