@@ -982,8 +982,8 @@ export default function StoreDashboard() {
                 const exp = new Date(item.expiryDate)
                 const daysLeft = Math.ceil((exp - today) / (1000 * 60 * 60 * 24))
                 
-                // โชว์เฉพาะหมดอายุและใกล้หมดอายุ (อิงเกณฑ์ 15 วัน)
-                if (daysLeft > 15) continue;
+                // โชว์เฉพาะที่ใกล้หมดอายุ (เกณฑ์ 1-15 วัน) และไม่รวมที่หมดอายุไปแล้ว
+                if (daysLeft > 15 || daysLeft <= 0) continue;
 
                 allItems.push({
                   ...item,
