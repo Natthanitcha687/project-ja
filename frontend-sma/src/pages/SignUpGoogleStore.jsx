@@ -226,7 +226,7 @@ export default function SignUpGoogleStore() {
 
   const nextFromState = location.state?.next || "";
   const nextFromQuery = params.get("next") || "";
-  const nextTarget = nextFromState || nextFromQuery || "/dashboard/warranty";
+  const nextTarget = nextFromState || nextFromQuery || "/dashboard/store";
 
   async function handleTokenLogin(token) {
     if (!token) {

@@ -80,7 +80,7 @@ function ProtectedCustomerRoute({ children }) {
     return <Navigate to="/signin" replace state={{ from: location }} />
   }
   if (role !== 'CUSTOMER') {
-    if (role === 'STORE') return <Navigate to="/dashboard/warranty" replace />
+    if (role === 'STORE') return <Navigate to="/dashboard/store" replace />
     return <Navigate to="/" replace />
   }
   return children
@@ -152,6 +152,7 @@ const router = createBrowserRouter([
           </ProtectedStoreRoute>
         ),
         children: [
+          { index: true, element: <Navigate to="store" replace /> },
           { path: 'warranty', element: <WarrantyDashboard /> },
           { path: 'store', element: <StoreDashboard /> },
           { path: 'complaints', element: <StoreComplaints /> },

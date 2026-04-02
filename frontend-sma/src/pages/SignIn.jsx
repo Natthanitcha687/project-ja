@@ -226,7 +226,7 @@ export default function SignIn() {
     let redirectTo =
       location.state?.from?.pathname ||
       nextParam ||
-      (role === "STORE" ? "/dashboard/warranty" : "/customer/warranties");
+      (role === "STORE" ? "/dashboard/store" : "/customer/warranties");
 
     navigate(redirectTo, { replace: true });
   }

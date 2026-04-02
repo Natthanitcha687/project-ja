@@ -17,7 +17,7 @@ export default function Navbar() {
   // ปลายทางแดชบอร์ดแยกตาม role
   const dashHref =
     role === 'STORE'
-      ? '/dashboard/warranty'
+      ? '/dashboard/store'
       : role === 'CUSTOMER'
         ? '/customer/warranties'
         : '/signin?next=/customer/warranties';

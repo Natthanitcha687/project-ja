@@ -603,10 +603,20 @@ export default function StoreDashboard() {
       tooltipClass: 'custom-tooltip-left',
     },
     {
+      element: '#step-create-warranty-btn',
+      intro: 'คุณสามารถเริ่มต้นสร้างใบรับประกันใหม่ให้ลูกค้าได้จากปุ่มนี้เลยครับ',
+      position: 'bottom',
+    },
+    {
       element: '#step-overview-chart',
-      intro: 'ตรวจสอบสถานะการรับประกันและกราฟภาพรวมรายเดือนได้อย่างรวดเร็ว',
+      intro: 'ตรวจสอบสถานะการรับประกันและกราฟสินค้าเตรียมหมดอายุ (6 เดือน/รายปี) ได้อย่างรวดเร็ว',
       position: 'bottom',
       tooltipClass: 'custom-tooltip-left',
+    },
+    {
+      element: '#step-extension-widget',
+      intro: 'คุณสามารถติดตามรายการใบรับประกันที่ใกล้จะหมดอายุ เพื่อติดต่อแจ้งลูกค้าล่วงหน้าได้ที่นี่ครับ',
+      position: 'left',
     },
     {
       element: '#step-header-complaint',
@@ -680,11 +690,13 @@ export default function StoreDashboard() {
       const tryStart = () => {
         attempts += 1
         const statsEl = document.querySelector('#step-overview-stats')
+        const createBtnEl = document.querySelector('#step-create-warranty-btn')
         const chartEl = document.querySelector('#step-overview-chart')
+        const extensionWidgetEl = document.querySelector('#step-extension-widget')
         const complaintEl = document.querySelector('#step-header-complaint')
         const profileEl = document.querySelector('#step-header-profile')
 
-        const ready = statsEl && chartEl && complaintEl && profileEl
+        const ready = statsEl && createBtnEl && chartEl && extensionWidgetEl && complaintEl && profileEl
         const timedOut = attempts >= maxAttempts
 
         if (!ready && !timedOut) return
@@ -746,6 +758,7 @@ export default function StoreDashboard() {
           </div>
           <div className="flex items-center gap-3">
             <button
+              id="step-create-warranty-btn"
               type="button"
               onClick={() => navigate('/dashboard/warranty', { state: { openCreateModal: true } })}
               className="flex items-center gap-2 rounded-xl px-6 py-3 text-base font-bold text-white shadow-md hover:opacity-90 transition"
@@ -831,7 +844,6 @@ export default function StoreDashboard() {
           </div>
 
           <div
-            id="step-overview-chart"
             className="flex items-center gap-4 rounded-xl bg-white border border-black/10 p-4 shadow-sm relative overflow-hidden"
           >
             <div className="flex-shrink-0 relative z-10">
@@ -878,7 +890,7 @@ export default function StoreDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-[55%_45%] gap-6 mb-6">
           
           {/* === Chart 1: Combined Monthly/Yearly Chart === */}
-          <div className="flex flex-col h-full"> {/* Wrapper for Flex-grow to match height */}
+          <div id="step-overview-chart" className="flex flex-col h-full"> {/* Wrapper for Flex-grow to match height */}
           {(() => {
             const chartDataArray = (() => {
               const now = new Date()
@@ -1014,7 +1026,7 @@ export default function StoreDashboard() {
 
             if (allItems.length === 0) {
               return (
-                <div className="rounded-xl bg-white border border-blue-100 p-8 shadow-sm flex flex-col items-center justify-center h-full text-center min-h-[300px]">
+                <div id="step-extension-widget" className="rounded-xl bg-white border border-blue-100 p-8 shadow-sm flex flex-col items-center justify-center h-full text-center min-h-[300px]">
                   <div className="h-16 w-16 mb-4 rounded-full bg-blue-50 flex items-center justify-center">
                     <img src="/home-assets/calender.png" alt="calendar" className="h-8 w-8 opacity-40 text-blue-300" />
                   </div>
@@ -1030,7 +1042,7 @@ export default function StoreDashboard() {
             }
 
             return (
-              <div className="rounded-xl bg-white border border-blue-200 p-6 shadow-sm flex flex-col h-full overflow-hidden">
+              <div id="step-extension-widget" className="rounded-xl bg-white border border-blue-200 p-6 shadow-sm flex flex-col h-full overflow-hidden">
                 <div className="flex items-center justify-between mb-4 flex-shrink-0">
                   <div className="flex items-center gap-3">
                     <img src="/home-assets/calender.png" alt="calendar" className="h-8 w-8 object-cover mr-1" />
