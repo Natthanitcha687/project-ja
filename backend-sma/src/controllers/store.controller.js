@@ -7,7 +7,7 @@ import { verifyRecaptcha } from "../utils/recaptcha.js";
 
 const DEFAULT_NOTIFY_DAYS = 14;
 
-/* ==================== Helpers ==================== */
+/* Helpers */
 const normalizeEmail = (e) => (e ? String(e).trim().toLowerCase() : null);
 
 function getStoreTypePrefix(storeType) {
@@ -20,7 +20,7 @@ function getStoreTypePrefix(storeType) {
   return "WR";
 }
 
-// ✅ เพิ่ม (ยึดรูปแบบเดียวกับ customer.controller.js)
+//  เพิ่ม (ยึดรูปแบบเดียวกับ customer.controller.js)
 function trimOrNull(s) {
   if (typeof s !== "string") return null;
   const t = s.trim();
@@ -190,7 +190,7 @@ async function auditCreateWarrantyBestEffort(req, storeId, createdHeader) {
 // เช่น EL6-A8K2
 async function nextWarrantyCodeForStore(_tx, _storeId, { typePrefix = "WR" } = {}) {
   const prefix = `${typePrefix}${_storeId}`;
-  const body = randomAlnum(4); 
+  const body = randomAlnum(4);
   return `${prefix}-${body}`;
 }
 async function allocateWarrantyCode(tx, storeId, opts) {
@@ -468,10 +468,10 @@ export async function createWarranty(req, res) {
         if (!firstExpiry && durationMonths > 0) firstExpiry = addMonths(purchase, durationMonths);
       }
 
-      let code = await allocateWarrantyCode(tx, storeId, { 
-        typePrefix, 
-        durationMonths, 
-        expiryDate: firstExpiry 
+      let code = await allocateWarrantyCode(tx, storeId, {
+        typePrefix,
+        durationMonths,
+        expiryDate: firstExpiry
       });
 
       // helper ระบุ email/user/name/phone จากอีเมล
@@ -591,10 +591,10 @@ export async function createWarranty(req, res) {
               (e.meta?.target?.includes?.("storeId_code") ||
                 e.meta?.target?.includes?.("code"))
             ) {
-              code = await allocateWarrantyCode(tx, storeId, { 
-                typePrefix, 
-                durationMonths, 
-                expiryDate: firstExpiry 
+              code = await allocateWarrantyCode(tx, storeId, {
+                typePrefix,
+                durationMonths,
+                expiryDate: firstExpiry
               });
               continue;
             }
@@ -669,10 +669,10 @@ export async function createWarranty(req, res) {
             (e.meta?.target?.includes?.("storeId_code") ||
               e.meta?.target?.includes?.("code"))
           ) {
-            code = await allocateWarrantyCode(tx, storeId, { 
-              typePrefix, 
-              durationMonths, 
-              expiryDate: firstExpiry 
+            code = await allocateWarrantyCode(tx, storeId, {
+              typePrefix,
+              durationMonths,
+              expiryDate: firstExpiry
             });
             continue;
           }
