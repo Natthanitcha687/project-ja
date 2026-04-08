@@ -1,0 +1,347 @@
+// src/server.js
+import 'dotenv/config';
+import express from 'express';
+import cors from 'cors';
+import cookieParser from 'cookie-parser';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import multer from 'multer';
+import * as Sentry from '@sentry/node';
+import swaggerUi from 'swagger-ui-express';
+import swaggerJsDoc from 'swagger-jsdoc';
+
+import authRoutes from './routes/auth.routes.js';
+import storeRoutes from './routes/store.routes.js';
+import warrantyRoutes from './routes/warranty.routes.js';
+import warrantyItemRoutes from './routes/warrantyItem.routes.js';
+
+// ✅ เพิ่ม: เส้นทางฝั่งลูกค้า
+import customerRoutes from './routes/customer.routes.js';
+import statsRoutes from './routes/stats.routes.js';
+import notificationsRoutes from './routes/notifications.routes.js';
+import runExpiryScanJob from './jobs/notifyExpirations.js';
+import runHardDeleteSweep from './jobs/hardDeleteSweep.js';
+
+// ✅ NEW: Admin routes
+import adminRoutes from './routes/admin.routes.js';
+
+// ✅ แบบที่ 2: readiness ต้องเช็ค DB
+import { prisma } from './db/prisma.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const app = express();
+
+/* =========================================================
+ * ✅ SENTRY (แบบที่ 3)
+ * - ใช้ ENV: SENTRY_DSN (ตั้งใน Render)
+ * - ส่งเฉพาะ server errors (>=500) เข้า Sentry
+ * ========================================================= */
+const SENTRY_DSN = process.env.SENTRY_DSN || '';
+if (SENTRY_DSN) {
+  Sentry.init({
+    dsn: SENTRY_DSN,
+    environment: process.env.NODE_ENV || 'production',
+  });
+}
+
+/* =========================================================
+ * ✅ TRUST PROXY (สำคัญ)
+ * - ทำให้ req.ip อ่าน IP จริงจาก X-Forwarded-For ได้เมื่ออยู่หลัง Render/Proxy
+ * - ต้องตั้งก่อน middleware ที่อ่าน req.ip (เช่น access log)
+ * ========================================================= */
+app.set('trust proxy', 1);
+
+/* =========================================================
+ * ✅ CORS: รองรับทั้งหน้าเว็บเดิม + หน้า Admin (แยก frontend)
+ * - คง behavior เดิมไว้ (credentials + Authorization header)
+ * - เพิ่ม allow หลาย origin ด้วย callback
+ * ========================================================= */
+const allowedOrigins = [
+  process.env.FRONTEND_URL || 'http://localhost:5173',
+  process.env.FRONTEND_ADMIN_URL || 'http://localhost:5174',
+].filter(Boolean);
+
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      // allow curl/postman/no-origin
+      if (!origin) return cb(null, true);
+
+      if (allowedOrigins.includes(origin)) return cb(null, true);
+
+      // ถ้าต้องการ “เข้ม” ให้ block ตามเดิม
+      return cb(new Error(`CORS blocked: ${origin}`));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  }),
+);
+
+// ⬇️ คงของเดิม: เพิ่ม limit เพื่อแก้ 413 Payload Too Large (เช่นตอนส่งรูปโปรไฟล์แบบ base64)
+app.use(express.json({ limit: '15mb' }));
+app.use(express.urlencoded({ extended: true, limit: '15mb' }));
+
+app.use(cookieParser());
+
+/* =========================================================
+ * ✅ Access Log (Production-style) -> stdout/console
+ * - Log ทุก request แบบสรุป (ไม่ log body/authorization)
+ * - Render/Docker/PM2 จะเก็บ stdout ให้เอง
+ * - ใส่ X-Request-Id เพื่อ trace
+ * ========================================================= */
+function getClientIp(req) {
+  return (
+    req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() ||
+    req.ip ||
+    null
+  );
+}
+
+function makeRequestId() {
+  // ไม่พึ่งพา lib เพิ่ม: พอสำหรับ trace ใน log
+  return (
+    Date.now().toString(36) +
+    '-' +
+    Math.random().toString(36).slice(2, 10)
+  ).toUpperCase();
+}
+
+function shouldSkipAccessLog(req) {
+  const p = (req.originalUrl || req.url || '').toString();
+  // ลด noise จาก static
+  if (p.startsWith('/uploads')) return true;
+
+  // ✅ แบบที่ 1: ลด noise จาก Render health check (ยิงถี่)
+  if (p === '/healthz') return true;
+
+  // ✅ แบบที่ 2: ลด noise จาก external uptime (ยิงถี่ได้เหมือนกัน)
+  if (p === '/readyz') return true;
+
+  return false;
+}
+
+app.use((req, res, next) => {
+  if (shouldSkipAccessLog(req)) return next();
+
+  const rid = makeRequestId();
+  const start = process.hrtime.bigint();
+
+  // ส่ง request id กลับไปด้วย (ช่วย debug ฝั่ง client/proxy)
+  try {
+    res.setHeader('X-Request-Id', rid);
+  } catch {
+    // ignore
+  }
+
+  res.on('finish', () => {
+    const durMs = Number(process.hrtime.bigint() - start) / 1e6;
+
+    // อ่าน userId ตอน "finish" เพื่อให้กรณี route ตั้งค่า req.user ทีหลังยังอ่านได้
+    const userId = req.user?.id ?? req.user?.sub ?? null;
+
+    const line = {
+      ts: new Date().toISOString(),
+      rid,
+      method: req.method,
+      path: req.originalUrl || req.url,
+      status: res.statusCode,
+      ms: Math.round(durMs),
+      ip: getClientIp(req),
+      userId,
+      ua: req.get('user-agent') || null,
+    };
+
+    console.log('ACCESS', JSON.stringify(line));
+  });
+
+  next();
+});
+
+/* =========================================================
+ * ✅ Serve uploaded files (IMPORTANT for Render Disk)
+ * - ถ้า set UPLOAD_ROOT=/var/data/uploads -> รูปจะไม่หายหลัง redeploy
+ * - ถ้าไม่ตั้ง -> fallback ใช้โฟลเดอร์เดิม src/uploads
+ * ========================================================= */
+const uploadsDir = process.env.UPLOAD_ROOT
+  ? path.resolve(process.env.UPLOAD_ROOT)
+  : path.join(__dirname, 'uploads');
+
+app.use('/uploads', express.static(uploadsDir));
+
+app.get('/', (_req, res) => res.send('SME Email Auth API - Running OK'));
+
+/* =========================================================
+ * ✅ แบบที่ 1: Render Health Check (Liveness)
+ * - ตอบไว ๆ ไม่เช็ค DB (กัน fail/restart loop เวลา DB มีปัญหา)
+ * - ใช้ตั้งค่า Health Check Path ใน Render เป็น /healthz
+ * ========================================================= */
+app.get('/healthz', (_req, res) => {
+  return res.status(200).json({
+    ok: true,
+    ts: new Date().toISOString(),
+    uptimeSec: Math.floor(process.uptime()),
+  });
+});
+
+/* =========================================================
+ * ✅ แบบที่ 2: External Uptime (Readiness)
+ * - เช็ค DB ต่อได้จริง: ถ้า DB ล่มจะตอบ 503 เพื่อให้ UptimeRobot แจ้งเตือน
+ * - แนะนำให้ UptimeRobot ยิง path นี้: /readyz
+ * ========================================================= */
+app.get('/readyz', async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    return res.status(200).json({
+      ok: true,
+      ts: new Date().toISOString(),
+    });
+  } catch (_e) {
+    return res.status(503).json({
+      ok: false,
+      ts: new Date().toISOString(),
+      error: 'db_unreachable',
+    });
+  }
+});
+
+// routes (คง prefix เดิมไว้ทั้งหมด)
+app.use('/auth', authRoutes);
+app.use('/store', storeRoutes);
+app.use('/warranties', warrantyRoutes);
+app.use('/warranty-items', warrantyItemRoutes);
+
+// ✅ คงของเดิม: ฝั่งลูกค้า
+app.use('/customer', customerRoutes);
+app.use('/notifications', notificationsRoutes);
+// public misc endpoints (stats, feedback)
+app.use('/public', statsRoutes);
+
+// ✅ NEW: ผูกเส้นทาง Admin (หลังบ้านแยก frontend แต่ใช้ backend เดิม)
+app.use('/admin', adminRoutes);
+
+// Multer & Validation errors → ตอบ 400 แทน 500
+app.use((err, _req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    return res.status(400).json({ message: err.message });
+  }
+  if (err && /รองรับเฉพาะไฟล์รูปภาพ/.test(err.message)) {
+    return res.status(400).json({ message: err.message });
+  }
+  return next(err);
+});
+
+// Global error handler (ของเดิม + ✅ ส่งเข้า Sentry เฉพาะ 5xx)
+app.use((err, req, res, _next) => {
+  const code = err?.status || 500;
+
+  // ส่งเข้า Sentry เฉพาะ error ฝั่ง server (>=500)
+  if (SENTRY_DSN && Number(code) >= 500) {
+    try {
+      Sentry.withScope((scope) => {
+        // request id (จาก access log middleware)
+        const rid = res.getHeader('X-Request-Id');
+        if (rid) scope.setTag('rid', String(rid));
+
+        const userId = req.user?.id ?? req.user?.sub ?? null;
+        if (userId != null) scope.setUser({ id: String(userId) });
+
+        scope.setContext('request', {
+          method: req.method,
+          path: req.originalUrl || req.url,
+          ip:
+            req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() ||
+            req.ip ||
+            null,
+          ua: req.get('user-agent') || null,
+        });
+
+        Sentry.captureException(err);
+      });
+    } catch {
+      // ignore sentry failures
+    }
+  }
+
+  console.error('GlobalError:', err);
+  const msg = err.message || 'Server error';
+  res.status(code).json({ message: msg });
+});
+
+const port = Number(process.env.PORT || 4000);
+const baseUrl =
+  (process.env.APP_URL && process.env.APP_URL.replace(/\/+$/, '')) ||
+  `http://localhost:${port}`;
+
+/* =========================================================
+ * ✅ Swagger API Documentation
+ * ========================================================= */
+const swaggerOptions = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'SME Warranty Management API',
+      version: '1.0.0',
+      description: 'เอกสารอธิบายการเรียกใช้งาน API ทั้งหมดของระบบ',
+    },
+    servers: [
+      {
+        url: baseUrl,
+      },
+    ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+        },
+      },
+    },
+  },
+  apis: ['./src/routes/*.js', './src/controllers/*.js'],
+};
+const swaggerDocs = swaggerJsDoc(swaggerOptions);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
+
+// ✅ เพิ่ม helper เพื่อให้ job รัน "ทุกเที่ยงคืนเวลาไทย" (UTC+7)
+const TH_TZ_OFFSET_MIN = 420;
+function msUntilNextMidnightTH() {
+  const now = new Date();
+  // shift ไปเป็นเวลาไทย
+  const shifted = new Date(now.getTime() + TH_TZ_OFFSET_MIN * 60 * 1000);
+  // ตั้งเป็นเที่ยงคืนถัดไป (ในเวลาไทย)
+  shifted.setHours(24, 0, 0, 0);
+  // แปลงกลับเป็น timestamp จริง (UTC)
+  const targetUtcMs = shifted.getTime() - TH_TZ_OFFSET_MIN * 60 * 1000;
+  const ms = targetUtcMs - now.getTime();
+  return ms > 0 ? ms : 1000;
+}
+
+app.listen(port, () => {
+  console.log(`🚀 API running on ${baseUrl}`);
+  console.log(`✅ Allowed origins: ${allowedOrigins.join(', ')}`);
+  // start expiry notification job: run once at startup and then every TH midnight
+  try {
+    runExpiryScanJob();
+    // run hard-delete sweep safely at startup (safeguard)
+    runHardDeleteSweep().catch(e => {
+      console.warn('⚠️ Initial hardDeleteSweep failed (might be due to pending migrations):', e.message);
+    });
+
+    const firstDelay = msUntilNextMidnightTH();
+    setTimeout(() => {
+      runExpiryScanJob();
+      setInterval(() => runExpiryScanJob(), 24 * 3600 * 1000);
+      // schedule hard delete sweep daily at TH midnight too
+      setInterval(() => runHardDeleteSweep(), 24 * 3600 * 1000);
+      console.log('🔔 Expiry scan job scheduled (every TH midnight)');
+    }, firstDelay);
+
+    console.log(`🔔 Expiry scan job scheduled (TH midnight) firstDelayMs=${firstDelay}`);
+  } catch (e) {
+    console.warn('Unable to start expiry scan job', e?.message || e);
+  }
+});

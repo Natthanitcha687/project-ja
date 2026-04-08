@@ -1,0 +1,355 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  STORE
+  // ✅ เพิ่มสำหรับ Admin
+  ADMIN
+}
+
+// ✅ เพิ่ม: สถานะบัญชี (ใช้สำหรับ “ระงับ/ปลดระงับ”)
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+model User {
+  id              Int       @id @default(autoincrement())
+  email           String    @unique
+  passwordHash    String
+  role            Role
+  emailVerifiedAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // ✅ เพิ่ม: สถานะ + ข้อมูลระงับ + เวลา login ล่าสุด
+  status           UserStatus @default(ACTIVE)
+  suspendedAt      DateTime?
+  suspendedReason  String?
+  suspendedUntil   DateTime?
+  lastLoginAt      DateTime?
+
+  // ✅ สถานะการดู Onboarding (สำหรับ Dashboard/ไกด์ไลน์)
+  hasSeenOnboarding Boolean @default(false)
+
+  // ✅ เคยเห็นแบบประเมินความพึงพอใจการใช้งานแล้วหรือยัง (popup แสดงครั้งเดียว)
+  hasSeenSatisfactionSurvey Boolean @default(false)
+
+  // ✅ จำนวนใบรับประกันในระบบ ตอนที่เด้ง popup แบบประเมินครั้งล่าสุด
+  // ใช้เพื่อตัดสินใจว่า ถ้ากด "ภายหลัง" จะให้เด้งอีกครั้งเมื่อมีใบรับประกันเพิ่ม
+  lastSatisfactionSurveyWarrantiesCount Int @default(0)
+
+  // ✅ เพิ่ม: Login rate limiting (ป้องกัน brute force)
+  failedLoginAttempts  Int       @default(0)    // จำนวนครั้งที่ login ผิด
+  failedLoginAt        DateTime?               // เวลาที่เริ่มนับ
+  lockedUntil          DateTime?               // เวลาหมดล็อค
+  // ✅ NEW: จำนวนวันเก็บรักษาข้อมูลก่อนลบถาวร (เฉพาะบัญชีนี้ หากเป็น null จะใช้ค่า Global)
+  retentionDays       Int?
+
+  // ✅ Soft-delete support
+  isDeleted           Boolean   @default(false)
+  deletedAt           DateTime?
+
+  customerProfile CustomerProfile?
+  storeProfile    StoreProfile?
+
+  verificationTokens VerificationToken[]
+  resetTokens        PasswordResetToken[]
+
+  // ✅ เพิ่ม: OTP สำหรับล็อกอินทางอีเมล
+  emailOtps EmailOtp[]
+
+  // ใบรับประกันที่ "ร้าน" นี้ออก (Header)
+  warranties Warranty[]
+
+  // ★ ใบรับประกันที่ "ลูกค้าคนนี้เป็นเจ้าของ"
+  customerWarranties Warranty[] @relation("CustomerWarranties")
+
+  // ★ เพิ่ม: ความสัมพันธ์กับ Satisfaction (แก้ปัญหา Ambiguous)
+  feedbacksGiven    Satisfaction[] @relation("SatisfactionGiven")    // ฟีดแบ็กที่ User คนนี้เขียน
+  feedbacksReceived Satisfaction[] @relation("SatisfactionReceived") // ฟีดแบ็กที่ User คนนี้ได้รับ (ในฐานะร้าน)
+
+  // เพิ่ม: ความสัมพันธ์กับ Notification
+  notifications Notification[]
+
+  // ✅ เพิ่ม: สำหรับ Admin (Logs / Security / Complaints)
+  auditLogs      AuditLog[]      @relation("AuditLogsActor")
+  securityEvents SecurityEvent[] @relation("SecurityEventsUser")
+  complaints     Complaint[]     @relation("ComplaintsUser")
+
+  @@index([role])
+  @@index([status])
+  @@index([isDeleted, deletedAt])
+}
+
+model CustomerProfile {
+  id        Int     @id @default(autoincrement())
+  userId    Int     @unique
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName String
+  lastName  String
+  phone     String
+  isConsent Boolean @default(false)
+  avatarUrl String?
+  
+  // ✅ Custom notification days (e.g., [15, 7, 3, 1])
+  // ถ้าว่าง → ใช้ค่า default 15 วัน (ครั้งเดียว)
+  notifyDaysArray Int[] @default([])
+}
+
+model StoreProfile {
+  id                  Int      @id @default(autoincrement())
+  userId              Int      @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storeName           String
+  storeType           String
+  ownerName           String
+  contactName         String?
+  phone               String
+  email               String?
+  address             String
+  businessHours       String
+  avatarUrl           String?
+  notifyDaysInAdvance Int      @default(14)
+  isConsent           Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model VerificationToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  usedAt    DateTime?
+}
+
+model PasswordResetToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  usedAt    DateTime?
+}
+
+/* =========================================================
+ * ✅ เพิ่ม: Email OTP (สำหรับ Login)
+ * ========================================================= */
+model EmailOtp {
+  id          Int      @id @default(autoincrement())
+  challengeId String   @unique
+
+  userId Int
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  purpose   String
+  codeHash  String
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  usedAt    DateTime?
+
+  ip        String?
+  userAgent String?
+
+  @@index([userId])
+  @@index([purpose])
+  @@index([expiresAt])
+  @@index([userId, purpose, usedAt])
+}
+
+model Warranty {
+  id      String @id @default(cuid())
+  storeId Int
+  store   User   @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  code          String
+  customerEmail String?
+  customerName  String?
+  customerPhone String?
+  customerAddress String? // ✅ เพิ่ม: ที่อยู่ลูกค้า (ร้านกรอกตอนออกใบ)
+
+  // ★ FK ไปยังบัญชีลูกค้า (ถ้าเจออีเมลที่เป็น CUSTOMER)
+  customerUserId Int?
+  customer       User? @relation("CustomerWarranties", fields: [customerUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Soft-delete support for warranties
+  isDeleted  Boolean  @default(false)
+  deletedAt  DateTime?
+
+  // Backup customer info when a CUSTOMER is unlinked (so we can restore later)
+  previousCustomerUserId Int?
+  previousCustomerEmail  String?
+  previousCustomerName   String?
+  previousCustomerPhone  String?
+
+  items WarrantyItem[]
+
+  /// ทำให้ WR ยูนีค “แยกร้าน”
+  @@unique([storeId, code], name: "storeId_code")
+  @@index([customerUserId])
+  @@index([previousCustomerUserId])
+}
+
+model WarrantyItem {
+  id          String   @id @default(cuid())
+  warrantyId  String
+  warranty    Warranty @relation(fields: [warrantyId], references: [id], onDelete: Cascade)
+
+  productName    String
+  model          String?
+  serial         String?
+  price          Float?    // ราคาการซ่อม (บาท) - ไม่บังคับ
+  purchaseDate   DateTime
+  expiryDate     DateTime?
+  durationMonths Int?
+  durationDays   Int?
+  coverageNote   String?
+  note           String?
+  documents      Json?
+  images         Json?
+
+  // ✅ เพิ่มสำหรับ checkbox เงื่อนไข
+  selectedConditions Json?   // array of selected condition strings
+  customCondition    String? // ข้อความเพิ่มเติมจากช่อง "อื่นๆ"
+
+  // ★ หมายเหตุโดย "ลูกค้า"
+  customerNote String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// ทำให้ SN ยูนีค “ภายในใบเดียวกัน”
+  @@unique([warrantyId, serial], name: "warrantyId_serial")
+}
+
+/// เก็บฟีดแบ็กความพึงพอใจจากผู้ใช้
+model Satisfaction {
+  id      Int     @id @default(autoincrement())
+  rating  Int     // 1..5
+  comment String?
+
+  userId Int?
+  // ★ เติมชื่อ Relation: SatisfactionGiven
+  user   User? @relation("SatisfactionGiven", fields: [userId], references: [id], onDelete: SetNull)
+
+  storeId Int?
+  // ★ เติมชื่อ Relation: SatisfactionReceived
+  store   User? @relation("SatisfactionReceived", fields: [storeId], references: [id], onDelete: SetNull)
+
+  warrantyId String?
+  createdAt  DateTime @default(now())
+}
+
+model Notification {
+  id Int @id @default(autoincrement())
+
+  userId Int?
+  user   User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  storeId Int?
+
+  title     String
+  body      String
+  data      Json?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([storeId])
+}
+
+/* =========================================================
+ * ✅ เพิ่ม: Admin Models
+ * ========================================================= */
+
+model AuditLog {
+  id          String   @id @default(cuid())
+
+  actorUserId Int?
+  actor       User?    @relation("AuditLogsActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  action      String
+  targetType  String?
+  targetId    String?
+
+  ip          String?
+  userAgent   String?
+  meta        Json?
+  createdAt   DateTime @default(now())
+
+  @@index([actorUserId])
+  @@index([createdAt])
+}
+
+model SecurityEvent {
+  id        String   @id @default(cuid())
+  type      String
+
+  email     String?
+  userId    Int?
+  user      User?    @relation("SecurityEventsUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  ip        String?
+  userAgent String?
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([type])
+  @@index([createdAt])
+}
+
+enum ComplaintStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  REJECTED
+}
+
+model Complaint {
+  id        String          @id @default(cuid())
+
+  userId    Int?
+  user      User?           @relation("ComplaintsUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  category  String?
+  subject   String
+  message   String
+  status    ComplaintStatus @default(OPEN)
+
+  images    String[]        @default([]) // ✅ เพิ่ม: เก็บ path รูปแนบหลายรูป
+
+  // ✅ เพิ่ม: อ้างอิงใบรับประกัน (สำหรับหมวด "ปัญหาใบรับประกัน")
+  warrantyId         String?   // ID ของใบรับประกัน
+  warrantyItemId     String?   // ID ของสินค้าใน item
+  warrantyCode       String?   // รหัสใบประกัน (เพื่อแสดงผล)
+  warrantyItemSerial String?   // Serial ของสินค้า (เพื่อแสดงผล)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model SystemSetting {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

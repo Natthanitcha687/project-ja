@@ -1,0 +1,40 @@
+{
+  "name": "email-auth-prisma",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "build": "echo 'No build step'",
+    "start": "prisma migrate deploy && node src/server.js",
+    "prisma:dev": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:gen": "prisma generate",
+    "create:admin": "node scripts/create-admin.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.1",
+    "@sentry/node": "^10.32.1",
+    "axios": "^1.13.4",
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "exceljs": "^4.4.0",
+    "express": "^4.19.2",
+    "google-auth-library": "^10.5.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
+    "nanoid": "^5.0.7",
+    "nodemailer": "^6.9.13",
+    "pdfkit": "^0.17.2",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@openapitools/openapi-generator-cli": "^2.23.4",
+    "nodemon": "^3.1.4",
+    "prisma": "^6.19.1",
+    "swagger-typescript-api": "^13.2.13"
+  }
+}
