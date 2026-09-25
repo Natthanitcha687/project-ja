@@ -29,7 +29,7 @@ function toText(v) {
     } catch {
       return "";
     }
-  }9
+  }
   return String(v);
 }
 
